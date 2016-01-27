@@ -49,8 +49,8 @@ class Asset(Base):
     network_id = Column(ForeignKey("asset_network.id"), nullable=False)
     network  = relationship("AssetNetwork", uselist=False, back_populates="assets")
 
-    name = Column(String(256), nullable=True, default=None)
-    symbol = Column(String(32), nullable=True, default=None)
+    name = Column(String(256), nullable=True, default=None, unique=True)
+    symbol = Column(String(32), nullable=True, default=None, unique=True)
 
     #: The id of the asset in its native network
     external_id = Column(String(256), nullable=True, default=None)
@@ -71,7 +71,7 @@ class Account(Base):
     updated_at = Column(UTCDateTime, onupdate=now)
 
     asset_id = Column(ForeignKey("asset.id"), nullable=False)
-    asset = relationship(Asset, primaryjoin=asset_id == Asset.id, backref=backref("accounts", uselist=False))
+    asset = relationship(Asset, backref=backref("accounts", uselist=True, lazy="dynamic"))
 
     denormalized_balance = Column(Numeric(40, 10), nullable=False, server_default='0')
 
@@ -266,13 +266,17 @@ class UserOwnedAccount(Base):
     @classmethod
     def get_or_create_user_default_account(cls, user, asset: Asset):
         dbsession = Session.object_session(user)
-        account = user.owned_accounts.filter(Account.asset == asset).first()
+        account = user.owned_accounts.join(Account).filter(Account.asset == asset).first()
 
         # We already have an account for this asset
         if account:
             return account, False
         dbsession.flush()
-        account = Account(asset=asset)  # Create account
+
+        # TODO: Why cannot use relationship here
+        account = Account(asset_id=asset.id)  # Create account
+        dbsession.add(account)
+        dbsession.flush()
         uoa = UserOwnedAccount(user=user, account=account)  # Assign it to a user
         dbsession.flush()  # Give id to UserOwnedAccount
         return uoa, True
