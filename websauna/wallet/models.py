@@ -21,6 +21,19 @@ class AssetNetwork(Base):
     assets = relationship("Asset", lazy="dynamic", back_populates="network")
 
 
+class AssetFormat(Enum):
+    """What's preferred display format for this asset."""
+
+    #: 0,00
+    fiat = 1
+
+    #: 100.000,000,000
+    cryptocurrency = 2
+
+    #: 10.000
+    tokens = 3
+
+
 class Asset(Base):
 
     __tablename__ = "asset"
@@ -38,7 +51,11 @@ class Asset(Base):
 
     name = Column(String(256), nullable=True, default=None)
     symbol = Column(String(32), nullable=True, default=None)
+
+    #: The id of the asset in its native network
     external_id = Column(String(256), nullable=True, default=None)
+
+    asset_format = Column(Integer, nullable=False, server_default="0")
 
 
 class Account(Base):
@@ -234,7 +251,7 @@ class UserOwnedAccount(Base):
     account = relationship(Account, primaryjoin=account_id == Account.id, backref="user_owned_accounts")
 
     user_id = Column(ForeignKey("users.id"), nullable=False)
-    user = relationship(User, backref=backref("owned_accounts", uselist=True, lazy=True), uselist=False)
+    user = relationship(User, backref=backref("owned_accounts", lazy="dynamic"), uselist=False)
 
     name = Column(String(256), nullable=True)
 
@@ -245,3 +262,18 @@ class UserOwnedAccount(Base):
         dbsession.flush()
         uoa = UserOwnedAccount(user=user, account=account)
         return uoa
+
+    @classmethod
+    def get_or_create_user_default_account(cls, user, asset: Asset):
+        dbsession = Session.object_session(user)
+        account = user.owned_accounts.filter(Account.asset == asset).first()
+
+        # We already have an account for this asset
+        if account:
+            return account, False
+        dbsession.flush()
+        account = Account(asset=asset)  # Create account
+        uoa = UserOwnedAccount(user=user, account=account)  # Assign it to a user
+        dbsession.flush()  # Give id to UserOwnedAccount
+        return uoa, True
+

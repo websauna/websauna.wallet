@@ -1,6 +1,7 @@
 import pytest
 import transaction
 from websauna.tests.utils import create_user
+from websauna.tests.webserver import customized_web_server
 
 from ..models import AssetNetwork
 from ..models import UserOwnedAccount
@@ -10,6 +11,8 @@ from ..models import Asset
 @pytest.fixture
 def registry(request, init):
     return init.config.registry
+
+
 
 
 def test_user_account_top_up(dbsession, registry):

@@ -1,0 +1,22 @@
+{% extends "admin/model_panel.html" %}
+
+{% block panel_title %}
+Users' accounts and balances
+{% endblock %}
+
+{% block panel_content %}
+  <h3>Liabilities</h3>
+  <table class="table">
+    {% for name, amount in liabilities.items() %}
+      <tr>
+        <th>
+          {{ name }}
+        </th>
+
+        <td>
+          {{ amount }}
+        </td>
+      </tr>
+    {% endfor %}
+  </table>
+{% endblock panel_content %}

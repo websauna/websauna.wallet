@@ -30,11 +30,19 @@ class AddonInitializer:
         # Load all models (if we have any) and attach them to SQLALchemy default base class
         # attach_models_to_base_from_module(models, Base)
 
+    @after(Initializer.configure_model_admins)
+    def configure_model_admins(self):
+        from . import admins
+        from . import adminviews
+        from . import panels
+        self.config.scan(admins)
+        self.config.scan(adminviews)
+        self.config.scan(panels)
+
     def run(self):
         # We override this method, so that we route home to our home screen, not Websauna default one
         from . import views
         self.config.scan(views)
-
         bind_events(self.config.registry.initializer, self)
 
 

@@ -1,4 +1,4 @@
-This is a Python package for wallet.
+A simple cryptocurrency wallet example for Websauna.
 
 Prerequisites
 =============
