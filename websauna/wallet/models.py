@@ -242,16 +242,26 @@ class AccountTransaction(Base):
 
 
 class UserOwnedAccount(Base):
+    """An account belonging to a some user."""
 
     __tablename__ = "user_owned_account"
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=sqlalchemy.text("uuid_generate_v4()"),)
 
     account_id = Column(ForeignKey("account.id"))
-    account = relationship(Account, primaryjoin=account_id == Account.id, backref="user_owned_accounts")
+    account = relationship(Account,
+                           single_parent=True,
+                           cascade="all, delete-orphan",
+                           primaryjoin=account_id == Account.id,
+                           backref="user_owned_accounts")
 
     user_id = Column(ForeignKey("users.id"), nullable=False)
-    user = relationship(User, backref=backref("owned_accounts", lazy="dynamic"), uselist=False)
+    user = relationship(User,
+                        backref=backref("owned_accounts",
+                                        lazy="dynamic",
+                                        cascade="all, delete-orphan",
+                                        single_parent=True,),
+                        uselist=False)
 
     name = Column(String(256), nullable=True)
 

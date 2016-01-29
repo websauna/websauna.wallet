@@ -16,7 +16,7 @@ class UserAccountAdmin(ModelAdmin):
         (Deny, Everyone, 'add'),
         (Allow, 'group:admin', 'view'),
         (Deny, Everyone, 'edit'),
-        (Deny, Everyone, 'delete'),
+        #(Deny, Everyone, 'delete'),
     }
 
     title = "Users' accounts"
