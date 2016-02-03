@@ -41,7 +41,7 @@ class Asset(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=sqlalchemy.text("uuid_generate_v4()"),)
 
     #: When this was created
-    created_at = Column(UTCDateTime, default=now)
+    created_at = Column(UTCDateTime, default=now, nullable=False)
 
     #: When this data was updated last time
     updated_at = Column(UTCDateTime, onupdate=now)
@@ -57,6 +57,12 @@ class Asset(Base):
 
     asset_format = Column(Integer, nullable=False, server_default="0")
 
+    def get_local_liabilities(self):
+        """Get sum how much assets we are holding on all of our accounts."""
+        dbsession = Session.object_session(self)
+        asset_total = dbsession.query(func.sum(Account.denormalized_balance)).join(Asset).scalar()
+        return asset_total
+
 
 class Account(Base):
     """Credit account."""
@@ -65,7 +71,7 @@ class Account(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=sqlalchemy.text("uuid_generate_v4()"),)
 
     #: When this was created
-    created_at = Column(UTCDateTime, default=now)
+    created_at = Column(UTCDateTime, default=now, nullable=False)
 
     #: When this data was updated last time
     updated_at = Column(UTCDateTime, onupdate=now)
@@ -135,7 +141,7 @@ class CryptoOperation(Base):
     operation_type = Column(Integer, nullable=False)
 
     #: When this was created
-    created_at = Column(UTCDateTime, default=now)
+    created_at = Column(UTCDateTime, default=now, nullable=False)
 
     #: When this data was updated last time
     updated_at = Column(UTCDateTime, onupdate=now)
@@ -227,8 +233,20 @@ class AccountTransaction(Base):
     __tablename__ = "account_transaction"
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=sqlalchemy.text("uuid_generate_v4()"),)
 
+    #: When this was created
+    created_at = Column(UTCDateTime, default=now, nullable=False)
+
+    #: When this data was updated last time
+    updated_at = Column(UTCDateTime, onupdate=now, nullable=True)
+
     account_id = Column(ForeignKey("account.id"))
-    account = relationship(Account, primaryjoin=account_id == Account.id, backref="transactions")
+    account = relationship(Account,
+                           primaryjoin=account_id == Account.id,
+                           backref=backref("transactions",
+                                            lazy="dynamic",
+                                            cascade="all, delete-orphan",
+                                            single_parent=True,
+                                            ))
 
     amount = Column(Numeric(40, 10), nullable=False, server_default='0')
     message = Column(String(256))
