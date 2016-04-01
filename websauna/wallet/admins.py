@@ -19,7 +19,7 @@ class UserAccountAdmin(ModelAdmin):
         #(Deny, Everyone, 'delete'),
     }
 
-    title = "Users' accounts"
+    title = "Accounting"
 
     singular_name = "user-account"
     plural_name = "user-accounts"
