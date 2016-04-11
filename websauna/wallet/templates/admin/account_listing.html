@@ -1,0 +1,17 @@
+{% extends 'crud/listing.html' %}
+
+{% block title %}
+
+  <h1>{{title}}</h1>
+
+  {{ context|render_panel(name="admin_panel", controls=False) }}
+
+{% endblock %}
+
+{% block listing %}
+  <h2>Individual accounts and balances</h2>
+  {{ super() }}
+{% endblock %}
+
+
+

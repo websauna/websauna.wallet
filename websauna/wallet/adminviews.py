@@ -1,3 +1,4 @@
+from pyramid.view import view_config
 from pyramid_layout.panel import panel_config
 from websauna.system.admin.utils import get_admin_url_for_sqlalchemy_object
 from websauna.system.crud import listing
@@ -37,7 +38,6 @@ def get_user_admin_link(request: Request, resource: admins.UserAccountAdmin.Reso
     return get_admin_url_for_sqlalchemy_object(admin, user, "show")
 
 
-@view_overrides(context=admins.UserAccountAdmin)
 class UserAccountListing(DefaultListing):
     """User listing modified to show the user hometown based on geoip of last login IP."""
     table = listing.Table(
@@ -49,6 +49,10 @@ class UserAccountListing(DefaultListing):
             listing.ControlsColumn()
         ]
     )
+
+    @view_config(context=admins.UserAccountAdmin, name="listing", renderer="admin/account_listing.html", route_name="admin", permission='view')
+    def listing(self):
+        return super().listing()
 
 
 @view_overrides(context=admins.UserAccountAdmin.Resource)

@@ -1,11 +1,10 @@
 {% extends "admin/model_panel.html" %}
 
 {% block panel_title %}
-Accounting
+Liabilities
 {% endblock %}
 
 {% block panel_content %}
-  <h3>Liabilities</h3>
   <table class="table">
     {% for name, amount in liabilities.items() %}
       <tr>

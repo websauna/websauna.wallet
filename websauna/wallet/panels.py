@@ -8,7 +8,7 @@ from . import admins
 
 
 @panel_config(name='admin_panel', context=admins.UserAccountAdmin, renderer='admin/user_owned_account_panel.html')
-def user_owned_account(context, request):
+def user_owned_account(context, request, controls=True):
     """Admin panel for Users."""
 
     dbsession = request.dbsession
