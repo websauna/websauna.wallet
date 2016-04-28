@@ -11,7 +11,7 @@ with open(os.path.join(here, 'CHANGES.rst')) as f:
 
 
 setup(name='websauna.wallet',
-      version='0.0',
+      version_format='{tag}.{commitcount}+{gitsha}',
       description='wallet',
       long_description=README + '\n\n' + CHANGES,
       classifiers=[
@@ -28,6 +28,11 @@ setup(name='websauna.wallet',
       include_package_data=True,
       zip_safe=False,
       test_suite='websauna.wallet',
+      # automatic version generation for development releases:
+      setup_requires=[
+          'setuptools-git >= 0',
+          'setuptools-git-version',
+      ],
       install_requires=['websauna'],
       extras_require={
         # Dependencies for running test suite
