@@ -49,8 +49,11 @@ class Asset(Base):
     network_id = Column(ForeignKey("asset_network.id"), nullable=False)
     network  = relationship("AssetNetwork", uselist=False, back_populates="assets")
 
-    name = Column(String(256), nullable=True, default=None, unique=True)
-    symbol = Column(String(32), nullable=True, default=None, unique=True)
+    #: Human readable name of this asset. Cannot be unique, because there can be several independent token contracts with the same asset name.
+    name = Column(String(256), nullable=True, default=None, unique=False)
+
+    #: Stock like symbol of the asset.
+    symbol = Column(String(32), nullable=True, default=None, unique=False)
 
     #: The id of the asset in its native network
     external_id = Column(String(256), nullable=True, default=None)
