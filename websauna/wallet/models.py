@@ -261,6 +261,9 @@ class AccountTransaction(Base):
         counter_account = self.counterparty.account if self.counterparty else "-"
         return "<A{} ${} OA{} {}>".format(self.id, self.amount, counter_account, self.message)
 
+    def __json__(self, request):
+        return dict(amount=float(self.amount), message=self.message)
+
 
 class UserOwnedAccount(Base):
     """An account belonging to a some user."""
