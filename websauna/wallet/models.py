@@ -262,7 +262,7 @@ class AccountTransaction(Base):
         return "<A{} ${} OA{} {}>".format(self.id, self.amount, counter_account, self.message)
 
     def __json__(self, request):
-        return dict(amount=float(self.amount), message=self.message)
+        return dict(id=str(self.id), amount=float(self.amount), message=self.message)
 
 
 class UserOwnedAccount(Base):
