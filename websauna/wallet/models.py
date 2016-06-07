@@ -97,12 +97,24 @@ class Account(Base):
         results = dbsession.query(func.sum(AccountTransaction.amount.label("sum"))).filter(AccountTransaction.account_id == self.id).all()
         self.denormalized_balance = results[0][0] if results else Decimal(0)
 
-    def do_withdraw_or_deposit(self, amount:Decimal, note:str):
+    def do_withdraw_or_deposit(self, amount: Decimal, note: str, allow_negative: bool=False) -> "AccountTransaction":
+        """Do a top up operation on account.
+
+        This operation does not have matching credit/debit transaction on any account. It's main purpose is to initialize accounts with certain balance.
+
+        :param amount: How much
+        :param note: Human readable
+        :param allow_negative: Set true to create negative balances or allow overdraw.
+        :raise Account.BalanceException: If the account is overdrawn
+        :return: Created AccountTransaction
+        """
 
         assert self.id
+        assert isinstance(amount, Decimal)
 
-        if amount < 0 and self.get_balance() < abs(amount):
-            raise Account.BalanceException("Cannot withdraw more than you have on the account")
+        if not allow_negative:
+            if amount < 0 and self.get_balance() < abs(amount):
+                raise Account.BalanceException("Cannot withdraw more than you have on the account")
 
         DBSession = Session.object_session(self)
         t = AccountTransaction(account=self)

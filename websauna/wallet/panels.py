@@ -1,5 +1,7 @@
 import sqlalchemy
 from collections import OrderedDict
+
+from decimal import Decimal
 from pyramid_layout.panel import panel_config
 from websauna.wallet.models import Account, UserOwnedAccount, Asset
 from websauna.wallet.utils import format_asset_amount
@@ -23,7 +25,7 @@ def user_owned_account(context, request, controls=True):
 
     for asset in dbsession.query(Asset).order_by(Asset.name.asc()):
         total_balances = dbsession.query(account_summer).filter(Account.asset == asset).join(UserOwnedAccount).all()
-        balance = total_balances[0][0]
+        balance = total_balances[0][0] or Decimal(0)
         liabilities[asset.name] = format_asset_amount(balance, asset.asset_format)
 
     # These need to be passed to base panel template,
