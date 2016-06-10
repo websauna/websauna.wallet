@@ -186,22 +186,22 @@ class CryptoOperation(Base):
         'polymorphic_on': operation_type,
     }
 
-# class AddressOperation(CryptoOperation):
-#     """Operation which has one cryptonetwork address."""
-#
-#     __abstract__ = True
-#
-#     address = Column(String(256), nullable=True)
-#
-# class AddressCreation(AddressOperation):
-#     """Create a receiving address."""
-#
-#     __tablename__ = "crypto_operation_address_creation"
-#     id = Column(UUID(as_uuid=True), ForeignKey('crypto_operation.id'), primary_key=True)
-#
-#     __mapper_args__ = {
-#         'polymorphic_identity': OperationType.address_creation,
-#     }
+class AddressOperation(CryptoOperation):
+    """Operation which has one cryptonetwork address."""
+
+    __abstract__ = True
+
+    address = Column(String(256), nullable=True)
+
+class AddressCreation(AddressOperation):
+    """Create a receiving address."""
+
+    __tablename__ = "crypto_operation_address_creation"
+    id = Column(UUID(as_uuid=True), ForeignKey('crypto_operation.id'), primary_key=True)
+
+    __mapper_args__ = {
+        'polymorphic_identity': OperationType.address_creation,
+    }
 # #
 # # class ExternalTransactionOperation(CryptoOperation):
 #     """Operation which has one cryptonetwork address."""

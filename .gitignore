@@ -23,3 +23,5 @@ node_modules
 # Created by running a celery
 celerybeat*
 
+.cache
+.eggs
