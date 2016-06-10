@@ -1,11 +1,15 @@
 from pyramid.registry import Registry
 
 from websauna.wallet.ethereum.service import EthereumService
-from websauna.wallet.models import CryptoAddressCreation
+from websauna.wallet.models import CryptoAddressCreation, CryptoAddressDeposit
 from .interfaces import IOperationPerformer
 
 
 def create_address(service: EthereumService, op: CryptoAddressCreation):
+    """User requests new hosted address."""
+
+
+def deposit_eth(service: EthereumService, op: CryptoAddressDeposit):
     pass
 
 
