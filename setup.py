@@ -20,9 +20,9 @@ setup(name='websauna.wallet',
         "Topic :: Internet :: WWW/HTTP",
         "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
         ],
-      author='',
-      author_email='',
-      url='',
+      author='Mikko Ohtamaa',
+      author_email='mikko@opensourcehacker.com',
+      url='https://websauna.org',
       keywords='web websauna pyramid',
       packages=find_packages(),
       include_package_data=True,
@@ -41,7 +41,6 @@ setup(name='websauna.wallet',
         # Dependencies to make releases
         'dev': ['websauna[dev]'],
       },
-
       # Define where this application starts as referred by WSGI web servers
       entry_points="""\
       [paste.app_factory]

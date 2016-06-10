@@ -2,7 +2,11 @@
 import transaction
 import mock
 
-from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, Account, CryptoOperation, CryptoAddress
+from websauna.wallet.ethereum.utils import eth_address_to_bin
+from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress
+
+
+TEST_ADDRESS = "0x2f70d3d26829e412a602e83fe8eebf80255aeea5"
 
 
 def test_create_eth_account(dbsession, eth_network_id, eth_service):
@@ -24,7 +28,7 @@ def test_create_eth_account(dbsession, eth_network_id, eth_service):
 
     def _create_address(service, op):
         assert isinstance(op.address, CryptoAddress)
-        op.address.address = "xxx"
+        op.address.address = eth_address_to_bin(TEST_ADDRESS)
 
     with mock.patch("websauna.wallet.ethereum.ops.create_address", new=_create_address):
         success_op_count, failed_op_count = eth_service.run_waiting_operations()
@@ -40,4 +44,6 @@ def test_create_eth_account(dbsession, eth_network_id, eth_service):
         assert address.address
 
 
+def test_deposit_eth_account(dbsession, eth_network_id, eth_service, eth_faux_address):
+    """Deposit Ethereums to an account."""
 
