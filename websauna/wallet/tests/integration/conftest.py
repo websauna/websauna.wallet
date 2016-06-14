@@ -2,12 +2,13 @@
 import pytest
 import transaction
 
+from websauna.wallet.ethereum.asset import get_eth_network, get_ether_asset
 from websauna.wallet.ethereum.ethjsonrpc import get_eth_json_rpc_client
 from websauna.wallet.ethereum.ops import register_eth_operations
 from websauna.wallet.ethereum.service import EthereumService
 
 
-from websauna.wallet.models import AssetNetwork, CryptoAddress
+from websauna.wallet.models import AssetNetwork, CryptoAddress, Asset
 
 
 @pytest.fixture
@@ -17,15 +18,8 @@ def eth_network_id(dbsession):
     asset_network_name = "ethereum"
 
     with transaction.manager:
-        network = dbsession.query(AssetNetwork).filter_by(name=asset_network_name).one_or_none()
-        if not network:
-            network = AssetNetwork(name=asset_network_name)
-            dbsession.add(network)
-            dbsession.flush()  # Gives us network.id
-
-        network_id = network.id
-
-    return network_id
+        network = get_eth_network(dbsession)
+        return network.id
 
 
 @pytest.fixture
@@ -41,6 +35,14 @@ def eth_service(eth_json_rpc, eth_network_id, dbsession, registry):
     register_eth_operations(registry)
 
     return s
+
+
+@pytest.fixture
+def eth_asset_id(dbsession):
+    with transaction.manager:
+        asset = get_ether_asset(dbsession)
+        dbsession.flush()
+        return asset.id
 
 
 @pytest.fixture

@@ -107,19 +107,57 @@ class CryptoAddress(Base):
     network_id = Column(ForeignKey("asset_network.id"), nullable=False)
     network = relationship("AssetNetwork", uselist=False, backref="addresses")
 
+    def create_account(self, asset: Asset) -> "CryptoAddressAccount":
+        """Create an account holding certain asset in this address."""
+
+        # Check validity of this object
+        assert self.id
+        assert asset
+        assert asset.id
+        assert self.address
+
+        dbsession = Session.object_session(self)
+        account = Account(asset=asset)
+        dbsession.flush()
+
+        ca_account = CryptoAddressAccount(account=account)
+        self.crypto_address_accounts.append(account)
+
+        return ca_account
+
 
 class CryptoAddressAccount(Base):
-    """Hold balances of crypto currency or token in address."""
+    """Hold balances of crypto currency, token or other asset in address.
+
+    This is primarily used to model user holdings in their web wallet. You have one CryptoAddressAccount for ETH, one for each held token.
+    """
 
     __tablename__ = "crypto_address_account"
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=sqlalchemy.text("uuid_generate_v4()"),)
 
-    account_id = Column(ForeignKey("account.id"), nullable=True)
-    account = relationship(Account, backref="crypto_address_accounts", uselist=False)
+    account_id = Column(ForeignKey("account.id"), nullable=False)
+    account = relationship(Account,
+                           uselist=False,
+                           backref=backref("crypto_address_accounts",
+                                        lazy="dynamic",
+                                        cascade="all, delete-orphan",
+                                        single_parent=True,),)
 
-    address_id = Column(ForeignKey("crypto_address.id"), nullable=True)
-    address = relationship(CryptoAddress, backref="crypto_address_accounts", uselist=False)
+    address_id = Column(ForeignKey("crypto_address.id"), nullable=False)
+    address = relationship(CryptoAddress,
+                           uselist=False,
+                           backref=backref("crypto_address_accounts",
+                                        lazy="dynamic",
+                                        cascade="all, delete-orphan",
+                                        single_parent=True,),)
+
+    def __init__(self, account: Account):
+        assert account
+        assert account.id
+        assert account.asset
+        assert account.asset.id
+        super().__init__(account=account)
 
 
 class CryptoOperation(Base):
