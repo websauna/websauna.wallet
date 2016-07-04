@@ -9,5 +9,6 @@ from .blockchain import CryptoOperationState
 from .blockchain import CryptoOperation
 from .blockchain import CryptoAddressAccount
 from .blockchain import CryptoAddressDeposit
+from .blockchain import CryptoAddressWithdraw
 from .blockchain import CryptoAddressCreation
 from .blockchain import UserCryptoAddress

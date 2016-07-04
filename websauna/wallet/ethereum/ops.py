@@ -1,7 +1,7 @@
 from pyramid.registry import Registry
 
 from websauna.wallet.ethereum.service import EthereumService
-from websauna.wallet.models import CryptoAddressCreation, CryptoAddressDeposit
+from websauna.wallet.models import CryptoAddressCreation, CryptoAddressDeposit, CryptoAddressWithdraw
 from .interfaces import IOperationPerformer
 
 
@@ -13,9 +13,15 @@ def deposit_eth(service: EthereumService, op: CryptoAddressDeposit):
     pass
 
 
+def withdraw_eth(service: EthereumService, op: CryptoAddressWithdraw):
+    pass
+
+
 def register_eth_operations(registry: Registry):
     """Register handlers for different crypto operations.
 
     This maps database rows to functions they should perform in Ethereum service daemon.
     """
     registry.registerAdapter(factory=lambda op: create_address, required=(CryptoAddressCreation,), provided=IOperationPerformer)
+
+    registry.registerAdapter(factory=lambda op: withdraw_eth, required=(CryptoAddressWithdraw,), provided=IOperationPerformer)

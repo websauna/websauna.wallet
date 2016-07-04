@@ -8,13 +8,14 @@ from sqlalchemy import func
 from sqlalchemy import Enum
 from sqlalchemy import Column, Integer, Numeric, ForeignKey, func, String, LargeBinary
 from sqlalchemy import CheckConstraint
+from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import relationship, backref, Session
 from sqlalchemy.dialects.postgresql import UUID
 from websauna.system.model.columns import UTCDateTime
 from websauna.system.user.models import User
 from websauna.utils.time import now
 from websauna.system.model.meta import Base
-
+from websauna.wallet.utils import ensure_positive
 
 from .account import Account
 from .account import AssetNetwork
@@ -29,6 +30,7 @@ class CryptoOperationType(enum.Enum):
     withdraw = "withdraw"
     deposit = "deposit"
 
+    transaction = "transaction"
 
 class CryptoOperationState(enum.Enum):
     """Different crypto operations."""
@@ -89,6 +91,8 @@ class CryptoOperationState(enum.Enum):
 class CryptoAddress(Base):
     """Crypto account is an Ethereum account and Bitcoin address.
 
+    It holds multiple different :class:`CryptoAddressAccount` for different asset types.
+
     It's target for external crypto operations.
 
     We only register addresses where private keys are owned by our system.
@@ -108,7 +112,7 @@ class CryptoAddress(Base):
     network = relationship("AssetNetwork", uselist=False, backref="addresses")
 
     def create_account(self, asset: Asset) -> "CryptoAddressAccount":
-        """Create an account holding certain asset in this address."""
+        """Create an account holding certain asset under this address."""
 
         # Check validity of this object
         assert self.id
@@ -121,7 +125,9 @@ class CryptoAddress(Base):
         dbsession.flush()
 
         ca_account = CryptoAddressAccount(account=account)
-        self.crypto_address_accounts.append(account)
+        ca_account.address = self
+        dbsession.flush()
+        # self.crypto_address_accounts.append(account)
 
         return ca_account
 
@@ -159,11 +165,52 @@ class CryptoAddressAccount(Base):
         assert account.asset.id
         super().__init__(account=account)
 
+    def withdraw(self, amount: Decimal, to_address: bytes, note: str) -> "CryptoAddressWithdraw":
+        """Initiates the withdraw operation.
+
+        :to_address: External address in binary format where we withdraw
+
+        """
+
+        assert to_address
+        assert self.id
+        assert self.account
+        assert self.account.id
+        assert isinstance(amount, Decimal)
+        assert isinstance(note, str)
+
+        ensure_positive(amount)
+
+        network = self.account.asset.network
+        assert network.id
+
+        op = CryptoAddressWithdraw(network=network)
+        op.crypto_account  = self
+        op.holding_account = Account(asset=self.account.asset)
+        dbsession = Session.object_session(self)
+        dbsession.add(op)
+        dbsession.flush()  # Give ids
+
+        # Lock assetes in transfer to this object
+        Account.transfer(amount, self.account, op.holding_account, note)
+
+        return op
+
+    def get_operations(self):
+        """List all crypto operations (deposit, withdraw, account creation) related to this account.
+
+        This limits to operations of asset type on this account.
+        """
+        dbsession = Session.object_session(self)
+        return dbsession.query(CryptoTransactionOperation)
+
 
 class CryptoOperation(Base):
     """External network operation.
 
     These operations are not run immediately, but queued to run by a service daemon asynchronously (due to async nature of blockchain). Even if operations complete they can be later shuflfled around e.g. due to blockchain fork.
+
+    We use SQLAlchemy single table inheritance model here: http://docs.sqlalchemy.org/en/latest/orm/inheritance.html#single-table-inheritance
     """
 
     __tablename__ = "crypto_operation"
@@ -194,6 +241,18 @@ class CryptoOperation(Base):
 
     # When this operation was completed according to network (when included in block)
     completed_at = Column(UTCDateTime, default=None, nullable=True)
+
+    #: External network transaction id for this column
+    txid = Column(LargeBinary(length=32), nullable=True)
+
+    #: Related crypto account
+    crypto_account_id = Column(ForeignKey("crypto_address_account.id"), nullable=True)
+    crypto_account = relationship(CryptoAddressAccount,
+                       uselist=False,
+                       backref=backref("crypto_address_transaction_operations",
+                                    lazy="dynamic",
+                                    cascade="all, delete-orphan",
+                                    single_parent=True,),)
 
     __mapper_args__ = {
         'polymorphic_on': operation_type,
@@ -228,7 +287,6 @@ class CryptoAddressOperation(CryptoOperation):
         self.address = address
 
 
-
 class CryptoAddressCreation(CryptoAddressOperation):
     """Create a receiving address.
 
@@ -253,23 +311,36 @@ class CryptoAddressCreation(CryptoAddressOperation):
         super(CryptoAddressCreation, self).__init__(address=address)
 
 
-class CryptoTransactionOperation(CryptoAddressOperation):
-
-    #: Transaction id of the ethereum transaction that resulted to this operation
-    txid = Column(LargeBinary(length=32), nullable=True, unique=True)
-
-
-class CryptoAddressDeposit(CryptoTransactionOperation):
+class CryptoAddressDeposit(CryptoOperation):
     """Create a receiving address.
 
     Start with null address and store the created address on this SQL row when the node creates a receiving address and has private keys stored within nodes internal storage.
     """
 
-    asset_id = Column(ForeignKey("asset.id"), nullable=True)
-    asset = relationship(Asset, primaryjoin=asset_id == Asset.id, backref=backref("operations", uselist=False))
-
     __mapper_args__ = {
         'polymorphic_identity': CryptoOperationType.deposit,
+    }
+
+
+class CryptoAddressWithdraw(CryptoOperation):
+    """Withdraw assets under user address.
+
+    - Move assets from the source account to a temporary holding account
+
+    - Try broadcast the tx to the network on the next network tick
+    """
+
+    #: Holds the tokens until the operation is transacted to the network.
+    holding_account_id = Column(ForeignKey("account.id"), nullable=True)
+    holding_account = relationship(Account,
+                           uselist=False,
+                           backref=backref("crypto_withdraw_operation_holding_accounts",
+                                        lazy="dynamic",
+                                        cascade="all, delete-orphan",
+                                        single_parent=True,),)
+
+    __mapper_args__ = {
+        'polymorphic_identity': CryptoOperationType.withdraw,
     }
 
 
