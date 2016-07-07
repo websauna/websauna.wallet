@@ -1,6 +1,7 @@
 from typing import List
 
 from Crypto.Hash import keccak
+from decimal import Decimal
 
 sha3_256 = lambda x: keccak.new(digest_bits=256, data=x).digest()
 
@@ -52,3 +53,12 @@ def split_256_bit_data_chunks(s: str) -> List[bytes]:
 def sha3(seed: str):
     return sha3_256(seed)
 
+
+def to_wei(amount_in_ether: Decimal):
+    """http://forum.ethereum.org/discussion/304/what-is-wei"""
+    assert isinstance(amount_in_ether, Decimal)
+    return int(amount_in_ether * 10**18)
+
+
+def wei_to_eth(amount_in_wei: int):
+    return Decimal(amount_in_wei) / Decimal(10**18)

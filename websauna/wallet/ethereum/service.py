@@ -68,7 +68,7 @@ class EthereumService:
                     # Get a function to perform the op using adapters
                     performer = self.registry.queryAdapter(op, IOperationPerformer)
                     if not performer:
-                        raise RuntimeError("Doesn't have a performer for operation {}".format(performer))
+                        raise RuntimeError("Doesn't have a performer for operation {}".format(op))
 
                     # Do the actual operation
                     performer(self, op)
