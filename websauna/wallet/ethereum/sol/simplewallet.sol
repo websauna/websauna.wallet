@@ -4,7 +4,7 @@
 contract Wallet {
 
     event Deposit(address from, uint value);
-    event Withdraw(address to, uint value);
+    event Withdraw(address to, uint value, uint spentGas, bool success);
     event Execute(address to, uint value, bytes data);
 
     address owner;
@@ -17,13 +17,20 @@ contract Wallet {
      * Simple withdrawal operation.
      */
     function withdraw(address _to, uint _value) {
+
+        uint balanceBefore;
+        uint balanceAfter;
+        bool success;
+
         if(msg.sender != owner) {
             throw;
         }
 
-        Withdraw(_to, _value);
+        balanceBefore = this.balance;
+        success = _to.send(_value);
+        balanceAfter = this.balance;
 
-        _to.send(_value);
+        Withdraw(_to, _value, balanceBefore - balanceAfter, success);
     }
 
     /**

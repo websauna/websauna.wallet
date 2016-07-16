@@ -1,25 +1,6 @@
 """Decode Ethereum raw transaction.
 
 """
-from populus.contracts import Function
-
-
-def find_abi(contract: type, signature: bytes) -> Function:
-    """Check if contract class implements an ABI method of a certain type.
-
-    Ethereum contract function signature is 4 bytes.
-    """
-
-    # http://stackoverflow.com/a/34452/315168
-    methods = [getattr(contract, method) for method in dir(contract) if callable(getattr(contract, method))]
-
-    for m in methods:
-        # Only Contract proxy functions have abi_signature set
-        if getattr(m, "encoded_abi_signature", None) == signature:
-            return m
-
-    return None
-
 
 def decode_tx_input(contract_class: type, input_data: str) -> dict:
     """Convert transaction input hex string to symbolic presentation what ABI method is being called."""

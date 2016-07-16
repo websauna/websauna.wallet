@@ -7,6 +7,8 @@ from websauna.wallet.ethereum.wallet import create_wallet, send_coinbase_eth, ge
 
 
 # How many ETH we move for test transactiosn
+from websauna.wallet.tests.integration.utils import wait_tx
+
 TEST_VALUE = Decimal("0.0001")
 
 # http://testnet.etherscan.io/tx/0xe9f35838f45958f1f2ddcc24247d81ed28c4aecff3f1d431b1fe81d92db6c608
@@ -21,13 +23,6 @@ WITHDRAWAL_FEE = GAS_PRICE * GAS_USED_BY_TRANSACTION
 def testnet_contract_address():
     """Predeployed wallet version 2 contract in testnet with some balance."""
     return "0x9d8ad3ffc65cecb906bee4759d5422eb7c77f919"
-
-
-def wait_tx(eth_json_rpc, txid):
-    try:
-        eth_json_rpc.wait_for_transaction(txid, max_wait=90.0)
-    except ValueError as e:
-        raise ValueError("Could not broadcast transaction {}".format(txid)) from e
 
 
 @pytest.mark.slow
