@@ -38,7 +38,7 @@ def _get_wallet_contract(name) -> dict:
     :return:
     """
 
-    contract_file = os.path.join(os.path.dirname(__file__), "sol", "wallet.sol")
+    contract_file = os.path.join(os.path.dirname(__file__), "sol", "simplewallet.sol")
     assert os.path.exists(contract_file)
 
     sol_output = solc(input_files=[contract_file], rich=True)
@@ -51,7 +51,7 @@ def _get_wallet_contract_cached(name="Wallet"):
     return _contract
 
 
-def get_wallet_contract_class(name="Wallet") -> ContractBase:
+def get_wallet_contract_class(name="Wallet") -> type:
     contract_meta = _get_wallet_contract_cached(name)
     contract = Contract(contract_meta, name)
     return contract
@@ -119,12 +119,13 @@ def withdraw_from_wallet(rpc: EthJsonRpc, contract_address: str, to_address: str
     """
 
     cb = get_wallet_contract_class()
-    c = cb(contract_address, rpc)
+    c = cb(contract_address, rpc)  # type: ContractBase
 
     wei = to_wei(amount_in_eth)
     if not data:
         data = ""
 
+    # multiowned.execute() called
     txid = c.execute(to_address, wei, data)
     return txid
 
