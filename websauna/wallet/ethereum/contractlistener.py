@@ -1,8 +1,6 @@
-"""Poll Ethereum blockchain, install log hooks to call contracts.
+"""Stateful poller Ethereum over RPC API to get contract events.
 
 Using geth JSON RPC API: https://github.com/ethereum/wiki/wiki/JSON-RPC#eth_newfilter
-
-Copyright 2016 Mikko Ohtamaa - Licensed under MIT license.
 """
 
 
@@ -44,6 +42,9 @@ def now() -> datetime.datetime:
 class ContractListener:
     """Fetch updates on events Solidy contract posts to Ethereum blockchain.
 
+    This is a low level interface which monitors all events for given contracts. When we get new contract logs (events) over RPC API we post them to a callback that can translate them to human readable form. This listener only knows about raw hashes of event definition names.
+
+    The poller is stateful and allows you to add and remove contracts in fly.
     """
 
     def __init__(self, client: EthJsonRpc, callback: callback_type, from_block=0, logger=_logger):

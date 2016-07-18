@@ -40,10 +40,14 @@ setup(name='websauna.wallet',
 
         # Dependencies to make releases
         'dev': ['websauna[dev]'],
+
       },
       # Define where this application starts as referred by WSGI web servers
       entry_points="""\
       [paste.app_factory]
       main = websauna.wallet.demo:main
+
+      [pytest11]
+      ethereum=populus.plugin
       """,
       )
