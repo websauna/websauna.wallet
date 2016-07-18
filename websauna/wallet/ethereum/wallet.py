@@ -126,7 +126,7 @@ def withdraw_from_wallet(rpc: EthJsonRpc, contract_address: str, to_address: str
         data = ""
 
     # multiowned.execute() called
-    txid = c.execute(to_address, wei, data)
+    txid = c.withdraw(to_address, wei)
     return txid
 
 
