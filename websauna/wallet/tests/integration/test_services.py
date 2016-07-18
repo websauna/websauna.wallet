@@ -19,18 +19,12 @@ GAS_USED_BY_TRANSACTION = Decimal("32996")
 WITHDRAWAL_FEE = GAS_PRICE * GAS_USED_BY_TRANSACTION
 
 
-@pytest.fixture
-def testnet_contract_address():
-    """Predeployed wallet version 2 contract in testnet with some balance."""
-    return "0x9d8ad3ffc65cecb906bee4759d5422eb7c77f919"
-
-
 @pytest.mark.slow
-def test_create_wallet(eth_json_rpc):
+def test_create_wallet(client):
     """Deploy a wallet contract on a testnet chain.
 
     """
-    contract_address, txid, version = create_wallet(eth_json_rpc)
+    contract_address, txid, version = create_wallet(client)
 
     print("Deployed wallet {}".format(contract_address))
 
@@ -41,39 +35,42 @@ def test_create_wallet(eth_json_rpc):
 
 
 @pytest.mark.slow
-def test_fund_wallet(eth_json_rpc, testnet_contract_address):
+def test_fund_wallet(client, wallet_contract_address):
     """Send some funds int the wallet and see the balance updates."""
 
-    current_balance = get_wallet_balance(eth_json_rpc, testnet_contract_address)
+    current_balance = get_wallet_balance(client, wallet_contract_address)
 
-    # value = get_wallet_balance(testnet_contract_address)
-    txid = send_coinbase_eth(eth_json_rpc, TEST_VALUE, testnet_contract_address)
+    # value = get_wallet_balance(wallet_contract_address)
+    txid = send_coinbase_eth(client, TEST_VALUE, wallet_contract_address)
 
-    wait_tx(eth_json_rpc, txid)
+    wait_tx(client, txid)
 
-    new_balance = get_wallet_balance(eth_json_rpc, testnet_contract_address)
+    new_balance = get_wallet_balance(client, wallet_contract_address)
 
     assert new_balance == current_balance + TEST_VALUE
 
 
 @pytest.mark.slow
-def test_withdraw_wallet(eth_json_rpc, testnet_contract_address):
+def test_withdraw_wallet(client, wallet_contract_address):
     """Withdraw eths from wallet contract to RPC coinbase address."""
 
-    coinbase_address = eth_json_rpc.get_coinbase()
+    coinbase_address = client.get_coinbase()
 
-    current_balance = get_wallet_balance(eth_json_rpc, testnet_contract_address)
-    current_coinbase_balance = get_wallet_balance(eth_json_rpc, coinbase_address)
+    # Top up the wallet so we have something to withdraw
+    txid = send_coinbase_eth(client, TEST_VALUE*Decimal(2), wallet_contract_address)
+    wait_tx(client, txid)
+
+    current_balance = get_wallet_balance(client, wallet_contract_address)
+    current_coinbase_balance = get_wallet_balance(client, coinbase_address)
 
     assert current_balance > TEST_VALUE
 
-    txid = withdraw_from_wallet(eth_json_rpc, testnet_contract_address, coinbase_address, TEST_VALUE)
-    print("Sending out transaction ", txid)
+    txid = withdraw_from_wallet(client, wallet_contract_address, coinbase_address, TEST_VALUE)
 
-    wait_tx(eth_json_rpc, txid)
+    wait_tx(client, txid)
 
-    new_balance = get_wallet_balance(eth_json_rpc, testnet_contract_address)
-    new_coinbase_balance = get_wallet_balance(eth_json_rpc, coinbase_address)
+    new_balance = get_wallet_balance(client, wallet_contract_address)
+    new_coinbase_balance = get_wallet_balance(client, coinbase_address)
 
     assert new_coinbase_balance != current_coinbase_balance, "Coinbase address balance did not change: {}".format(new_coinbase_balance)
 

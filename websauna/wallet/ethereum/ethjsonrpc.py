@@ -8,6 +8,7 @@ class EthJsonRpc(Client):
     """Customized JSON-RPC client."""
 
     def _serialize_json(self, obj):
+        """Specialized encoding method to handle bytes correctly."""
         if type(obj) == bytes:
             return obj.decode("utf-8")
         raise TypeError()

@@ -155,7 +155,7 @@ class ContractListener:
         """
         status = self.currently_monitored_contracts[contract]
         filter_id = status.filter_id
-        changes = self.client.get_filter_logs(filter_id=filter_id)
+        changes = self.client.get_filter_changes(filter_id=filter_id)
         return self.process_events(status, changes)
 
     def monitor_contract(self, contract_address) -> int:
