@@ -122,4 +122,15 @@ def test_event_fund_wallet(client, contract_address):
     assert event_name == "Deposit"
     assert input_data["value"] == to_wei(TEST_VALUE)
 
+    # Deposit some more, should generate one new event
+    txid = send_coinbase_eth(client, TEST_VALUE, contract_address)
+    wait_tx(client, txid)
+
+    update_count = listener.poll()
+
+    assert update_count == 1
+    assert len(events) == 2
+    event_name, input_data = events[1]
+    assert event_name == "Deposit"
+    assert input_data["value"] == to_wei(TEST_VALUE)
 
