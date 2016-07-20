@@ -27,7 +27,7 @@ WITHDRAWAL_FEE = GAS_PRICE * GAS_USED_BY_TRANSACTION
 
 
 @pytest.fixture
-def tx_fee(client, geth_coinbase, wallet_contract_address):
+def tx_fee(client, geth_coinbase, hosted_wallet):
     """Estimate transaction fee."""
     # params = {"from": geth_coinbase, "to": wallet_contract_address, "value": 1}
     # response = client.make_request("eth_estimateGas", [params])
@@ -39,52 +39,47 @@ def tx_fee(client, geth_coinbase, wallet_contract_address):
 
 
 @pytest.mark.slow
-def test_create_wallet(client):
+def test_create_wallet(client, hosted_wallet):
     """Deploy a wallet contract on a testnet chain.
 
     """
-    contract_address, txid, version = create_wallet(client)
-
-    print("Deployed wallet {}".format(contract_address))
-
     # Check we get somewhat valid ids
-    assert txid_to_bin(txid)
-    assert version == 2
-    assert eth_address_to_bin(contract_address)
+    assert hosted_wallet.version == 2
+    assert eth_address_to_bin(hosted_wallet.address)
 
 
 @pytest.mark.slow
-def test_fund_wallet(client, wallet_contract_address):
+def test_fund_wallet(client, hosted_wallet):
     """Send some funds int the wallet and see the balance updates."""
 
-    current_balance = get_wallet_balance(client, wallet_contract_address)
+    current_balance = hosted_wallet.get_balance()
 
     # value = get_wallet_balance(wallet_contract_address)
-    txid = send_coinbase_eth(client, TEST_VALUE, wallet_contract_address)
+    txid = send_coinbase_eth(client, TEST_VALUE, hosted_wallet.address)
 
     wait_tx(client, txid)
 
-    new_balance = get_wallet_balance(client, wallet_contract_address)
+    new_balance = hosted_wallet.get_balance()
 
     assert new_balance == current_balance + TEST_VALUE
 
 
 @pytest.mark.slow
-def test_withdraw_wallet(client, topped_up_wallet_contract_address, tx_fee):
+def test_withdraw_wallet(client, topped_up_hosted_wallet, tx_fee):
     """Withdraw eths from wallet contract to RPC coinbase address."""
 
     coinbase_address = client.get_coinbase()
-    wallet_contract_address = topped_up_wallet_contract_address
+    hosted_wallet = topped_up_hosted_wallet
 
-    current_balance = get_wallet_balance(client, wallet_contract_address)
+    current_balance = hosted_wallet.get_balance()
     current_coinbase_balance = get_wallet_balance(client, coinbase_address)
 
     assert current_balance > TEST_VALUE
 
-    txid = withdraw_from_wallet(client, wallet_contract_address, coinbase_address, TEST_VALUE)
+    txid = hosted_wallet.withdraw(coinbase_address, TEST_VALUE)
     wait_tx(client, txid)
 
-    new_balance = get_wallet_balance(client, wallet_contract_address)
+    new_balance = get_wallet_balance(client, hosted_wallet.address)
     new_coinbase_balance = get_wallet_balance(client, coinbase_address)
 
     assert new_coinbase_balance != current_coinbase_balance, "Coinbase address balance did not change: {}".format(new_coinbase_balance)
@@ -96,17 +91,13 @@ def test_withdraw_wallet(client, topped_up_wallet_contract_address, tx_fee):
 
 
 @pytest.mark.slow
-def test_call_contract(client: Client, topped_up_wallet_contract_address: str, simple_test_contract: ContractBase):
+def test_call_contract(client: Client, topped_up_hosted_wallet, simple_test_contract: ContractBase):
     """Call a test contract from the hosted wallet and see the value is correctly set."""
-    wallet_contract_address = topped_up_wallet_contract_address
+    hosted_wallet = topped_up_hosted_wallet
 
     magic = random.randint(0, 2**30)
-    txid = execute_from_wallet(client, wallet_contract_address, simple_test_contract, "setValue", args=[magic])
+    txid = hosted_wallet.execute(simple_test_contract, "setValue", args=[magic])
     wait_tx(client, txid)
 
-    receipt = client.get_transaction_receipt(txid)
-
-    # Read the value from the public blockchain
-    import pdb ; pdb.set_trace()
     assert simple_test_contract.value() == magic
 

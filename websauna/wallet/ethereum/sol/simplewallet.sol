@@ -3,17 +3,25 @@
  */
 contract Wallet {
 
+    // Withdraw events
     event Deposit(address from, uint value);
     event Withdraw(address to, uint value, uint balanceAfter, uint spentGas);
     event ExceededWithdraw(address to, uint value);
     event OutOfGasWithdraw(address to, uint value, uint balanceAfter);
 
+    // Smart contract call events
+    event PreExecute(address to, uint value, uint gas);
     event Execute(address to, uint value, uint balanceAfter, uint spentGas);
+    event ExceededExecuteWithValue(address to, uint value);
     event FailedExecute(address to, uint value, uint balanceAfter);
 
+    // Who is the owner of this hosted wallet. This is the (coinbase) address or geth node
+    // that your server speaks to via RPC
     address owner;
 
     function Wallet() {
+        // Lock down the wallet, so that only our private geth
+        // has the owner private key to speak to us
         owner = msg.sender;
     }
 
@@ -61,10 +69,20 @@ contract Wallet {
             throw;
         }
 
+        if(_value > this.balance) {
+            ExceededExecuteWithValue(_to, _value);
+            return;
+        }
+
         balanceBefore = this.balance;
 
         // http://ethereum.stackexchange.com/a/2971/620
-        success = _to.call.gas(_gas).value(_value)(_data);
+        if(_value > 0) {
+            success = _to.call.value(_value)(_data);
+        } else {
+            success = _to.call(_data);
+        }
+
         balanceAfter = this.balance;
 
         if(success) {

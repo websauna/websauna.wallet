@@ -4,6 +4,8 @@ import logging
 from binascii import b2a_hex
 from typing import Callable
 
+from eth_ipc_client import Client
+
 from websauna.wallet.ethereum.ethjsonrpc import EthJsonRpc
 from websauna.wallet.ethereum.populusutils import get_contract_events
 from .contractlistener import ContractListener, callback_type
@@ -16,7 +18,7 @@ _logger = logging.getLogger(__name__)
 POPULUS_CONTRACT_EVENT_CALLBACK_TYPE = Callable[[str, str, dict, dict], bool]
 
 
-def create_populus_listener(eth_json_rpc: EthJsonRpc,
+def create_populus_listener(eth_json_rpc: Client,
                            callback: POPULUS_CONTRACT_EVENT_CALLBACK_TYPE,
                            contract: type,
                            from_block=0) -> ContractListener:

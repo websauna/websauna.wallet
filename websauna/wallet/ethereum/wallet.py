@@ -125,19 +125,15 @@ def execute_from_wallet(rpc: Client,
     Creates a transaction that is proxyed through hosted wallet execute method. We need to have ABI as Populus Contract instance.
 
     :param wallet_address: Wallet address
-
     :param contract: Contract to called as address bound Populus Contract class
-
     :param method: Method name to be called
-
     :param args: Arguments passed to the method
-
     :param value: Additional value carried in the call in ETH
-
     :param gas: The max amount of gas the hosted wallet is allowed to pay for this call
-
     :return: txid of the execution as hex string
     """
+
+    assert isinstance(contract, ContractBase)
 
     cb = get_wallet_contract_class()
     wallet = cb(wallet_address, rpc)  # type: ContractBase
@@ -152,16 +148,112 @@ def execute_from_wallet(rpc: Client,
 
     if args:
         data = func.get_call_data(args)
+        data = bytes(bytearray.fromhex(data[2:]))
     else:
-        data = ""
-
-    print("Call data", data)
+        data = b''
 
     address = contract._meta.address
     txid = wallet.execute(address, value, gas, data)
     return txid
 
 
+class HostedWallet:
+    """Hosted wallet functionality.
+
+    Calls underlying wallet contract for wallet actions taken on the behalf of the user.
+    """
+
+    def __init__(self, wallet_contract: ContractBase, version=0):
+        # Make sure we are bound to an address
+        assert wallet_contract._meta.address
+        self.wallet_contract = wallet_contract
+
+        # What contract version we are using for this wallet
+        self.version = version
+
+    @property
+    def address(self) -> str:
+        """Get wallet address as 0x hex string."""
+        return self.wallet_contract._meta.address
+
+    def get_balance(self) -> Decimal:
+        """Gets the balance on this contract address over RPC and converts to ETH."""
+        return wei_to_eth(self.wallet_contract.get_balance())
+
+    def withdraw(self, to_address: str, amount_in_eth: Decimal):
+        """Withdraw funds from a wallet contract.
+
+        :param amount_in_eth: How much
+        :param to_address: Address we are withdrawing to
+        :return: Transaction id
+        """
+
+        assert isinstance(amount_in_eth, Decimal)  # Don't let floats slip through
+
+        wei = to_wei(amount_in_eth)
+        txid = self.wallet_contract.withdraw(to_address, wei)
+        return txid
+
+    def execute(self, contract: ContractBase,
+            method: str,
+            args=[],
+            amount_in_eth: Optional[Decimal]=None,
+            gas=100000):
+        """Calls a smart contract from the hosted wallet.
+
+        Creates a transaction that is proxyed through hosted wallet execute method. We need to have ABI as Populus Contract instance.
+
+        :param wallet_address: Wallet address
+        :param contract: Contract to called as address bound Populus Contract class
+        :param method: Method name to be called
+        :param args: Arguments passed to the method
+        :param value: Additional value carried in the call in ETH
+        :param gas: The max amount of gas the hosted wallet is allowed to pay for this call
+        :return: txid of the execution as hex string
+        """
+        if amount_in_eth:
+            assert isinstance(amount_in_eth, Decimal)  # Don't let floats slip through
+            value = to_wei(amount_in_eth)
+        else:
+            value = 0
+
+        func = getattr(contract, method)
+
+        # Encode function arguments
+        data = func.get_call_data(args)
+        data = bytes(bytearray.fromhex(data[2:]))
+
+        address = contract._meta.address
+        txid = self.wallet_contract.execute(address, value, gas, data)
+        return txid
+
+    @classmethod
+    def create(cls, rpc: Client, wait_for_tx_seconds=90, gas=DEFAULT_WALLET_CREATION_GAS, contract=get_wallet_contract_class()) -> ContractBase:
+        """Creates a new hosted wallet.
+
+        The cost of deployment is paid from coinbase account.
+
+        :param contract: Which contract we deploy as Populus Contract class.
+
+        :return: Populus Contract proxy object for new contract
+        """
+        version = 2  # Hardcoded for now
+
+        txid = deploy_contract(rpc, contract, gas=gas)
+
+        if wait_for_tx_seconds:
+            rpc.wait_for_transaction(txid, max_wait=wait_for_tx_seconds)
+        else:
+            # We cannot get contract address until the block is mined
+            return (None, txid, version)
+
+        try:
+            contract_addr = get_contract_address_from_txn(rpc, txid)
+        except ValueError:
+            raise WalletCreationError("Could not create wallet with {} gas. Txid {}. Out of gas? Check in http://testnet.etherscan.io/tx/{}".format(DEFAULT_WALLET_CREATION_GAS, txid, txid))
+
+        instance = contract(contract_addr, rpc)
+        return HostedWallet(instance, version=2)
 
 
 

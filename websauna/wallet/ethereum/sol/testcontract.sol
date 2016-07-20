@@ -13,6 +13,7 @@ contract TestContract {
     int public value;
 
     event Received(int value);
+    event Failed();
 
     function setValue(int _value) {
         value = _value;
@@ -27,6 +28,6 @@ contract TestContract {
     function() {
         // Shit happened
         // Shit should not happen
-        throw;
+        Failed();
     }
 }
