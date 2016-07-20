@@ -176,6 +176,11 @@ class HostedWallet:
         """Get wallet address as 0x hex string."""
         return self.wallet_contract._meta.address
 
+    @property
+    def client(self) -> Client:
+        """Get access to RPC client we are using for this wallet."""
+        return self.wallet_contract._meta.blockchain_client
+
     def get_balance(self) -> Decimal:
         """Gets the balance on this contract address over RPC and converts to ETH."""
         return wei_to_eth(self.wallet_contract.get_balance())
@@ -226,6 +231,35 @@ class HostedWallet:
         address = contract._meta.address
         txid = self.wallet_contract.execute(address, value, gas, data)
         return txid
+
+    def claim_fees(self, original_txid: str) -> Tuple[str, Decimal]:
+        """Claim fees from previous execute() call.
+
+        When a hosted wallet calls another contract through execute() gas is spent. This gas appears as cumulative gas in the transaction receipt. This gas cost should be targeted to the hosted wallet balance, not the original caller balance (geth coinbase).
+
+        We use this method to settle the fee transaction between the hosted wallet and coinbase. This creates another event that is easy to pick up accounting and properly credit.
+
+        :return: The new transaction id that settles the fees.
+        """
+
+        assert original_txid.startswith("0x")
+
+        original_txid_b = bytes(bytearray.fromhex(original_txid[2:]))
+
+        receipt = self.client.get_transaction_receipt(original_txid)
+        gas_price = self.client.get_gas_price()
+
+        gas_used = int(receipt["cumulativeGasUsed"], 16)
+        wei_value = gas_used * gas_price
+
+        price = wei_to_eth(wei_value)
+
+        # TODO: Estimate the gas usage of this transaction for claiming the fees
+        # and add it on the top of the original transaction gas
+
+        # Transfer value back to owner, post a tx fee event
+        txid = self.wallet_contract.claimFees(original_txid_b, wei_value)
+        return txid, price
 
     @classmethod
     def create(cls, rpc: Client, wait_for_tx_seconds=90, gas=DEFAULT_WALLET_CREATION_GAS, contract=get_wallet_contract_class()) -> ContractBase:

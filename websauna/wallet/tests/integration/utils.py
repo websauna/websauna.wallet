@@ -3,6 +3,16 @@ from populus.utils import get_contract_address_from_txn
 from websauna.wallet.ethereum.wallet import get_wallet_contract_class
 
 
+NETWORK_PARAMETERS = {
+    "geth_local": {
+
+    },
+
+    "testnet": {
+
+    }
+}
+
 def wait_tx(eth_json_rpc, txid):
     try:
         eth_json_rpc.wait_for_transaction(txid, max_wait=90.0)

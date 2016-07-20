@@ -5,15 +5,18 @@ contract Wallet {
 
     // Withdraw events
     event Deposit(address from, uint value);
-    event Withdraw(address to, uint value, uint balanceAfter, uint spentGas);
+    event Withdraw(address to, uint value);
     event ExceededWithdraw(address to, uint value);
-    event OutOfGasWithdraw(address to, uint value, uint balanceAfter);
+    event OutOfGasWithdraw(address to, uint value);
 
     // Smart contract call events
-    event PreExecute(address to, uint value, uint gas);
-    event Execute(address to, uint value, uint balanceAfter, uint spentGas);
+    event Execute(address to, uint value);
     event ExceededExecuteWithValue(address to, uint value);
-    event FailedExecute(address to, uint value, uint balanceAfter);
+    event FailedExecute(address to, uint value);
+
+    // Transaction fee settlement log keeping
+    event ClaimFee(bytes32 txid, uint value);
+    event ExceededClaimFee(bytes32 txid, uint value);
 
     // Who is the owner of this hosted wallet. This is the (coinbase) address or geth node
     // that your server speaks to via RPC
@@ -30,8 +33,6 @@ contract Wallet {
      */
     function withdraw(address _to, uint _value) external {
 
-        uint balanceBefore;
-        uint balanceAfter;
         bool success;
 
         if(msg.sender != owner) {
@@ -43,14 +44,14 @@ contract Wallet {
             return;
         }
 
-        balanceBefore = this.balance;
+        // Gas is always deducted from the value
+        // when the transaction is received on the other side.
         success = _to.send(_value);
-        balanceAfter = this.balance;
 
         if(success) {
-            Withdraw(_to, _value, balanceAfter, (balanceBefore - balanceAfter) - _value);
+            Withdraw(_to, _value);
         } else {
-            OutOfGasWithdraw(_to, _value, balanceAfter);
+            OutOfGasWithdraw(_to, _value);
         }
     }
 
@@ -61,8 +62,6 @@ contract Wallet {
      */
     function execute(address _to, uint _value, uint _gas, bytes _data) external {
 
-        uint balanceBefore;
-        uint balanceAfter;
         bool success;
 
         if(msg.sender != owner) {
@@ -74,8 +73,6 @@ contract Wallet {
             return;
         }
 
-        balanceBefore = this.balance;
-
         // http://ethereum.stackexchange.com/a/2971/620
         if(_value > 0) {
             success = _to.call.value(_value)(_data);
@@ -83,12 +80,34 @@ contract Wallet {
             success = _to.call(_data);
         }
 
-        balanceAfter = this.balance;
+        if(success) {
+            Execute(_to, _value);
+        } else {
+            FailedExecute(_to, _value);
+        }
+    }
+
+    /**
+     * Claim transaction fees from the previous execute().
+     */
+    function claimFees(bytes32 txid, uint _value) {
+        bool success;
+
+        if(msg.sender != owner) {
+            throw;
+        }
+
+        if(_value > this.balance) {
+            ExceededClaimFee(txid, _value);
+            return;
+        }
+
+        success = owner.send(_value);
 
         if(success) {
-            Execute(_to, _value, balanceAfter, (balanceBefore - balanceAfter) - _value);
+            ClaimFee(txid, _value);
         } else {
-            FailedExecute(_to, _value, balanceAfter);
+            ExceededClaimFee(txid, _value);
         }
     }
 

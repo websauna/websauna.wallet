@@ -6,7 +6,7 @@ from eth_rpc_client import Client
 
 from populus.contracts import Contract
 from populus.contracts.core import ContractBase
-from populus.plugin import geth_node, geth_node_command
+from populus.plugin import geth_node, geth_node_command, _start_geth_node
 from websauna.wallet.ethereum.populuscontract import get_compiled_contract_cached
 from websauna.wallet.ethereum.utils import to_wei
 from websauna.wallet.ethereum.wallet import send_coinbase_eth, HostedWallet
@@ -19,7 +19,7 @@ pytest_plugins = "populus.plugin",
 
 
 #: How much funds we put to test w  allet for withdrawal tests
-TOP_UP_VALUE = Decimal("0.0003")
+TOP_UP_VALUE = Decimal("0.03")
 
 
 @pytest.fixture(scope="module")
@@ -33,7 +33,16 @@ def client_mode():
 
 
 @pytest.fixture(scope="module")
-def client(request, client_mode, populus_config) -> Client:
+def client_credentials(registry) -> tuple:
+    """Return password and unlock seconds needed to unlock the client."""
+
+    password = registry.settings.get("ethereum.ethjsonrpc.unlock_password", "")
+    unlock_seconds = int(registry.settings.get("ethereum.ethjsonrpc.unlock_seconds", 24 * 3600))
+    return password, unlock_seconds
+
+
+@pytest.fixture(scope="module")
+def client(request, client_mode, client_credentials, populus_config) -> Client:
     """Create a RPC client.
 
     This either points to a geth running in public testnet or we will spin up a new local instance.
@@ -43,15 +52,31 @@ def client(request, client_mode, populus_config) -> Client:
 
     if client_mode == "local_geth":
         cmd = geth_node_command(request, populus_config)
-        geth_node(request, cmd)
+        proc = _start_geth_node(request, populus_config, cmd)
         rpc_port = populus_config.get_value(request, 'rpc_client_port')
         rpc_hostname = populus_config.get_value(request, 'rpc_client_host')
         client = Client(rpc_hostname, rpc_port)
+
+        def kill_it():
+            from populus.utils import (
+                kill_proc,
+            )
+            kill_proc(proc)
+
+        request.addfinalizer(kill_it)
+
         return client
     else:
         rpc_port = populus_config.get_value(request, 'rpc_client_port')
         rpc_hostname = populus_config.get_value(request, 'rpc_client_host')
         client = Client(rpc_hostname, rpc_port)
+
+        # We need to unlock to allow withdraws
+        coinbase = client.get_coinbase()
+        password, unlock_seconds = client_credentials
+        # https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_unlockaccount
+        client.make_request("personal_unlockAccount", [coinbase, password, unlock_seconds])
+
         return client
 
 
@@ -61,7 +86,7 @@ def coinbase(client):
 
 
 @pytest.fixture(scope="module")
-def hosted_wallet(client: Client, geth_node, coinbase: str) -> HostedWallet:
+def hosted_wallet(client: Client, coinbase: str) -> HostedWallet:
     """Deploy a smart contract to local private blockchain so test functions can stress it out.
 
     :param client: py.test fixture to create RPC client to call geth node
@@ -86,7 +111,7 @@ def topped_up_hosted_wallet(client, coinbase, hosted_wallet):
 
 
 @pytest.fixture(scope="module")
-def simple_test_contract(client, geth_node, coinbase) -> ContractBase:
+def simple_test_contract(client, coinbase) -> ContractBase:
     """Create a contract where we can set a global variable for testing."""
 
     contract_meta = get_compiled_contract_cached("testcontract.sol", "TestContract")

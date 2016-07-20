@@ -16,7 +16,7 @@ from websauna.wallet.ethereum.wallet import create_wallet, send_coinbase_eth, ge
 from websauna.wallet.tests.integration.utils import wait_tx
 
 # How many ETH we move for test transactiosn
-TEST_VALUE = Decimal("0.0001")
+TEST_VALUE = Decimal("0.01")
 
 # http://testnet.etherscan.io/tx/0xe9f35838f45958f1f2ddcc24247d81ed28c4aecff3f1d431b1fe81d92db6c608
 GAS_PRICE = Decimal("0.00000002")
@@ -65,27 +65,26 @@ def test_fund_wallet(client, hosted_wallet):
 
 
 @pytest.mark.slow
-def test_withdraw_wallet(client, topped_up_hosted_wallet, tx_fee):
+def test_withdraw_wallet(client, topped_up_hosted_wallet, coinbase, tx_fee):
     """Withdraw eths from wallet contract to RPC coinbase address."""
 
-    coinbase_address = client.get_coinbase()
     hosted_wallet = topped_up_hosted_wallet
 
     current_balance = hosted_wallet.get_balance()
-    current_coinbase_balance = get_wallet_balance(client, coinbase_address)
+    current_coinbase_balance = wei_to_eth(client.get_balance(coinbase))
 
+    # We have enough coints to perform the test
     assert current_balance > TEST_VALUE
 
-    txid = hosted_wallet.withdraw(coinbase_address, TEST_VALUE)
+    # Withdraw and wait it go through
+    txid = hosted_wallet.withdraw(coinbase, TEST_VALUE)
     wait_tx(client, txid)
 
-    new_balance = get_wallet_balance(client, hosted_wallet.address)
-    new_coinbase_balance = get_wallet_balance(client, coinbase_address)
+    new_balance = hosted_wallet.get_balance()
+    new_coinbase_balance = wei_to_eth(client.get_balance(coinbase))
 
     assert new_coinbase_balance != current_coinbase_balance, "Coinbase address balance did not change: {}".format(new_coinbase_balance)
 
-    # TODO: We cannot determine exact amounts here, as the tranaction fee estimation
-    # doesn't seem to work on private test network?
     assert new_coinbase_balance > current_coinbase_balance
     assert new_balance < current_balance
 
