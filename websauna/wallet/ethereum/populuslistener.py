@@ -27,10 +27,12 @@ def create_populus_listener(eth_json_rpc: EthJsonRpc,
 
     events = get_contract_events(contract)
 
-    event_map = {signature:event for signature, event in events}
+    # Parsed hex string -> event mappings.
+    # We parse to avoid padding zero issues.
+    event_map = {int(signature, 16):event for signature, event in events}
 
     def _wrapper_callback(contract_address: str, signature: str, log_entry: dict):
-        event = event_map.get(signature)
+        event = event_map.get(int(signature, 16))
         assert event, "Signature {} not in event map {}".format(signature, event_map)
         log_data = event.get_log_data(log_entry, indexed=True)
         return callback(contract_address, event.name, log_data, log_entry)

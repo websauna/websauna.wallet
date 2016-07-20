@@ -5,18 +5,18 @@ Deploy a wallet contract over JSON RPC using a Solidity source code as base. The
 Many of these functions are cherry picked from Populous project and made Python 3 compatible.
 """
 import os
-from typing import Tuple, Iterable
+from typing import Tuple, Iterable, Optional
 
 from decimal import Decimal
+
+from eth_rpc_client import Client
+
 from populus.contracts import Contract, deploy_contract
 from populus.contracts.core import ContractBase
 from populus.utils import get_contract_address_from_txn
-from rlp.utils_py3 import encode_hex
-from ethereum import abi
 
-from websauna.wallet.ethereum.ethjsonrpc import EthJsonRpc
+from websauna.wallet.ethereum.populuscontract import get_compiled_contract_cached
 from websauna.wallet.ethereum.utils import to_wei, wei_to_eth
-from .solidity import solc
 
 
 #: Gas limits are at
@@ -33,31 +33,14 @@ class WalletCreationError(Exception):
     """Wallet contract could not be deployed. Most likely out of gas."""
 
 
-def _get_wallet_contract(name) -> dict:
-    """Get our internal wallet implementation compiled Solidity.
-    :return:
-    """
-
-    contract_file = os.path.join(os.path.dirname(__file__), "sol", "simplewallet.sol")
-    assert os.path.exists(contract_file)
-
-    sol_output = solc(input_files=[contract_file], rich=True)
-    return sol_output[name]
-
-
-def _get_wallet_contract_cached(name="Wallet"):
-    global _contract
-    _contract = _contract or _get_wallet_contract(name)
-    return _contract
-
-
-def get_wallet_contract_class(name="Wallet") -> type:
-    contract_meta = _get_wallet_contract_cached(name)
+def get_wallet_contract_class() -> type:
+    name = "Wallet"
+    contract_meta = get_compiled_contract_cached("simplewallet.sol", name)
     contract = Contract(contract_meta, name)
     return contract
 
 
-def create_wallet(rpc: EthJsonRpc, gas=DEFAULT_WALLET_CREATION_GAS, wait_for_tx_seconds=60, daily_limit=Decimal(50)) -> Tuple[str, str, int]:
+def create_wallet(rpc: Client, gas=DEFAULT_WALLET_CREATION_GAS, wait_for_tx_seconds=60, daily_limit=Decimal(50)) -> Tuple[str, str, int]:
     """Deploy a wallet contract on the blockchain.
 
     :param rpc: Ethernet client used to deploy the contract
@@ -85,7 +68,7 @@ def create_wallet(rpc: EthJsonRpc, gas=DEFAULT_WALLET_CREATION_GAS, wait_for_tx_
     return contract_addr, txid, version
 
 
-def send_coinbase_eth(rpc: EthJsonRpc, amount: Decimal, address: str) -> str:
+def send_coinbase_eth(rpc: Client, amount: Decimal, address: str) -> str:
     """Draw some funds from the wallet coinbase account and send them to a (contract) address.
 
     :param amount: Send value in ethers
@@ -98,7 +81,7 @@ def send_coinbase_eth(rpc: EthJsonRpc, amount: Decimal, address: str) -> str:
     return txid
 
 
-def get_wallet_balance(rpc: EthJsonRpc, contract_address: str) -> Decimal:
+def get_wallet_balance(rpc: Client, contract_address: str) -> Decimal:
     """Return the wallet contract ETH holdings.
 
     :return: Amount in ether
@@ -108,7 +91,7 @@ def get_wallet_balance(rpc: EthJsonRpc, contract_address: str) -> Decimal:
     return wei_to_eth(c.get_balance())
 
 
-def withdraw_from_wallet(rpc: EthJsonRpc, contract_address: str, to_address: str, amount_in_eth: Decimal, data=None) -> str:
+def withdraw_from_wallet(rpc: Client, contract_address: str, to_address: str, amount_in_eth: Decimal, data=None) -> str:
     """Withdraw funds from a wallet contract.
 
     :param rpc: RPC client
@@ -127,6 +110,55 @@ def withdraw_from_wallet(rpc: EthJsonRpc, contract_address: str, to_address: str
 
     # multiowned.execute() called
     txid = c.withdraw(to_address, wei)
+    return txid
+
+
+def execute_from_wallet(rpc: Client,
+                        wallet_address: str,
+                        contract: ContractBase,
+                        method: str,
+                        args=[],
+                        value: Optional[Decimal]=None,
+                        gas=100000) -> str:
+    """Calls a smart contract from the hosted wallet.
+
+    Creates a transaction that is proxyed through hosted wallet execute method. We need to have ABI as Populus Contract instance.
+
+    :param wallet_address: Wallet address
+
+    :param contract: Contract to called as address bound Populus Contract class
+
+    :param method: Method name to be called
+
+    :param args: Arguments passed to the method
+
+    :param value: Additional value carried in the call in ETH
+
+    :param gas: The max amount of gas the hosted wallet is allowed to pay for this call
+
+    :return: txid of the execution as hex string
+    """
+
+    cb = get_wallet_contract_class()
+    wallet = cb(wallet_address, rpc)  # type: ContractBase
+
+    # Does this contract call carry any value
+    if value:
+        value = to_wei(value)
+    else:
+        value = 0
+
+    func = getattr(contract, method)
+
+    if args:
+        data = func.get_call_data(args)
+    else:
+        data = ""
+
+    print("Call data", data)
+
+    address = contract._meta.address
+    txid = wallet.execute(address, value, gas, data)
     return txid
 
 

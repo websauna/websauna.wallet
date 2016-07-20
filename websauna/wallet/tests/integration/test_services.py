@@ -1,11 +1,17 @@
+import random
+
 import pytest
 from decimal import Decimal
 
+import time
+
+from eth_rpc_client import Client
+
+from populus.contracts.core import ContractBase
 from shareregistry.utils import txid_to_bin, eth_address_to_bin
 from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.ethereum.utils import wei_to_eth
-from websauna.wallet.ethereum.wallet import create_wallet, send_coinbase_eth, get_wallet_balance, withdraw_from_wallet
-
+from websauna.wallet.ethereum.wallet import create_wallet, send_coinbase_eth, get_wallet_balance, withdraw_from_wallet, execute_from_wallet
 
 from websauna.wallet.tests.integration.utils import wait_tx
 
@@ -30,7 +36,6 @@ def tx_fee(client, geth_coinbase, wallet_contract_address):
 
     # Hardcoded for the geth test network
     return Decimal(10)
-
 
 
 @pytest.mark.slow
@@ -65,14 +70,11 @@ def test_fund_wallet(client, wallet_contract_address):
 
 
 @pytest.mark.slow
-def test_withdraw_wallet(client, wallet_contract_address, tx_fee):
+def test_withdraw_wallet(client, topped_up_wallet_contract_address, tx_fee):
     """Withdraw eths from wallet contract to RPC coinbase address."""
 
     coinbase_address = client.get_coinbase()
-
-    # Top up the wallet so we have something to withdraw
-    txid = send_coinbase_eth(client, TEST_VALUE*Decimal(2), wallet_contract_address)
-    wait_tx(client, txid)
+    wallet_contract_address = topped_up_wallet_contract_address
 
     current_balance = get_wallet_balance(client, wallet_contract_address)
     current_coinbase_balance = get_wallet_balance(client, coinbase_address)
@@ -80,7 +82,6 @@ def test_withdraw_wallet(client, wallet_contract_address, tx_fee):
     assert current_balance > TEST_VALUE
 
     txid = withdraw_from_wallet(client, wallet_contract_address, coinbase_address, TEST_VALUE)
-
     wait_tx(client, txid)
 
     new_balance = get_wallet_balance(client, wallet_contract_address)
@@ -94,5 +95,18 @@ def test_withdraw_wallet(client, wallet_contract_address, tx_fee):
     assert new_balance < current_balance
 
 
+@pytest.mark.slow
+def test_call_contract(client: Client, topped_up_wallet_contract_address: str, simple_test_contract: ContractBase):
+    """Call a test contract from the hosted wallet and see the value is correctly set."""
+    wallet_contract_address = topped_up_wallet_contract_address
 
+    magic = random.randint(0, 2**30)
+    txid = execute_from_wallet(client, wallet_contract_address, simple_test_contract, "setValue", args=[magic])
+    wait_tx(client, txid)
+
+    receipt = client.get_transaction_receipt(txid)
+
+    # Read the value from the public blockchain
+    import pdb ; pdb.set_trace()
+    assert simple_test_contract.value() == magic
 

@@ -1,14 +1,21 @@
 import pytest
+from decimal import Decimal
 from eth_rpc_client import Client
 
-from populus.contracts import deploy_contract
-from populus.utils import get_contract_address_from_txn
-from websauna.wallet.ethereum.ethjsonrpc import get_unlocked_json_rpc_client
-from websauna.wallet.ethereum.wallet import get_wallet_contract_class
+from populus.contracts import Contract
+from populus.contracts.core import ContractBase
+from websauna.wallet.ethereum.populuscontract import get_compiled_contract_cached
+from websauna.wallet.ethereum.wallet import send_coinbase_eth
+
+from websauna.wallet.tests.integration.utils import wait_tx, deploy_wallet, deploy_contract_tx
 
 #: We enable populus plugin for this test file
 #: http://doc.pytest.org/en/latest/plugins.html#requiring-loading-plugins-in-a-test-module-or-conftest-file
 pytest_plugins = "populus.plugin",
+
+
+#: How much funds we put to test w  allet for withdrawal tests
+TOP_UP_VALUE = Decimal("0.0003")
 
 
 @pytest.fixture(scope="module")
@@ -33,30 +40,23 @@ def wallet_contract_address(client: Client, geth_node, geth_coinbase: str) -> st
     :return: 0x prefixed hexadecimal address of the deployed contract
     """
 
-    # Make sure that we have at least one block mined
-    client.wait_for_block(1)
+    return deploy_wallet(client, geth_node, geth_coinbase)
 
-    print("Value ", client.get_balance(geth_coinbase))
 
-    # Make sure we have some ETH on coinbase account
-    # so that we can deploy a contract
-    assert client.get_balance(geth_coinbase) > 0
+@pytest.fixture(scope="module")
+def topped_up_wallet_contract_address(client, wallet_contract_address):
+    """Wallet with ensured amount of funds."""
 
-    # We define the Populus Contract class outside the scope
-    # of this example. It would come from compiled .sol
-    # file loaded through Populus framework contract
-    # mechanism.
-    contract = get_wallet_contract_class()
+    txid = send_coinbase_eth(client, TOP_UP_VALUE, wallet_contract_address)
+    wait_tx(client, txid)
+    return wallet_contract_address
 
-    # Get a transaction hash where our contract is deployed.
-    # We set gas to very high randomish value, to make sure we don't
-    # run out of gas when deploying the contract.
-    deploy_txn_hash = deploy_contract(client, contract, gas=1500000)
 
-    # Wait that the geth mines a block with the deployment
-    # transaction
-    client.wait_for_transaction(deploy_txn_hash)
+@pytest.fixture(scope="module")
+def simple_test_contract(client, geth_node, geth_coinbase) -> ContractBase:
+    """Create a contract where we can set a global variable for testing."""
 
-    contract_addr = get_contract_address_from_txn(client, deploy_txn_hash)
-
-    return contract_addr
+    contract_meta = get_compiled_contract_cached("testcontract.sol", "TestContract")
+    contract_class = Contract(contract_meta, "TestContract")
+    address = deploy_contract_tx(client, geth_node, geth_coinbase, contract_class)
+    return contract_class(address, client)
