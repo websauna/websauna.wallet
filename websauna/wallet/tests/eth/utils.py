@@ -1,5 +1,10 @@
+from typing import Tuple
+
 from populus.contracts import deploy_contract
+from populus.contracts.core import ContractBase
 from populus.utils import get_contract_address_from_txn
+from websauna.wallet.ethereum.contractlistener import ContractListener
+from websauna.wallet.ethereum.populuslistener import create_populus_listener
 from websauna.wallet.ethereum.wallet import get_wallet_contract_class
 
 
@@ -20,7 +25,7 @@ def wait_tx(eth_json_rpc, txid):
         raise ValueError("Could not broadcast transaction {}".format(txid)) from e
 
 
-def deploy_contract_tx(client, geth_node, geth_coinbase, contract: type) -> str:
+def deploy_contract_tx(client, geth_node, geth_coinbase, contract: type, constructor_args=None) -> str:
     """Deploy a contract.
 
     :return: Deployed contract address
@@ -36,7 +41,7 @@ def deploy_contract_tx(client, geth_node, geth_coinbase, contract: type) -> str:
     # Get a transaction hash where our contract is deployed.
     # We set gas to very high randomish value, to make sure we don't
     # run out of gas when deploying the contract.
-    deploy_txn_hash = deploy_contract(client, contract, gas=1500000)
+    deploy_txn_hash = deploy_contract(client, contract, gas=1500000, constructor_args=constructor_args)
 
     # Wait that the geth mines a block with the deployment
     # transaction
@@ -54,3 +59,26 @@ def deploy_wallet(client, geth_node, get_coinbase):
     # mechanism.
     contract = get_wallet_contract_class()
     return deploy_contract_tx(client, geth_node, get_coinbase, contract)
+
+
+def create_contract_listener(contract: ContractBase) -> Tuple[ContractListener, list]:
+    """Get a listener which pushes incoming events to a list object."""
+    contract_events = []
+
+    client = contract._meta.blockchain_client
+
+    def cb(wallet_contract_address, event_name, event_data, log_entry):
+        contract_events.append((event_name, event_data))
+        return True  # increase updates with 1
+
+    current_block = client.get_block_number()
+
+    listener = create_populus_listener(client, cb, contract.__class__, from_block=current_block)
+    listener.monitor_contract(contract._meta.address)
+
+    # There might be previously run tests that wrote events in the current block
+    # Let's flush them out
+    listener.poll()
+    contract_events[:] = []
+
+    return listener, contract_events

@@ -1,5 +1,10 @@
 /**
  * Simple hosted wallet contract.
+ *
+ *
+ *
+ *
+ * All error cases (throws) are reported as out of gas: http://ethereum.stackexchange.com/questions/2307/why-does-a-solidity-throw-consume-all-gas
  */
 contract Wallet {
 

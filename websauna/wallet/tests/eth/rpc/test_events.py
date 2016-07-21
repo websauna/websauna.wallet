@@ -1,20 +1,16 @@
 """Test wallet contract events. """
 import random
-from typing import Tuple
 
 import pytest
 from decimal import Decimal
 
 from eth_rpc_client import Client
 
-from populus.contracts.core import ContractBase
-from websauna.wallet.ethereum.contractlistener import ContractListener
 from websauna.wallet.ethereum.utils import to_wei, txid_to_bin
 from websauna.wallet.ethereum.wallet import send_coinbase_eth
 
 # How many ETH we move for test transactiosn
-from websauna.wallet.ethereum.populuslistener import create_populus_listener
-from websauna.wallet.tests.integration.utils import wait_tx, deploy_wallet
+from websauna.wallet.tests.eth.utils import wait_tx, create_contract_listener
 
 TEST_VALUE = Decimal("0.0001")
 
@@ -24,29 +20,6 @@ GAS_USED_BY_TRANSACTION = Decimal("32996")
 
 #: How much withdrawing from a hosted wallet costs to the wallet owner
 WITHDRAWAL_FEE = GAS_PRICE * GAS_USED_BY_TRANSACTION
-
-
-def create_contract_listener(contract: ContractBase) -> Tuple[ContractListener, list]:
-    """Get a listener which pushes incoming events to a list object."""
-    contract_events = []
-
-    client = contract._meta.blockchain_client
-
-    def cb(wallet_contract_address, event_name, event_data, log_entry):
-        contract_events.append((event_name, event_data))
-        return True  # increase updates with 1
-
-    current_block = client.get_block_number()
-
-    listener = create_populus_listener(client, cb, contract.__class__, from_block=current_block)
-    listener.monitor_contract(contract._meta.address)
-
-    # There might be previously run tests that wrote events in the current block
-    # Let's flush them out
-    listener.poll()
-    contract_events[:] = []
-
-    return listener, contract_events
 
 
 @pytest.mark.slow

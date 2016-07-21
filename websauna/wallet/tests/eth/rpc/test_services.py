@@ -13,7 +13,7 @@ from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.ethereum.utils import wei_to_eth
 from websauna.wallet.ethereum.wallet import create_wallet, send_coinbase_eth, get_wallet_balance, withdraw_from_wallet, execute_from_wallet
 
-from websauna.wallet.tests.integration.utils import wait_tx
+from websauna.wallet.tests.eth.utils import wait_tx
 
 # How many ETH we move for test transactiosn
 TEST_VALUE = Decimal("0.01")
