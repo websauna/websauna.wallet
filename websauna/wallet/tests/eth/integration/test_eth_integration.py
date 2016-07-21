@@ -6,7 +6,7 @@ from websauna.wallet.ethereum.utils import eth_address_to_bin, txid_to_bin, bin_
 from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw, CryptoOperationState
 from websauna.wallet.models.blockchain import MultipleAssetAccountsPerAddress
 
-def test_create_eth_account(dbsession, eth_network_id, client):
+def test_create_eth_account(dbsession, eth_service, eth_network_id, client):
     """Create Ethereum account on Ethereum node."""
 
     with transaction.manager:

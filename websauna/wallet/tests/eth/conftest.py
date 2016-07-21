@@ -2,11 +2,14 @@ import os
 
 import pytest
 from decimal import Decimal
+
+import transaction
 from eth_rpc_client import Client
 
 from populus.contracts import Contract
 from populus.contracts.core import ContractBase
 from populus.plugin import geth_node, geth_node_command, _start_geth_node
+from websauna.wallet.ethereum.asset import get_eth_network
 from websauna.wallet.ethereum.populuscontract import get_compiled_contract_cached
 from websauna.wallet.ethereum.utils import to_wei
 from websauna.wallet.ethereum.wallet import send_coinbase_eth, HostedWallet
@@ -137,3 +140,13 @@ def token(client, coinbase) -> ContractBase:
     return contract_class(address, client)
 
 
+
+@pytest.fixture
+def eth_network_id(dbsession):
+    """Create service to talk with Ethereum network."""
+
+    asset_network_name = "ethereum"
+
+    with transaction.manager:
+        network = get_eth_network(dbsession)
+        return network.id

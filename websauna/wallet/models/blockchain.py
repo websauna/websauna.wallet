@@ -270,6 +270,9 @@ class CryptoOperation(Base):
     #: External network transaction id for this column
     txid = Column(LargeBinary(length=32), nullable=True)
 
+    #: When this tx was put in blockchain (to calcualte confirmations)
+    block = Column(Integer, nullable=True, default=None)
+
     #: Related crypto account
     crypto_account_id = Column(ForeignKey("crypto_address_account.id"), nullable=True)
     crypto_account = relationship(CryptoAddressAccount,

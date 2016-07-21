@@ -12,17 +12,6 @@ from websauna.wallet.models import AssetNetwork, CryptoAddress, Asset
 
 
 @pytest.fixture
-def eth_network_id(dbsession):
-    """Create service to talk with Ethereum network."""
-
-    asset_network_name = "ethereum"
-
-    with transaction.manager:
-        network = get_eth_network(dbsession)
-        return network.id
-
-
-@pytest.fixture
 def eth_json_rpc(registry):
     """Create Ethereum RPC connection for integration tests."""
     return get_eth_json_rpc_client(registry)

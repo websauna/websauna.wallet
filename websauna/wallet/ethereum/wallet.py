@@ -163,13 +163,20 @@ class HostedWallet:
     Calls underlying wallet contract for wallet actions taken on the behalf of the user.
     """
 
-    def __init__(self, wallet_contract: ContractBase, version=0):
+    def __init__(self, wallet_contract: ContractBase, version=0, initial_txid=None):
+        """
+        :param wallet_contract: Populus Contract object for underlying wallet contract
+        :param version: What is the version of the deployed contract.
+        :param initial_txid: Set on wallet creation to the txid that deployed the contract. Only available objects accessed through create().
+        """
+
         # Make sure we are bound to an address
         assert wallet_contract._meta.address
         self.wallet_contract = wallet_contract
 
-        # What contract version we are using for this wallet
         self.version = version
+
+        self.initial_txid = initial_txid
 
     @property
     def address(self) -> str:
@@ -287,7 +294,7 @@ class HostedWallet:
             raise WalletCreationError("Could not create wallet with {} gas. Txid {}. Out of gas? Check in http://testnet.etherscan.io/tx/{}".format(DEFAULT_WALLET_CREATION_GAS, txid, txid))
 
         instance = contract(contract_addr, rpc)
-        return HostedWallet(instance, version=2)
+        return HostedWallet(instance, version=2, initial_txid=txid)
 
 
 
