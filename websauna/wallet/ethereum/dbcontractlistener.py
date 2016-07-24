@@ -14,7 +14,6 @@ from websauna.wallet.models import CryptoOperation
 from websauna.wallet.models import CryptoAddressDeposit
 from websauna.wallet.models import Account
 from websauna.wallet.models import AssetNetwork
-from websauna.wallet.models import Asset
 
 
 logger = logging.getLogger(__name__)
@@ -73,8 +72,8 @@ class DatabaseContractListener:
             event_hash = topics[0]
 
             try:
-                self.process_log(contract_address, event_hash, change)
-                updates += 1
+                if self.process_log(contract_address, event_hash, change):
+                    updates += 1
             except Exception as e:
                 # IF we have bad code for processing one contract, don't stop at that but keep pushing for others
                 self.logger.error("Failed to update contract %s", contract_address)
@@ -92,13 +91,24 @@ class DatabaseContractListener:
 
     def process_log(self, contract_address, event_hash: str, change: dict):
         event_name, log_data = self.parse_log_data(event_hash, change)
-        self.handle_event(event_name, contract_address, log_data, change)
+        return self.handle_event(event_name, contract_address, log_data, change)
 
     def poll(self) -> int:
+        """Scan blocks for new events.
+
+        Remember the last scanned block and start from there on next poll().
+        """
         current_block = self.client.get_block_number()
         update_count, failure_count = self.scan_logs(self.last_block, current_block)
         self.last_block = current_block
         return update_count, failure_count
+
+    def force_scan(self, from_block, to_block):
+        """Scan certain range of block for certain events.
+
+        Rescanning a block should not result to double database entries.
+        """
+        return self.scan_logs(from_block, to_block)
 
     def get_unique_transaction_id(self, log_entry: dict) -> bytes:
         """Get txid - logindex pair.
@@ -114,7 +124,14 @@ class DatabaseContractListener:
     def get_existing_op(self, opid: bytes):
         return self.dbsession.query(CryptoOperation).filter_by(opid=opid).one_or_none()
 
-    def handle_event(self, contract_address, log_data):
+    def handle_event(self, event_name: str, contract_address: str, log_data: dict, log_entry: dict) -> bool:
+        """Handle incoming smart contract event.
+
+        :param event_name: Event name as it appears in Solidity, without ABI parameters
+        :param log_data: Parsed event data using the contract ABI
+        :param log_entry: Raw log data from Geth
+        :return: True if this event resulted to database changes
+        """
         raise NotImplementedError()
 
     def get_monitored_addresses(self):
@@ -133,7 +150,7 @@ class EthWalletListener(DatabaseContractListener):
             for addr in self.dbsession.query(CryptoAddress, CryptoAddress.address).filter(CryptoAddress.network_id == self.network_id):
                 yield bin_to_eth_address(addr.address)
 
-    def handle_event(self, event_name, contract_address, log_data: dict, log_entry: dict):
+    def handle_event(self, event_name: str, contract_address: str, log_data: dict, log_entry: dict):
         """Map incoming EVM log to database entry."""
         with transaction.manager:
             opid = self.get_unique_transaction_id(log_entry)
@@ -141,7 +158,7 @@ class EthWalletListener(DatabaseContractListener):
             existing_op = self.get_existing_op(opid)
             if existing_op:
                 # Already in the database, all we need to do is to call blocknumber updater now
-                return
+                return False
 
             network = self.dbsession.query(AssetNetwork).get(self.network_id)
             address = self.dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(contract_address), network=network).one()
@@ -153,6 +170,7 @@ class EthWalletListener(DatabaseContractListener):
             op.block = int(log_entry["blockNumber"], 16)
             op.required_confirmation_count = self.confirmation_count
             self.dbsession.add(op)
+            return True
 
     def create_op(self, event_name: str, address: CryptoAddress, opid: bytes, log_data: dict, log_entry: dict) -> CryptoOperation:
         """Create new database cryptoperation matching the new event."""

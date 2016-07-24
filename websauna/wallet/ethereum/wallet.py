@@ -165,6 +165,15 @@ class HostedWallet:
         return txid, price
 
     @classmethod
+    def get(cls, rpc: Client, address: str, contract=get_wallet_contract_class()) -> "HostedWallet":
+        """Get a proxy object to existing hosted wallet contrac.t"""
+
+        assert address.startswith("0x")
+        instance = contract(address, rpc)
+        return HostedWallet(instance, rpc)
+
+
+    @classmethod
     def create(cls, rpc: Client, wait_for_tx_seconds=90, gas=DEFAULT_WALLET_CREATION_GAS, contract=get_wallet_contract_class()) -> ContractBase:
         """Creates a new hosted wallet.
 

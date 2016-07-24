@@ -201,7 +201,7 @@ class CryptoAddressAccount(Base):
     def __repr__(self):
         return self.__str__()
 
-    def withdraw(self, amount: Decimal, to_address: bytes, note: str) -> "CryptoAddressWithdraw":
+    def withdraw(self, amount: Decimal, to_address: bytes, note: str, required_confirmation_count=1) -> "CryptoAddressWithdraw":
         """Initiates the withdraw operation.
 
         :to_address: External address in binary format where we withdraw
@@ -223,6 +223,8 @@ class CryptoAddressAccount(Base):
         op = CryptoAddressWithdraw(network=network)
         op.crypto_account  = self
         op.holding_account = Account(asset=self.account.asset)
+        op.to_address = to_address
+        op.required_confirmation_count = required_confirmation_count
         dbsession = Session.object_session(self)
         dbsession.add(op)
         dbsession.flush()  # Give ids
@@ -275,13 +277,19 @@ class CryptoOperation(Base):
     #: It's up to service daemon to complete the operation and update the state field.
     state = Column(Enum(CryptoOperationState, name="operation_state"), nullable=False, default='waiting')
 
-    # When this operation was completed. This means 1) the operations was broadcasted and 2) sensible amount of blocks have been mined since broadcasting.
+    #: When this operation was completed and become final from our perspective.
     completed_at = Column(UTCDateTime, default=None, nullable=True)
+
+    #: When this operation reached wanted number of confirmations
+    confirmed_at = Column(UTCDateTime, default=None, nullable=True)
+
+    #: For withdraws we need to address where we are withdrawing to
+    to_address = Column(LargeBinary(length=20), nullable=True)
 
     #: External network transaction id for this column
     txid = Column(LargeBinary(length=32), nullable=True)
 
-    #: Txid - log index pair. See get_unique_transction_id()
+    #: Txid - log index pair for incoming tansactions. See get_unique_transction_id()
     opid = Column(LargeBinary(length=34), nullable=True, unique=True)
 
     #: When this tx was put in blockchain (to calcualte confirmations)
@@ -309,7 +317,6 @@ class CryptoOperation(Base):
                                         cascade="all, delete-orphan",
                                         single_parent=True,),)
 
-
     __mapper_args__ = {
         'polymorphic_on': operation_type,
         "order_by": created_at
@@ -325,27 +332,13 @@ class CryptoOperation(Base):
         self.completed_at = now()
         self.state = CryptoOperationState.success
 
+    def mark_confirmed(self):
+        """We have reached wanted level of confirmations and scan stop polling this tx now."""
+        self.confirmed_at = now()
+
     def update_confirmations(self, confirmation_count) -> bool:
-        """Update block since creation of this operation.
-
-        Some operations, esp. deposits are safe to confirm after certain block count after the creation of transactions. This is do avoid forking issues. For example, the general rule for Ether is that all deposits should wait 12 confirmations.
-
-        Some operations do not require confirmation count (create address).
-
-        http://ethereum.stackexchange.com/a/7304/620
-        """
-
-        # We are already done
-        if self.completed_at:
-            return False
-
-        assert self.required_confirmation_count is not None, "update_confirmations() called for non-confirmation count operation"
-
-        if confirmation_count > self.required_confirmation_count:
-            self.resolve()
-            return True
-
-        return False
+        """How this operation reacts for confirmation counts."""
+        raise NotImplementedError()
 
 
 class CryptoAddressOperation(CryptoOperation):
@@ -409,14 +402,39 @@ class CryptoAddressDeposit(CryptoOperation):
     def resolve(self):
         """Does the actual debiting on the account."""
 
+        if self.completed_at:
+            # We have already (be forced) to complete externally, we can skip this
+            return
+
         incoming_tx = self.holding_account.transactions.one()
 
         # Settle the user account
         Account.transfer(incoming_tx.amount, self.holding_account, self.crypto_account.account, incoming_tx.message)
 
         self.mark_complete()
+        self.mark_confirmed()
 
+    def update_confirmations(self, confirmation_count) -> bool:
+        """Update block since creation of this operation.
 
+        Some operations, esp. deposits are safe to confirm after certain block count after the creation of transactions. This is do avoid forking issues. For example, the general rule for Ether is that all deposits should wait 12 confirmations.
+
+        Some operations do not require confirmation count (create address).
+
+        http://ethereum.stackexchange.com/a/7304/620
+        """
+
+        # We are already done
+        if self.confirmed_at:
+            return False
+
+        assert self.required_confirmation_count is not None, "update_confirmations() called for non-confirmation count operation"
+
+        if confirmation_count > self.required_confirmation_count:
+            self.resolve()
+            return True
+
+        return False
 
 class CryptoAddressWithdraw(CryptoOperation):
     """Withdraw assets under user address.
@@ -430,6 +448,18 @@ class CryptoAddressWithdraw(CryptoOperation):
     __mapper_args__ = {
         'polymorphic_identity': CryptoOperationType.withdraw,
     }
+
+
+    def update_confirmations(self, confirmation_count) -> bool:
+        """Update how many blocks we have got.
+
+        This is only used for tracking confirmation count in UI, it does not have effect for transactions themselves.
+        """
+
+        if confirmation_count > self.required_confirmation_count:
+            self.mark_confirmed()
+            return True
+        return False
 
 
 class UserCryptoAddress(object):

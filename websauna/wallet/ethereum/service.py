@@ -35,6 +35,10 @@ class EthereumService:
 
         self.setup_listeners()
 
+    def get_withdraw_required_confirmation_count(self):
+        """How many confirmations we check on withdraw ops until we mark them confirmed."""
+        return 1
+
     def get_waiting_operation_ids(self) -> List[UUID]:
         """Get list of operations we need to attempt to perform.
 

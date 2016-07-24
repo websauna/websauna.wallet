@@ -68,7 +68,6 @@ def client(request, client_mode, client_credentials, populus_config) -> Client:
 
         request.addfinalizer(kill_it)
 
-        return client
     else:
         rpc_port = populus_config.get_value(request, 'rpc_client_port')
         rpc_hostname = populus_config.get_value(request, 'rpc_client_host')
@@ -80,7 +79,8 @@ def client(request, client_mode, client_credentials, populus_config) -> Client:
         # https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_unlockaccount
         client.make_request("personal_unlockAccount", [coinbase, password, unlock_seconds])
 
-        return client
+    client.mode = client_mode
+    return client
 
 
 @pytest.fixture(scope="module")

@@ -1,11 +1,20 @@
+import os
+
 import pytest
 import transaction
+from decimal import Decimal
 
+from eth_rpc_client import Client
+
+from populus.geth import create_geth_account
 from websauna.wallet.ethereum.ops import register_eth_operations
 from websauna.wallet.ethereum.service import EthereumService
-from websauna.wallet.ethereum.utils import bin_to_eth_address
+from websauna.wallet.ethereum.utils import bin_to_eth_address, to_wei
 from websauna.wallet.models import CryptoAddress
-from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw, CryptoOperationState
+from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw, CryptoOperationState, CryptoAddressDeposit
+from websauna.wallet.tests.eth.utils import wait_tx
+
+TEST_VALUE = Decimal("0.01")
 
 
 @pytest.fixture
@@ -42,4 +51,39 @@ def deposit_address(eth_service, eth_network_id, dbsession, registry) -> str:
 
     with transaction.manager:
         return bin_to_eth_address(dbsession.query(CryptoAddress).one().address)
+
+
+@pytest.fixture
+def withdraw_address(client: Client, dbsession, eth_service: EthereumService, coinbase, deposit_address) -> str:
+    """Create a managed hosted wallet that has withdraw balance for testing."""
+
+    # Do a transaction over ETH network
+    txid = client.send_transaction(_from=coinbase, to=deposit_address, value=to_wei(TEST_VALUE, ))
+    wait_tx(client, txid)
+
+    assert client.get_balance(deposit_address) > 0
+
+    success_op_count, failed_op_count = eth_service.run_listener_operations()
+    assert success_op_count == 1
+    assert failed_op_count == 0
+
+    with transaction.manager:
+        # We bypass normal transction confirmation count mechanism to credit the account right away to speed up the test
+        deposit = dbsession.query(CryptoAddressDeposit).one()
+        deposit.resolve()
+
+        return deposit_address
+
+
+@pytest.fixture
+def target_account(client: Client) -> str:
+    """Create external, non-database Ethereum account, that can be used as a withdrawal target.
+
+    :return: 0x address of the account
+    """
+
+    data_dir = os.getcwd()
+    account = create_geth_account(data_dir)
+    return account
+
 

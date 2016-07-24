@@ -32,7 +32,12 @@ class DatabaseConfirmationUpdater:
 
         current_block = self.client.get_block_number()
         for tx in txs:
+
             receipt = self.client.get_transaction_receipt(tx)
+            if not receipt:
+                # This withdraw transaction is still in memory pool and has not been mined into a block yet
+                continue
+
             try:
                 if self.update_tx(current_block,  receipt):
                     updates +=1
@@ -52,6 +57,11 @@ class DatabaseConfirmationUpdater:
             ops = self.dbsession.query(CryptoOperation).filter_by(txid=txid_to_bin(receipt["transactionHash"]))
 
             for op in ops:
+
+                # Withdraw operation has not gets it block yet
+                # Block number may change because of the works
+                op.block = int(receipt["blockNumber"], 16)
+
                 assert op.block <= current_block
                 confirmation_count = current_block - op.block
 
@@ -61,7 +71,7 @@ class DatabaseConfirmationUpdater:
         """Get all transactions that are lagging behind the confirmation count."""
         result = []
         with transaction.manager:
-            txs = self.dbsession.query(CryptoOperation).filter(CryptoOperation.required_confirmation_count != None, CryptoOperation.completed_at == None)
+            txs = self.dbsession.query(CryptoOperation).filter(CryptoOperation.required_confirmation_count != None, CryptoOperation.confirmed_at == None)
             for tx in txs:
                 result.append(bin_to_txid(tx.txid))
         return result

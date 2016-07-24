@@ -1,5 +1,9 @@
 from typing import Tuple
 
+from decimal import Decimal
+
+from eth_rpc_client import Client
+
 from populus.contracts import deploy_contract
 from populus.contracts.core import ContractBase
 from populus.utils import get_contract_address_from_txn
@@ -9,15 +13,21 @@ from websauna.wallet.ethereum.wallet import get_wallet_contract_class
 
 
 
+# http://testnet.etherscan.io/tx/0xe9f35838f45958f1f2ddcc24247d81ed28c4aecff3f1d431b1fe81d92db6c608
+GAS_PRICE = Decimal("0.00000002")
+GAS_USED_BY_TRANSACTION = Decimal("32996")
+
+#: How much withdrawing from a hosted wallet costs to the wallet owner
+WITHDRAWAL_FEE = GAS_PRICE * GAS_USED_BY_TRANSACTION
 
 
 NETWORK_PARAMETERS = {
-    "geth_local": {
-
+    "local_geth": {
+        "withdrawal_fee": Decimal(0)
     },
 
     "testnet": {
-
+        "withdrawal_fee": WITHDRAWAL_FEE
     }
 }
 
@@ -85,3 +95,9 @@ def create_contract_listener(contract: ContractBase) -> Tuple[ContractListener, 
     contract_events[:] = []
 
     return listener, contract_events
+
+
+def get_withdrawal_fee(client: Client) -> Decimal:
+    """How much gas HostedWallet withdraw() operation should cost."""
+    mode = client.mode
+    return NETWORK_PARAMETERS[mode]["withdrawal_fee"]
