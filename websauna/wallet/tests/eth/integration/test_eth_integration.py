@@ -68,6 +68,7 @@ def test_deposit_eth(dbsession, eth_network_id, client, eth_service, coinbase, d
         assert address.get_account(eth_asset).account.get_balance() == 0
 
         # We have one ETH account on this address
+        import pdb ; pdb.set_trace()
         assert address.crypto_address_accounts.count() == 1
 
         # We have one pending operation
