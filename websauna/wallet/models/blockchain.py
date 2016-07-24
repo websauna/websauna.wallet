@@ -1,6 +1,10 @@
 """Accounting primitives for blockchain operations."""
 
 from decimal import Decimal
+
+import binascii
+from typing import Optional
+
 import enum
 
 import sqlalchemy
@@ -16,6 +20,7 @@ from websauna.system.model.columns import UTCDateTime
 from websauna.system.user.models import User
 from websauna.utils.time import now
 from websauna.system.model.meta import Base
+from websauna.wallet.ethereum.utils import bin_to_eth_address
 from websauna.wallet.utils import ensure_positive
 
 from .account import Account
@@ -100,11 +105,9 @@ class CryptoAddress(Base):
 
         return ca_account
 
-    def get_account(self, asset: Asset) -> "CryptoAddressAccount":
+    def get_account(self, asset: Asset) -> Optional["CryptoAddressAccount"]:
         assert asset.id
         account = self.crypto_address_accounts.join(Account).filter(Account.asset_id==asset.id).one_or_none()
-        if not account:
-            account = self.create_account(asset)
         return account
 
     def get_or_create_account(self, asset: Asset) -> "CryptoAddressAccount":
@@ -114,6 +117,7 @@ class CryptoAddress(Base):
         if account:
             return account
 
+        account = self.create_account(asset)
         # Let's not breed cross network assets accidentally
         assert account.account.asset.network == asset.network
         return account
@@ -190,6 +194,12 @@ class CryptoAddressAccount(Base):
         assert account.asset
         assert account.asset.id
         super().__init__(account=account)
+
+    def __str__(self):
+        return "Address:{} account:{}".format(binascii.hexlify(self.address.address), self.account)
+
+    def __repr__(self):
+        return self.__str__()
 
     def withdraw(self, amount: Decimal, to_address: bytes, note: str) -> "CryptoAddressWithdraw":
         """Initiates the withdraw operation.

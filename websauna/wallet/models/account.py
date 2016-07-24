@@ -61,6 +61,12 @@ class Asset(Base):
 
     asset_format = Column(Integer, nullable=False, server_default="0")
 
+    def __str__(self):
+        return "Asset:{} in network:{}".format(self.symbol, self.network.name)
+
+    def __repr__(self):
+        return self.__str__()
+
     def get_local_liabilities(self):
         """Get sum how much assets we are holding on all of our accounts."""
         dbsession = Session.object_session(self)
@@ -92,7 +98,7 @@ class Account(Base):
         pass
 
     def __str__(self):
-        return "<Acc {}>".format(self.id)
+        return "<Acc:{} asset:{} bal:{}>".format(self.id, self.asset.symbol, self.get_balance())
 
     def __repr__(self):
         return self.__str__()

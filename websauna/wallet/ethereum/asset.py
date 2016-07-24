@@ -17,6 +17,11 @@ def get_eth_network(dbsession: Session, asset_network_name="ethereum") -> AssetN
 def get_ether_asset(dbsession) -> Asset:
     """Create ETH cryptocurrency instance."""
     network = get_eth_network(dbsession)
+
+    asset = dbsession.query(Asset).filter_by(network=network, symbol="ETH").one_or_none()
+    if asset:
+        return asset
+
     asset = Asset(name="Ether", symbol="ETH")
     network.assets.append(asset)
     dbsession.flush()
