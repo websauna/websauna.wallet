@@ -19,4 +19,5 @@ def get_ether_asset(dbsession) -> Asset:
     network = get_eth_network(dbsession)
     asset = Asset(name="Ether", symbol="ETH")
     network.assets.append(asset)
+    dbsession.flush()
     return asset

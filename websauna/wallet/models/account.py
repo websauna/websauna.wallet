@@ -91,6 +91,12 @@ class Account(Base):
     class BalanceException(Exception):
         pass
 
+    def __str__(self):
+        return "<Acc {}>".format(self.id)
+
+    def __repr__(self):
+        return self.__str__()
+
     def get_balance(self):
         # denormalized balance can be non-zero until the account is created
         return self.denormalized_balance or Decimal(0)
@@ -171,7 +177,10 @@ class AccountTransaction(Base):
 
     def __str__(self):
         counter_account = self.counterparty.account if self.counterparty else "-"
-        return "<A{} ${} OA{} {}>".format(self.id, self.amount, counter_account, self.message)
+        return "<ATX{} ${} FROM:{} TO:{} {}>".format(self.id, self.amount, self.account, counter_account, self.message)
+
+    def __repr__(self):
+        return self.__str__()
 
     def __json__(self, request):
         return dict(id=str(self.id), amount=float(self.amount), message=self.message)

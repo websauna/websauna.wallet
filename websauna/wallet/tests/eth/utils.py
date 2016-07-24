@@ -8,6 +8,9 @@ from websauna.wallet.ethereum.populuslistener import create_populus_listener
 from websauna.wallet.ethereum.wallet import get_wallet_contract_class
 
 
+
+
+
 NETWORK_PARAMETERS = {
     "geth_local": {
 

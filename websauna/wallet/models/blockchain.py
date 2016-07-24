@@ -100,8 +100,9 @@ class CryptoAddress(Base):
 
         return ca_account
 
-    def get_account(self, asset) -> "CryptoAddressAccount":
-        account = self.crypto_address_accounts.join(Account).filter(Account.asset==asset).one_or_none()
+    def get_account(self, asset: Asset) -> "CryptoAddressAccount":
+        assert asset.id
+        account = self.crypto_address_accounts.join(Account).filter(Account.asset_id==asset.id).one_or_none()
         if not account:
             account = self.create_account(asset)
         return account
@@ -264,14 +265,21 @@ class CryptoOperation(Base):
     #: It's up to service daemon to complete the operation and update the state field.
     state = Column(Enum(CryptoOperationState, name="operation_state"), nullable=False, default='waiting')
 
-    # When this operation was completed according to network (when included in block)
+    # When this operation was completed. This means 1) the operations was broadcasted and 2) sensible amount of blocks have been mined since broadcasting.
     completed_at = Column(UTCDateTime, default=None, nullable=True)
 
     #: External network transaction id for this column
     txid = Column(LargeBinary(length=32), nullable=True)
 
+    #: Txid - log index pair. See get_unique_transction_id()
+    opid = Column(LargeBinary(length=34), nullable=True, unique=True)
+
     #: When this tx was put in blockchain (to calcualte confirmations)
     block = Column(Integer, nullable=True, default=None)
+
+    #: Required blocks confirmation count. If set transaction listener will poll this tx until the required amount reached.
+    #: http://ethereum.stackexchange.com/questions/7303/transaction-receipts-blocks-and-confirmations
+    required_confirmation_count = Column(Integer, nullable=True, default=None)
 
     #: Related crypto account
     crypto_account_id = Column(ForeignKey("crypto_address_account.id"), nullable=True)
@@ -306,6 +314,28 @@ class CryptoOperation(Base):
         """This operation is now finalized and there should be no further changes."""
         self.completed_at = now()
         self.state = CryptoOperationState.success
+
+    def update_confirmations(self, confirmation_count) -> bool:
+        """Update block since creation of this operation.
+
+        Some operations, esp. deposits are safe to confirm after certain block count after the creation of transactions. This is do avoid forking issues. For example, the general rule for Ether is that all deposits should wait 12 confirmations.
+
+        Some operations do not require confirmation count (create address).
+
+        http://ethereum.stackexchange.com/a/7304/620
+        """
+
+        # We are already done
+        if self.completed_at:
+            return False
+
+        assert self.required_confirmation_count is not None, "update_confirmations() called for non-confirmation count operation"
+
+        if confirmation_count > self.required_confirmation_count:
+            self.resolve()
+            return True
+
+        return False
 
 
 class CryptoAddressOperation(CryptoOperation):
@@ -373,6 +403,8 @@ class CryptoAddressDeposit(CryptoOperation):
 
         # Settle the user account
         Account.transfer(incoming_tx.amount, self.holding_account, self.crypto_account.account, incoming_tx.message)
+
+        self.mark_complete()
 
 
 

@@ -3,15 +3,11 @@ import random
 import pytest
 from decimal import Decimal
 
-import time
-
 from eth_rpc_client import Client
 
 from populus.contracts.core import ContractBase
-from shareregistry.utils import txid_to_bin, eth_address_to_bin
-from websauna.wallet.ethereum.service import EthereumService
-from websauna.wallet.ethereum.utils import wei_to_eth
-from websauna.wallet.ethereum.wallet import create_wallet, send_coinbase_eth, get_wallet_balance, withdraw_from_wallet, execute_from_wallet
+from websauna.wallet.ethereum.utils import wei_to_eth, eth_address_to_bin
+from websauna.wallet.ethereum.wallet import send_coinbase_eth
 
 from websauna.wallet.tests.eth.utils import wait_tx
 
