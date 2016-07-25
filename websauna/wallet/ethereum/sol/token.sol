@@ -22,9 +22,10 @@ contract Token {
         string tokenName,
         uint8 decimalUnits,
         string tokenSymbol,
-        string versionOfTheCode
+        string versionOfTheCode,
+        address owner
         ) {
-        balanceOf[msg.sender] = initialSupply;              // Give the creator all initial tokens
+        balanceOf[owner] = initialSupply;              // Give the creator all initial tokens
         totalSupply = initialSupply;                        // Update total supply
         name = tokenName;                                   // Set the name for display purposes
         symbol = tokenSymbol;                               // Set the symbol for display purposes

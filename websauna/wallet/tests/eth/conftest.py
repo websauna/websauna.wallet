@@ -1,4 +1,5 @@
 import os
+from uuid import UUID
 
 import pytest
 from decimal import Decimal
@@ -13,6 +14,8 @@ from websauna.wallet.ethereum.asset import get_eth_network
 from websauna.wallet.ethereum.populuscontract import get_compiled_contract_cached
 from websauna.wallet.ethereum.utils import to_wei
 from websauna.wallet.ethereum.wallet import send_coinbase_eth, HostedWallet
+from websauna.wallet.models import AssetNetwork
+from websauna.wallet.models.account import AssetClass
 
 from websauna.wallet.tests.eth.utils import wait_tx, deploy_wallet, deploy_contract_tx
 
@@ -134,7 +137,7 @@ def token(client, coinbase) -> ContractBase:
     # uint8 decimalUnits,
     # string tokenSymbol,
     # string nOfTheCode
-    args = [10000, "Mootoken", 0, "MOO", "v1"]
+    args = [10000, "Mootoken", 0, "MOO", "v1", coinbase]
 
     address = deploy_contract_tx(client, geth_node, coinbase, contract_class, constructor_args=args)
     return contract_class(address, client)
@@ -150,3 +153,6 @@ def eth_network_id(dbsession):
     with transaction.manager:
         network = get_eth_network(dbsession)
         return network.id
+
+
+

@@ -27,4 +27,6 @@ celerybeat*
 .eggs
 .tox
 
+# geth test note created folders
 chains
+keystore

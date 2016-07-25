@@ -1,11 +1,13 @@
-"""Contains synchronous calls to geth daemon."""
+"""Interaction between geth and database."""
 
 from pyramid.registry import Registry
 
 from websauna.wallet.ethereum.service import EthereumService
+from websauna.wallet.ethereum.token import Token
 from websauna.wallet.ethereum.utils import txid_to_bin, eth_address_to_bin, bin_to_eth_address, to_wei
 from websauna.wallet.ethereum.wallet import HostedWallet
-from websauna.wallet.models import CryptoAddressCreation, CryptoAddressDeposit, CryptoAddressWithdraw
+from websauna.wallet.models import CryptoAddressCreation, CryptoAddressDeposit, CryptoAddressWithdraw, CryptoTokenCreation, CryptoTokenImport
+
 from .interfaces import IOperationPerformer
 
 
@@ -64,6 +66,43 @@ def withdraw_eth(service: EthereumService, op: CryptoAddressWithdraw):
     op.mark_complete()  # This cannot be cancelled
 
 
+def create_token(service: EthereumService, op: CryptoTokenCreation):
+    """Creates a new token and assigns it ownership to user.
+
+    This takes two transactions
+
+    * One to create the smart contract
+
+    * Other to assign the ownership of all tokens from coinbase to the user
+    """
+
+    # Check everyting looks sane
+    assert op.crypto_account.id
+    assert op.crypto_account.account.id
+
+    asset = op.holding_account.asset
+    assert asset.id
+
+    address = bin_to_eth_address(op.crypto_account.address.address)
+
+    # Create Tonex proxy object
+    client = service.client
+    token = Token.create(client, name=asset.name, symbol=asset.symbol, supply=asset.supply, owner=address)
+
+    # Call geth RPC API over Populus contract proxy
+    op.txid = txid_to_bin(token.initial_txid)
+    op.block = None
+    op.to_address = eth_address_to_bin(token.address)
+
+    # Set information on asset that we have now created and have its smart contract id
+    assert not asset.external_id
+    asset.external_id = op.to_address
+
+
+def import_token(service: EthereumService, op: CryptoTokenCreation):
+    pass
+
+
 def register_eth_operations(registry: Registry):
     """Register handlers for different crypto operations.
 
@@ -73,3 +112,5 @@ def register_eth_operations(registry: Registry):
     registry.registerAdapter(factory=lambda op: create_address, required=(CryptoAddressCreation,), provided=IOperationPerformer)
     registry.registerAdapter(factory=lambda op: withdraw_eth, required=(CryptoAddressWithdraw,), provided=IOperationPerformer)
     registry.registerAdapter(factory=lambda op: deposit_eth, required=(CryptoAddressDeposit,), provided=IOperationPerformer)
+    registry.registerAdapter(factory=lambda op: create_token, required=(CryptoTokenCreation,), provided=IOperationPerformer)
+    registry.registerAdapter(factory=lambda op: import_token, required=(CryptoTokenImport,), provided=IOperationPerformer)

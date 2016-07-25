@@ -81,10 +81,6 @@ class EthereumService:
 
                     # Do the actual operation
                     performer(self, op)
-
-                    op.state = CryptoOperationState.success
-                    op.completed_at = now()
-
                     success_count += 1
 
                 except Exception as e:

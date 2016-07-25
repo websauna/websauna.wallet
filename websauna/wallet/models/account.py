@@ -5,8 +5,10 @@ import enum
 import sqlalchemy
 from sqlalchemy import func
 from sqlalchemy import Enum
+from sqlalchemy import LargeBinary
 from sqlalchemy import Column, Integer, Numeric, ForeignKey, func, String
 from sqlalchemy import CheckConstraint
+import sqlalchemy.dialects.postgresql as psql
 from sqlalchemy.orm import relationship, backref, Session
 from sqlalchemy.dialects.postgresql import UUID
 from websauna.system.model.columns import UTCDateTime
@@ -21,18 +23,35 @@ class AssetNetwork(Base):
     name = Column(String(256), nullable=False)
     assets = relationship("Asset", lazy="dynamic", back_populates="network")
 
+    other_data = Column(psql.JSONB, default=dict)
+    
+    def create_asset(self, name: str, symbol: str, supply: Decimal, asset_class: "AssetClass"):
+        assert isinstance(supply, Decimal)
+        dbsession = Session.object_session(self)
+        asset = Asset(name=name, symbol=symbol, asset_class=asset_class, supply=supply)
+        self.assets.append(asset)
+        dbsession.flush()
+        return asset
 
-class AssetFormat(Enum):
+    def get_asset(self, id) -> "Asset":
+        """Get asset by id within this network."""
+        return self.assets.filter_by(id=id).one_or_none()
+
+
+class AssetClass(enum.Enum):
     """What's preferred display format for this asset."""
 
     #: 0,00
-    fiat = 1
+    fiat = "fiat"
 
     #: 100.000,000,000
-    cryptocurrency = 2
+    cryptocurrency = "cryptocurrency"
 
     #: 10.000
-    tokens = 3
+    token = "token"
+
+    #: 10.000
+    tokenized_shares = "tokenized_shares"
 
 
 class Asset(Base):
@@ -57,9 +76,17 @@ class Asset(Base):
     symbol = Column(String(32), nullable=True, default=None, unique=False)
 
     #: The id of the asset in its native network
-    external_id = Column(String(256), nullable=True, default=None)
+    external_id = Column(LargeBinary(32), nullable=True, default=None, unique=True)
 
-    asset_format = Column(Integer, nullable=False, server_default="0")
+    #: Total amount os assets in the distribution
+    supply = Column(Integer, nullable=True)
+
+    #: What kind of asset
+    #  is this
+    asset_class = Column(Enum(AssetClass), nullable=False)
+
+    #: Misc parameters we can set
+    other_data = Column(psql.JSONB, default=dict)
 
     def __str__(self):
         return "Asset:{} in network:{}".format(self.symbol, self.network.name)

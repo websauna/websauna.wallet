@@ -14,12 +14,43 @@ from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.models import AssetNetwork
 from websauna.wallet.ethereum.utils import eth_address_to_bin, txid_to_bin, bin_to_txid, to_wei, wei_to_eth
 from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw, CryptoOperationState
+from websauna.wallet.models.account import AssetClass
 from websauna.wallet.models.blockchain import MultipleAssetAccountsPerAddress, CryptoAddressDeposit
 
 # How many ETH we move for test transactiosn
 from websauna.wallet.tests.eth.utils import wait_tx, get_withdrawal_fee
 
 TEST_VALUE = Decimal("0.01")
+
+
+def wait_for_op_confirmations(eth_service: EthereumService, opid: UUID):
+    """Wait that an op reaches required level of confirmations."""
+
+    with transaction.manager:
+        op = eth_service.dbsession.query(CryptoOperation).get(opid)
+        if op.confirmed_at:
+            pytest.fail("Already confirmed")
+
+        assert op.required_confirmation_count
+
+    # Wait until the transaction confirms (1 confirmations)
+    deadline = time.time() + 47
+    while time.time() < deadline:
+        success_op_count, failed_op_count = eth_service.run_confirmation_updates()
+        if success_op_count > 0:
+
+            # Check our op went through
+            with transaction.manager:
+                op = eth_service.dbsession.query(CryptoOperation).get(opid)
+                if op.confirmed_at:
+                    break
+
+        if failed_op_count > 0:
+            pytest.fail("Faiures within confirmation wait should not happen")
+        time.sleep(1)
+
+    if time.time() > deadline:
+        pytest.fail("Did not receive confirmation updates")
 
 
 def test_create_eth_account(dbsession, eth_service, eth_network_id, client):
@@ -82,19 +113,9 @@ def test_deposit_eth(dbsession, eth_network_id, client, eth_service, coinbase, d
         assert isinstance(op, CryptoAddressDeposit)
         assert op.holding_account.get_balance() == TEST_VALUE
         assert op.completed_at is None
+        opid = op.id
 
-    # Wait until the transaction confirms (1 confirmations)
-    deadline = time.time() + 47
-    while time.time() < deadline:
-        success_op_count, failed_op_count = eth_service.run_confirmation_updates()
-        if success_op_count > 0:
-            break
-        if failed_op_count > 0:
-            pytest.fail("hsit")
-        time.sleep(1)
-
-    if time.time() > deadline:
-        pytest.fail("Did not receive confirmation updates")
+    wait_for_op_confirmations(eth_service, opid)
 
     # Now account shoult have been settled
     with transaction.manager:
@@ -222,6 +243,74 @@ def test_withdraw_eth(dbsession: Session, eth_network_id: UUID, client: Client, 
         op = ops[-1]
         assert op.confirmed_at is not None
 
+
+def test_create_token(dbsession, eth_network_id, client, eth_service, coinbase, deposit_address):
+    """Test user initiated token creation."""
+
+    # Initiate token creation operation
+    with transaction.manager:
+        network = dbsession.query(AssetNetwork).get(eth_network_id)
+        asset = network.create_asset(name="MyToken", symbol="MY", supply=Decimal(10000), asset_class=AssetClass.token)
+        address = CryptoAddress.get_network_address(network, eth_address_to_bin(deposit_address))
+        op = address.create_token(asset)
+        opid = op.id
+        aid = asset.id
+        assert op.completed_at is None
+
+        # Check asset is intact
+        assert asset.symbol == "MY"
+        assert asset.supply == 10000
+        assert asset.name == "MyToken"
+
+    # This gives op a txid when smart contract creation tx is posted to geth
+    success_count, failure_count = eth_service.run_waiting_operations()
+    assert success_count == 1
+    assert failure_count == 0
+
+    # Check that initial asset data is in place
+    with transaction.manager:
+        op = dbsession.query(CryptoOperation).get(opid)
+        network = dbsession.query(AssetNetwork).get(eth_network_id)
+        address = CryptoAddress.get_network_address(network, eth_address_to_bin(deposit_address))
+        asset = network.get_asset(aid)
+
+        assert op.txid
+        assert not op.block
+        assert op.completed_at is None
+        assert op.confirmed_at is None
+
+        # Initial balance doesn't hit us until tx has been confirmed
+        assert address.get_account(asset).account.get_balance() == 0
+
+        # Asset has received its smart contract address
+        assert asset.external_id
+
+    # Wait that the smart contract creation is confirmed
+    wait_for_op_confirmations(eth_service, opid)
+
+    # Initial balance doesn't hit us until op has enough confirmations
+    with transaction.manager:
+        op = dbsession.query(CryptoOperation).get(opid)
+        network = dbsession.query(AssetNetwork).get(eth_network_id)
+        address = CryptoAddress.get_network_address(network, eth_address_to_bin(deposit_address))
+        asset = network.get_asset(aid)
+
+        assert op.completed_at is not None
+        assert op.confirmed_at is not None
+        assert address.get_account(asset).account.get_balance() == 10000
+
+
+def test_import_token(dbsession, eth_network_id, client, eth_service, coinbase, deposit_address, token):
+    """Import an existing smart contract token to system."""
+
+    with transaction.manager:
+
+        network = dbsession.query(AssetNetwork).get(eth_network_id)
+
+        # Create a token transfer
+        # Do a transaction over ETH network
+        txid = client.send_transaction(_from=coinbase, to=deposit_address, value=to_wei(TEST_VALUE, ))
+        wait_tx(client, txid)
 
 
 

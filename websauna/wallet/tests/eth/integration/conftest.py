@@ -1,4 +1,5 @@
 import os
+from uuid import UUID
 
 import pytest
 import transaction
@@ -9,9 +10,10 @@ from eth_rpc_client import Client
 from populus.geth import create_geth_account
 from websauna.wallet.ethereum.ops import register_eth_operations
 from websauna.wallet.ethereum.service import EthereumService
-from websauna.wallet.ethereum.utils import bin_to_eth_address, to_wei
+from websauna.wallet.ethereum.utils import bin_to_eth_address, to_wei, eth_address_to_bin
 from websauna.wallet.models import CryptoAddress
 from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw, CryptoOperationState, CryptoAddressDeposit
+from websauna.wallet.models.account import AssetClass
 from websauna.wallet.tests.eth.utils import wait_tx
 
 TEST_VALUE = Decimal("0.01")
@@ -85,5 +87,29 @@ def target_account(client: Client) -> str:
     data_dir = os.getcwd()
     account = create_geth_account(data_dir)
     return account
+
+
+@pytest.fixture(scope="module")
+def token_asset(client, dbsession, eth_network_id, deploy_address, eth_service: EthereumService) -> UUID:
+    """Database asset referring to the token contract.
+
+    :return: Creation operation uuid
+    """
+
+    with transaction.manager:
+        network = dbsession.query(AssetNetwork).get(eth_network_id)
+        asset = network.create_asset(name="MyToken", symbol="MY", supply=10000, asset_class=AssetClass.token)
+        address = CryptoAddress.get_network_address(network, eth_address_to_bin(deploy_address))
+        op = address.create_token(asset)
+        opid = op.id
+
+    # This gives op a txid
+    eth_service.run_waiting_operations()
+
+    with transaction.manager:
+        op = dbsession.query(CryptoOperation).get(opid)
+        wait_tx(client, op.txid)
+        return op.asset.id
+
 
 

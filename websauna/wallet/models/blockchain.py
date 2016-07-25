@@ -12,10 +12,9 @@ from sqlalchemy import func
 from sqlalchemy import Enum
 from sqlalchemy import UniqueConstraint
 from sqlalchemy import Column, Integer, Numeric, ForeignKey, func, String, LargeBinary
-from sqlalchemy import CheckConstraint
-from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import relationship, backref, Session
 from sqlalchemy.dialects.postgresql import UUID
+import sqlalchemy.dialects.postgresql as psql
 from websauna.system.model.columns import UTCDateTime
 from websauna.system.user.models import User
 from websauna.utils.time import now
@@ -25,7 +24,6 @@ from websauna.wallet.utils import ensure_positive
 
 from .account import Account
 from .account import AssetNetwork
-from .account import AssetFormat
 from .account import Asset
 
 
@@ -34,13 +32,15 @@ class MultipleAssetAccountsPerAddress(Exception):
 
 
 class CryptoOperationType(enum.Enum):
-
+    """What different operations we support."""
     address = "address"
     create_address = "create_address"
     withdraw = "withdraw"
     deposit = "deposit"
-
+    create_token = "create_token"
+    import_token = "import_token"
     transaction = "transaction"
+
 
 class CryptoOperationState(enum.Enum):
     """Different crypto operations."""
@@ -160,6 +160,45 @@ class CryptoAddress(Base):
         op.holding_account.do_withdraw_or_deposit(amount, note)
 
         return op
+
+    def create_token(self, asset: Asset, required_confirmation_count:int=1) -> "CryptoTokenCreation":
+        """Create a token on behalf of this user."""
+        assert asset.id
+        assert asset.supply
+        assert asset.network.id
+
+        ensure_positive(asset.supply)
+
+        dbsession = Session.object_session(self)
+
+        crypto_account = self.get_or_create_account(asset)
+
+        # One transaction can contain multiple assets to the same address. Each recognized asset should result to its own operation.
+        existing = dbsession.query(CryptoTokenCreation).join(CryptoAddressAccount).join(Account).join(Asset).filter(Asset.id==asset.id).one_or_none()
+        if existing:
+            raise ValueError("Token for this asset already created.")
+
+        # Create the operation
+        op = CryptoTokenCreation(network=asset.network)
+        op.crypto_account = crypto_account
+        op.holding_account = Account(asset=asset)
+        dbsession.flush()
+        op.holding_account.do_withdraw_or_deposit(asset.supply, "Initial supply")
+        op.required_confirmation_count = required_confirmation_count
+
+        return op
+
+    @classmethod
+    def get_network_address(self, network: AssetNetwork, address: bytes):
+        """Get a hold of address object in a network by symbolic string."""
+
+        assert network.id
+        assert address
+
+        dbsession = Session.object_session(network)
+        addr = dbsession.query(CryptoAddress).filter_by(network=network, address=address).one_or_none()
+        return addr
+
 
 
 class CryptoAddressAccount(Base):
@@ -317,6 +356,9 @@ class CryptoOperation(Base):
                                         cascade="all, delete-orphan",
                                         single_parent=True,),)
 
+    #: Any other (subclass specific) data we associate with this transaction
+    other_data = Column(psql.JSONB, default=dict)
+
     __mapper_args__ = {
         'polymorphic_on': operation_type,
         "order_by": created_at
@@ -389,15 +431,8 @@ class CryptoAddressCreation(CryptoAddressOperation):
         super(CryptoAddressCreation, self).__init__(address=address)
 
 
-class CryptoAddressDeposit(CryptoOperation):
-    """Create a receiving address.
-
-    Start with null address and store the created address on this SQL row when the node creates a receiving address and has private keys stored within nodes internal storage.
-    """
-
-    __mapper_args__ = {
-        'polymorphic_identity': CryptoOperationType.deposit,
-    }
+class DepositResolver:
+    """A confirmation resolver that deposits the user account after certain number of confirmation has passed."""
 
     def resolve(self):
         """Does the actual debiting on the account."""
@@ -436,6 +471,18 @@ class CryptoAddressDeposit(CryptoOperation):
 
         return False
 
+
+class CryptoAddressDeposit(DepositResolver, CryptoOperation):
+    """Create a receiving address.
+
+    Start with null address and store the created address on this SQL row when the node creates a receiving address and has private keys stored within nodes internal storage.
+    """
+
+    __mapper_args__ = {
+        'polymorphic_identity': CryptoOperationType.deposit,
+    }
+
+
 class CryptoAddressWithdraw(CryptoOperation):
     """Withdraw assets under user address.
 
@@ -460,6 +507,25 @@ class CryptoAddressWithdraw(CryptoOperation):
             self.mark_confirmed()
             return True
         return False
+
+
+class CryptoTokenCreation(DepositResolver, CryptoOperation):
+    """Create a token.
+
+    See :meth:`CryptoAddress.create_token`.
+    """
+
+    __mapper_args__ = {
+        'polymorphic_identity': CryptoOperationType.create_token,
+    }
+
+
+class CryptoTokenImport(CryptoOperation):
+    """Import an existing smart contract token to the system."""
+
+    __mapper_args__ = {
+        'polymorphic_identity': CryptoOperationType.import_token,
+    }
 
 
 class UserCryptoAddress(object):

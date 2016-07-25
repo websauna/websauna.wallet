@@ -1,6 +1,6 @@
 """Ethereum asset modelling."""
 from sqlalchemy.orm import Session
-from websauna.wallet.models import AssetNetwork, Asset
+from websauna.wallet.models import AssetNetwork, Asset, AssetClass
 
 
 def get_eth_network(dbsession: Session, asset_network_name="ethereum") -> AssetNetwork:
@@ -22,7 +22,9 @@ def get_ether_asset(dbsession) -> Asset:
     if asset:
         return asset
 
-    asset = Asset(name="Ether", symbol="ETH")
+    # Ethereum supply is not stable
+    # https://etherscan.io/stats/supply
+    asset = Asset(name="Ether", symbol="ETH", asset_class=AssetClass.cryptocurrency, supply=0)
     network.assets.append(asset)
     dbsession.flush()
     return asset
