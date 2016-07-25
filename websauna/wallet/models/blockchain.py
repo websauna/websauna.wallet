@@ -205,6 +205,23 @@ class CryptoAddress(Base):
         asset = self.network.assets.filter_by(external_id=address).one()
         return self.get_account(asset)
 
+    @classmethod
+    def create_address(self, network: AssetNetwork) -> "CryptoAddressCreation":
+        """Initiate operation to create a new address.
+
+        Creates a new address object. Initially address.address is set to null until populated by hosted wallet creation operation.
+        """
+        assert network.id
+
+        dbsession = Session.object_session(network)
+        addr = CryptoAddress(network=network)
+        op = CryptoAddressCreation(address=addr)
+
+        dbsession.add(op)
+        dbsession.flush()
+
+        return op
+
 
 class CryptoAddressAccount(Base):
     """Hold balances of crypto currency, token or other asset in address.
@@ -376,6 +393,14 @@ class CryptoOperation(Base):
         assert network
         assert network.id
         super().__init__(network=network, **kwargs)
+
+    def __str__(self):
+        address = self.external_address and bin_to_eth_address(self.external_address) or "-"
+        account = self.crypto_account and self.crypto_account.account or "-"
+        return "{} externaladdress:{} completed:{} confirmed:{} failed:{} acc:{} holding: {}".format(self.operation_type, address, self.completed_at, self.confirmed_at, self.failed_at, account, self.holding_account)
+
+    def __repr__(self):
+        return self.__str__()
 
     def mark_complete(self):
         """This operation is now finalized and there should be no further changes."""

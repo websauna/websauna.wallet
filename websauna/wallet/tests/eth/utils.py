@@ -1,7 +1,11 @@
 from typing import Tuple
 
 from decimal import Decimal
+from uuid import UUID
 
+import pytest
+import time
+import transaction
 from eth_rpc_client import Client
 
 from populus.contracts import deploy_contract
@@ -9,11 +13,14 @@ from populus.contracts.core import ContractBase
 from populus.utils import get_contract_address_from_txn
 from websauna.wallet.ethereum.contractlistener import ContractListener
 from websauna.wallet.ethereum.populuslistener import create_populus_listener
+from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.ethereum.wallet import get_wallet_contract_class
 
 
 
 # http://testnet.etherscan.io/tx/0xe9f35838f45958f1f2ddcc24247d81ed28c4aecff3f1d431b1fe81d92db6c608
+from websauna.wallet.models import CryptoOperation
+
 GAS_PRICE = Decimal("0.00000002")
 GAS_USED_BY_TRANSACTION = Decimal("32996")
 
@@ -101,3 +108,33 @@ def get_withdrawal_fee(client: Client) -> Decimal:
     """How much gas HostedWallet withdraw() operation should cost."""
     mode = client.mode
     return NETWORK_PARAMETERS[mode]["withdrawal_fee"]
+
+
+def wait_for_op_confirmations(eth_service: EthereumService, opid: UUID):
+    """Wait that an op reaches required level of confirmations."""
+
+    with transaction.manager:
+        op = eth_service.dbsession.query(CryptoOperation).get(opid)
+        if op.confirmed_at:
+            pytest.fail("Already confirmed")
+
+        assert op.required_confirmation_count
+
+    # Wait until the transaction confirms (1 confirmations)
+    deadline = time.time() + 47
+    while time.time() < deadline:
+        success_op_count, failed_op_count = eth_service.run_event_cycle()
+        if success_op_count > 0:
+
+            # Check our op went through
+            with transaction.manager:
+                op = eth_service.dbsession.query(CryptoOperation).get(opid)
+                if op.confirmed_at:
+                    break
+
+        if failed_op_count > 0:
+            pytest.fail("Faiures within confirmation wait should not happen")
+        time.sleep(1)
+
+    if time.time() > deadline:
+        pytest.fail("Did not receive confirmation updates")

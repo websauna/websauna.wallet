@@ -13,45 +13,15 @@ from websauna.wallet.ethereum.asset import get_ether_asset
 from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.ethereum.token import Token
 from websauna.wallet.models import AssetNetwork
-from websauna.wallet.ethereum.utils import eth_address_to_bin, txid_to_bin, bin_to_txid, to_wei, wei_to_eth
+from websauna.wallet.ethereum.utils import eth_address_to_bin, txid_to_bin, bin_to_txid, to_wei, wei_to_eth, bin_to_eth_address
 from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw, CryptoOperationState
 from websauna.wallet.models.account import AssetClass
 from websauna.wallet.models.blockchain import MultipleAssetAccountsPerAddress, CryptoAddressDeposit, import_token
 
 # How many ETH we move for test transactiosn
-from websauna.wallet.tests.eth.utils import wait_tx, get_withdrawal_fee
+from websauna.wallet.tests.eth.utils import wait_tx, get_withdrawal_fee, wait_for_op_confirmations
 
 TEST_VALUE = Decimal("0.01")
-
-
-def wait_for_op_confirmations(eth_service: EthereumService, opid: UUID):
-    """Wait that an op reaches required level of confirmations."""
-
-    with transaction.manager:
-        op = eth_service.dbsession.query(CryptoOperation).get(opid)
-        if op.confirmed_at:
-            pytest.fail("Already confirmed")
-
-        assert op.required_confirmation_count
-
-    # Wait until the transaction confirms (1 confirmations)
-    deadline = time.time() + 47
-    while time.time() < deadline:
-        success_op_count, failed_op_count = eth_service.run_confirmation_updates()
-        if success_op_count > 0:
-
-            # Check our op went through
-            with transaction.manager:
-                op = eth_service.dbsession.query(CryptoOperation).get(opid)
-                if op.confirmed_at:
-                    break
-
-        if failed_op_count > 0:
-            pytest.fail("Faiures within confirmation wait should not happen")
-        time.sleep(1)
-
-    if time.time() > deadline:
-        pytest.fail("Did not receive confirmation updates")
 
 
 def test_create_eth_account(dbsession, eth_service, eth_network_id, client):
@@ -411,8 +381,151 @@ def test_deposit_token(dbsession, eth_network_id, client: Client, eth_service: E
         assert address.get_account(asset).account.get_balance() == 4000
 
 
+def test_withdraw_token(dbsession, eth_network_id, client: Client, eth_service: EthereumService, deposit_address: str, token_asset: str, target_account: str):
+    """"See that we can withdraw token outside to an account."""
+
+    with transaction.manager:
+        address = dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(deposit_address)).one()
+        asset = dbsession.query(Asset).get(token_asset)
+        caccount = address.get_account(asset)
+
+        op = caccount.withdraw(Decimal(2000), eth_address_to_bin(target_account), "Sending to friend")
+        opid = op.id
+
+        assert caccount.account.get_balance() == 8000
+
+    # Run import token operation
+    success_count, failure_count = eth_service.run_waiting_operations()
+    assert success_count == 1
+    assert failure_count == 0
+
+    # TX was broadcasted, marked as complete
+    with transaction.manager:
+        op = dbsession.query(CryptoOperation).get(opid)
+        assert isinstance(op, CryptoAddressWithdraw)
+        asset = dbsession.query(Asset).get(token_asset)
+        assert op.completed_at
+        assert not op.confirmed_at
+
+    wait_for_op_confirmations(eth_service, opid)
+
+    with transaction.manager:
+        op = dbsession.query(CryptoOperation).get(opid)
+        assert op.completed_at
+        assert op.confirmed_at
+        asset = dbsession.query(Asset).get(token_asset)
+
+        # Tokens have been removed on from account
+        token = Token.get(client, bin_to_eth_address(asset.external_id))
+        assert token.contract.balanceOf(deposit_address) == 8000
+
+        # Tokens have been credited on to account
+        token = Token.get(client, bin_to_eth_address(asset.external_id))
+        assert token.contract.balanceOf(target_account) == 2000
 
 
+def test_transfer_tokens_between_accounts(dbsession, eth_network_id, client: Client, eth_service: EthereumService, deposit_address: str, token_asset: str):
+    """Transfer tokens between two internal accounts.
 
+    Do transfers in two batches to make sure subsequent events top up correctly.
+    """
 
+    # Initiate a target address creatin
+    with transaction.manager:
+        network = dbsession.query(AssetNetwork).get(eth_network_id)
+        opid = CryptoAddress.create_address(network).id
 
+    # Run address creation
+    success_count, failure_count = eth_service.run_waiting_operations()
+    assert success_count == 1
+    assert failure_count == 0
+
+    # We resolved address creation operation.
+    # Get the fresh address for the future withdraw targets.
+    with transaction.manager:
+        op = dbsession.query(CryptoAddressCreation).get(opid)
+        addr = op.address.address
+        assert addr
+
+    # Move tokens between accounts
+    with transaction.manager:
+        address = dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(deposit_address)).one()
+        asset = dbsession.query(Asset).get(token_asset)
+        caccount = address.get_account(asset)
+
+        op = caccount.withdraw(Decimal(2000), addr, "Sending to friend")
+        opid = op.id
+
+    # Resolve transaction
+    eth_service.run_event_cycle()
+    wait_for_op_confirmations(eth_service, opid)
+
+    # See that our internal balances match
+    with transaction.manager:
+        op = dbsession.query(CryptoOperation).get(opid)
+        assert op.completed_at
+        assert op.confirmed_at
+        asset = dbsession.query(Asset).get(token_asset)
+        source = dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(deposit_address)).one()
+        target = dbsession.query(CryptoAddress).filter_by(address=addr).one()
+        for op in dbsession.query(CryptoOperation).all():
+            print(op)
+        import pdb ; pdb.set_trace()
+        assert source.get_account(asset).account.get_balance() == 8000
+        assert target.get_account(asset).account.get_balance() == 2000
+
+    # Send some more + ether
+    with transaction.manager:
+        address = dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(deposit_address)).one()
+        asset = dbsession.query(Asset).get(token_asset)
+        caccount = address.get_account(asset)
+
+        op = caccount.withdraw(Decimal(4000), addr, "Sending tokens to friend äää")
+
+        eth_asset = get_ether_asset(dbsession)
+        caccount = address.get_account(eth_asset)
+        op = caccount.withdraw(Decimal(0.01), addr, "Sending ETH to friend äää")
+        opid = op.id
+
+    # Resolve second transaction
+    eth_service.run_event_cycle()
+    wait_for_op_confirmations(eth_service, opid)
+
+    # See that our internal balances match
+    with transaction.manager:
+        op = dbsession.query(CryptoOperation).get(opid)
+        assert op.completed_at
+        assert op.confirmed_at
+        asset = dbsession.query(Asset).get(token_asset)
+        source = dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(deposit_address)).one()
+        target = dbsession.query(CryptoAddress).filter_by(address=addr).one()
+        eth_asset = get_ether_asset(dbsession)
+
+        assert source.get_account(asset).account.get_balance() == 4000
+        assert target.get_account(asset).account.get_balance() == 6000
+        assert target.get_account(eth_asset).account.get_balance() == Decimal(0.01)
+
+    # Transfer 3:
+    # Send everything back plus some ether
+    with transaction.manager:
+        address = dbsession.query(CryptoAddress).filter_by(address=addr).one()
+        asset = dbsession.query(Asset).get(token_asset)
+        caccount = address.get_account(asset)
+
+        op = caccount.withdraw(Decimal(10000), eth_address_to_bin(deposit_address), "Sending to friend äää")
+
+    # Resolve third transaction
+    eth_service.run_waiting_operations()
+    wait_for_op_confirmations(eth_service, opid)
+
+    # See that our internal balances match
+    with transaction.manager:
+        op = dbsession.query(CryptoOperation).get(opid)
+        assert op.completed_at
+        assert op.confirmed_at
+        asset = dbsession.query(Asset).get(token_asset)
+        source = dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(deposit_address)).one()
+        target = dbsession.query(CryptoAddress).filter_by(address=addr).one()
+
+        assert source.get_account(asset).account.get_balance() == 10000
+        assert target.get_account(asset).account.get_balance() == 0

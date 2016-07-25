@@ -64,15 +64,7 @@ class Token:
         :param to_address: Address we are withdrawing to
         :return: Transaction id
         """
-
-        assert isinstance(amount, Decimal)
-
-        if amount - Decimal(floor(amount)) != 0:
-            # TODO: Handle decimal units in contract units
-            raise ValueError("Cannot transfer fractional tokens")
-
-        amount = int(amount)
-
+        amount = self.validate_transfer_amount(amount)
         return self.contract.transfer(to_address, amount)
 
     @classmethod
@@ -122,5 +114,15 @@ class Token:
         instance = contract(contract_addr, rpc)
         return Token(instance, version=2, initial_txid=txid)
 
+    @classmethod
+    def validate_transfer_amount(cls, amount):
+        assert isinstance(amount, Decimal)
+
+        if amount - Decimal(floor(amount)) != 0:
+            # TODO: Handle decimal units in contract units
+            raise ValueError("Cannot transfer fractional tokens")
+
+        amount = int(amount)
+        return amount
 
 

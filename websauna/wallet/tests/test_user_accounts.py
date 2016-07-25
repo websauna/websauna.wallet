@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from websauna.tests.utils import create_user
 from websauna.tests.webserver import customized_web_server
+from websauna.wallet.models import AssetClass
 
 from ..models import AssetNetwork
 from ..models import UserOwnedAccount
@@ -18,7 +19,7 @@ def test_user_account_top_up(dbsession, registry):
         dbsession.add(network)
         dbsession.flush()
 
-        asset = Asset(name="US Dollar", symbol="USD")
+        asset = Asset(name="US Dollar", symbol="USD", asset_class=AssetClass.fiat)
         network.assets.append(asset)
         dbsession.flush()
         assert asset.id

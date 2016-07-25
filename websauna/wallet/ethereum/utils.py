@@ -22,10 +22,13 @@ def txid_to_bin(s: str) -> bytes:
     return i.to_bytes(length=256//8, byteorder="big")
 
 
-def bin_to_txid(b: bytes):
+def bin_to_txid(b: bytes) -> str:
+    """Convert binary presentation of transaction hash to 0x strings for RPC."""
     i = int.from_bytes(b, byteorder="big")
     # http://stackoverflow.com/a/12638477/315168
-    return "{0:#0{1}x}".format(i, 42)
+    tx_hash = "{0:#0{1}x}".format(i, 66)
+    assert len(tx_hash) == 66, "Transaction has must be padded to 32 bytes, got {}".format(tx_hash)
+    return tx_hash
 
 
 def bin_to_uint256(b: bytes) -> int:

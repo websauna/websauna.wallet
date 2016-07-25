@@ -1,6 +1,6 @@
 import logging
 
-from typing import Iterable, Optional, List, Tuple
+from typing import Iterable, Optional, List, Tuple, Union
 
 import transaction
 from eth_ipc_client import Client
@@ -34,13 +34,17 @@ class DatabaseConfirmationUpdater:
         for tx in txs:
 
             receipt = self.client.get_transaction_receipt(tx)
+            txinfo = self.client.get_transaction_by_hash(tx)
             if not receipt:
                 # This withdraw transaction is still in memory pool and has not been mined into a block yet
                 continue
 
             try:
-                if self.update_tx(current_block,  receipt):
+                result = self.update_tx(current_block, txinfo, receipt)
+                if result is True:
                     updates +=1
+                elif result == "fail":
+                    failures += 1
             except Exception as e:
                 logger.error("Could not update transaction %s", tx)
                 logger.exception(e)
@@ -48,7 +52,7 @@ class DatabaseConfirmationUpdater:
 
         return updates, failures
 
-    def update_tx(self, current_block: int, receipt: dict) -> bool:
+    def update_tx(self, current_block: int, txinfo: dict, receipt: dict) -> Union[bool, str]:
         """Process logs from initial log run or filter updates."""
 
         with transaction.manager:
@@ -57,6 +61,12 @@ class DatabaseConfirmationUpdater:
             ops = self.dbsession.query(CryptoOperation).filter_by(txid=txid_to_bin(receipt["transactionHash"]))
 
             for op in ops:
+
+                # http://ethereum.stackexchange.com/q/6007/620
+                if txinfo["gas"] == receipt["gasUsed"]:
+                    op.other_info["failure_reason"] = "Smart contract rejected the transaction"
+                    op.mark_failure()
+                    return "fail"
 
                 # Withdraw operation has not gets it block yet
                 # Block number may change because of the works
@@ -71,7 +81,7 @@ class DatabaseConfirmationUpdater:
         """Get all transactions that are lagging behind the confirmation count."""
         result = []
         with transaction.manager:
-            txs = self.dbsession.query(CryptoOperation).filter(CryptoOperation.required_confirmation_count != None, CryptoOperation.confirmed_at == None)
+            txs = self.dbsession.query(CryptoOperation).filter(CryptoOperation.required_confirmation_count != None, CryptoOperation.confirmed_at == None, CryptoOperation.failed_at == None, CryptoOperation.txid != None)
             for tx in txs:
                 result.append(bin_to_txid(tx.txid))
         return result

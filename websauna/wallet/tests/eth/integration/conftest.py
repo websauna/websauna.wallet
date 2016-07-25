@@ -10,11 +10,11 @@ from eth_rpc_client import Client
 from populus.geth import create_geth_account
 from websauna.wallet.ethereum.ops import register_eth_operations
 from websauna.wallet.ethereum.service import EthereumService
-from websauna.wallet.ethereum.utils import bin_to_eth_address, to_wei, eth_address_to_bin
+from websauna.wallet.ethereum.utils import bin_to_eth_address, to_wei, eth_address_to_bin, bin_to_txid
 from websauna.wallet.models import CryptoAddress
 from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw, CryptoOperationState, CryptoAddressDeposit
 from websauna.wallet.models.account import AssetClass
-from websauna.wallet.tests.eth.utils import wait_tx
+from websauna.wallet.tests.eth.utils import wait_tx, wait_for_op_confirmations
 
 TEST_VALUE = Decimal("0.01")
 
@@ -89,27 +89,36 @@ def target_account(client: Client) -> str:
     return account
 
 
-@pytest.fixture(scope="module")
-def token_asset(client, dbsession, eth_network_id, deploy_address, eth_service: EthereumService) -> UUID:
+@pytest.fixture
+def token_asset(client, dbsession, eth_network_id, deposit_address, eth_service: EthereumService) -> UUID:
     """Database asset referring to the token contract.
 
-    :return: Creation operation uuid
+    deposit_address will hold 10000 tokens
+
+    :return: Asset id
     """
 
     with transaction.manager:
         network = dbsession.query(AssetNetwork).get(eth_network_id)
-        asset = network.create_asset(name="MyToken", symbol="MY", supply=10000, asset_class=AssetClass.token)
-        address = CryptoAddress.get_network_address(network, eth_address_to_bin(deploy_address))
+        asset = network.create_asset(name="MyToken", symbol="MY", supply=Decimal(10000), asset_class=AssetClass.token)
+        address = CryptoAddress.get_network_address(network, eth_address_to_bin(deposit_address))
         op = address.create_token(asset)
         opid = op.id
+        aid = asset.id
 
     # This gives op a txid
-    eth_service.run_waiting_operations()
+    success, fails = eth_service.run_waiting_operations()
+    assert success == 1
+
+    wait_for_op_confirmations(eth_service, opid)
 
     with transaction.manager:
-        op = dbsession.query(CryptoOperation).get(opid)
-        wait_tx(client, op.txid)
-        return op.asset.id
+        network = dbsession.query(AssetNetwork).get(eth_network_id)
+        asset = dbsession.query(Asset).get(aid)
+        address = CryptoAddress.get_network_address(network, eth_address_to_bin(deposit_address))
+        account = address.get_account(asset)
+        assert account.account.get_balance() > 0
+        return aid
 
 
 

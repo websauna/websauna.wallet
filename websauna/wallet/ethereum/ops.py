@@ -3,6 +3,7 @@ from decimal import Decimal
 from pyramid.registry import Registry
 
 from populus.contracts.common import EmptyDataError
+from websauna.wallet.ethereum.asset import get_ether_asset
 from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.ethereum.token import Token
 from websauna.wallet.ethereum.utils import txid_to_bin, eth_address_to_bin, bin_to_eth_address, to_wei
@@ -39,7 +40,7 @@ def deposit_eth(service: EthereumService, op: CryptoAddressDeposit):
 
 
 def withdraw_eth(service: EthereumService, op: CryptoAddressWithdraw):
-    """Perform withdraw operation from the wallet."""
+    """Perform ETH withdraw operation from the wallet."""
 
     # Check everyting looks sane
     assert op.crypto_account.id
@@ -65,6 +66,53 @@ def withdraw_eth(service: EthereumService, op: CryptoAddressWithdraw):
     op.txid = txid_to_bin(txid)
     op.block = None
     op.mark_complete()  # This cannot be cancelled
+
+
+def withdraw_token(service: EthereumService, op: CryptoAddressWithdraw):
+    """Perform token withdraw operation from the wallet."""
+
+    # Check everyting looks sane
+    assert op.crypto_account.id
+    assert op.crypto_account.account.id
+    assert op.holding_account.id
+    assert op.holding_account.get_balance() > 0
+    assert op.external_address
+    assert op.required_confirmation_count  # Should be set by the creator
+    asset = op.holding_account.asset
+    assert asset.asset_class == AssetClass.token
+
+    from_address = bin_to_eth_address(op.crypto_account.address.address)
+    to_address = bin_to_eth_address(op.external_address)
+    asset_address = bin_to_eth_address(asset.external_id)
+
+    # How much we are withdrawing
+    amount = op.holding_account.transactions.one().amount
+
+    client = service.client
+    wallet = HostedWallet.get(client, from_address)
+    token = Token.get(client, asset_address)
+
+    amount = token.validate_transfer_amount(amount)
+
+    # Call geth RPC API over Populus contract proxy
+    txid = wallet.execute(token.contract, "transfer", [to_address, amount])
+    # Fill in details.
+    # Block number will be filled in later, when confirmation updater picks a transaction receipt for this operation.
+    op.txid = txid_to_bin(txid)
+    op.block = None
+    op.mark_complete()  # This cannot be cancelled
+
+
+def withdraw(service: EthereumService, op: CryptoAddressWithdraw):
+    """Backend has different contract types for different assets."""
+    eth = get_ether_asset(service.dbsession)
+
+    if op.holding_account.asset == eth:
+        return withdraw_eth(service, op)
+    elif op.holding_account.asset.asset_class == AssetClass.token:
+        return withdraw_token(service, op)
+    else:
+        raise RuntimeError("Unknown asset {}".format(op.holding_account.asset))
 
 
 def create_token(service: EthereumService, op: CryptoTokenCreation):
@@ -148,7 +196,7 @@ def register_eth_operations(registry: Registry):
     """
 
     registry.registerAdapter(factory=lambda op: create_address, required=(CryptoAddressCreation,), provided=IOperationPerformer)
-    registry.registerAdapter(factory=lambda op: withdraw_eth, required=(CryptoAddressWithdraw,), provided=IOperationPerformer)
+    registry.registerAdapter(factory=lambda op: withdraw, required=(CryptoAddressWithdraw,), provided=IOperationPerformer)
     registry.registerAdapter(factory=lambda op: deposit_eth, required=(CryptoAddressDeposit,), provided=IOperationPerformer)
     registry.registerAdapter(factory=lambda op: create_token, required=(CryptoTokenCreation,), provided=IOperationPerformer)
     registry.registerAdapter(factory=lambda op: import_token, required=(CryptoTokenImport,), provided=IOperationPerformer)

@@ -156,6 +156,9 @@ class EthWalletListener(DatabaseContractListener):
 
     def handle_event(self, event_name: str, contract_address: str, log_data: dict, log_entry: dict):
         """Map incoming EVM log to database entry."""
+
+        print("Checking event", event_name, log_data)
+
         with transaction.manager:
             opid = self.get_unique_transaction_id(log_entry)
 

@@ -114,6 +114,13 @@ class EthereumService:
     def run_confirmation_updates(self) -> Tuple[int, int]:
         return self.confirmation_updater.poll()
 
-    def run_event_cycle(self):
-        self.run_waiting_operations()
-        self.run_listener_operations()
+    def run_event_cycle(self) -> Tuple[int, int]:
+        """Run full event cycle for all operations."""
+        total_success = total_failure = 0
+
+        for func in (self.run_waiting_operations, self.run_listener_operations, self.run_confirmation_updates):
+            success, failure = func()
+            total_success += success
+            total_failure += failure
+
+        return total_success, total_failure
