@@ -3,6 +3,7 @@ import logging
 from typing import Iterable, Optional, List, Tuple
 
 import transaction
+from decimal import Decimal
 from eth_ipc_client import Client
 from sqlalchemy.orm import Session
 
@@ -14,6 +15,7 @@ from websauna.wallet.models import CryptoOperation
 from websauna.wallet.models import CryptoAddressDeposit
 from websauna.wallet.models import Account
 from websauna.wallet.models import AssetNetwork
+from websauna.wallet.models import Asset
 
 
 logger = logging.getLogger(__name__)
@@ -39,15 +41,16 @@ class DatabaseContractListener:
         # Parsed hex string -> event mappings.
         # We parse to avoid padding zero issues.
         event_map = {int(signature, 16): event for signature, event in events}
-
         return event_map
 
-    def scan_logs(self, from_block, to_block):
+    def scan_logs(self, from_block, to_block) -> Tuple[int, int]:
         """Look for new deposits.
 
         Assume addresses are hosted wallet smart contract addresses and scan for their event logs.
         """
         addresses = list(self.get_monitored_addresses())
+        if not addresses:
+            return 0, 0
         logs = self.client.get_logs(from_block=from_block, to_block=to_block, address=addresses)
         return self.process_logs(logs)
 
@@ -121,7 +124,8 @@ class DatabaseContractListener:
         assert len(data) < 34
         return data
 
-    def get_existing_op(self, opid: bytes):
+    def get_existing_op(self, opid: bytes) -> CryptoOperation:
+        """Check if we have already crypto operation in process for this event identified by transaction hash + log index"""
         return self.dbsession.query(CryptoOperation).filter_by(opid=opid).one_or_none()
 
     def handle_event(self, event_name: str, contract_address: str, log_data: dict, log_entry: dict) -> bool:
@@ -187,6 +191,8 @@ class EthWalletListener(DatabaseContractListener):
         crypto_account = address.get_or_create_account(asset)
         op.crypto_account = crypto_account
 
+        op.external_address = eth_address_to_bin(log_data["from"])
+
         # Create holding account that keeps the value until we receive N amount of confirmations
         acc = Account(asset=asset)
         self.dbsession.add(acc)
@@ -199,5 +205,59 @@ class EthWalletListener(DatabaseContractListener):
         return op
 
 
+class EthTokenListener(DatabaseContractListener):
+    """Listen token transfers."""
 
+    def get_monitored_addresses(self) -> Iterable[str]:
+        """Get list of all known token smart contract addresses."""
+        with transaction.manager:
+            for asset in self.dbsession.query(Asset, Asset.external_id).filter(Asset.network_id == self.network_id, Asset.external_id != None):
+                yield bin_to_eth_address(asset.external_id)
 
+    def handle_event(self, event_name: str, contract_address: str, log_data: dict, log_entry: dict):
+        """Map incoming EVM log to database entry."""
+        with transaction.manager:
+
+            opid = self.get_unique_transaction_id(log_entry)
+
+            existing_op = self.get_existing_op(opid)
+            if existing_op:
+                # Already in the database, all we need to do is to call blocknumber updater now
+                return False
+
+            network = self.dbsession.query(AssetNetwork).get(self.network_id)
+            asset = self.dbsession.query(Asset).filter_by(network=network, external_id=eth_address_to_bin(contract_address)).one()
+
+            if event_name == "Transfer":
+
+                to_address = eth_address_to_bin(log_data["to"])
+                from_address = eth_address_to_bin(log_data["from"])
+                value = Decimal(log_data["value"])
+
+                # Get destination address entry
+                address = self.dbsession.query(CryptoAddress).filter_by(address=to_address).one_or_none()
+                if not address:
+                    # Address not in our system
+                    return False
+
+                # Create operation
+                op = CryptoAddressDeposit(network=network)
+                op.opid = opid
+                op.txid = txid_to_bin(log_entry["transactionHash"])
+                op.external_address = from_address
+                op.block = int(log_entry["blockNumber"], 16)
+                op.required_confirmation_count = self.confirmation_count
+                op.crypto_account = address.get_or_create_account(asset)
+
+                # Create holding account that keeps the value until we receive N amount of confirmations
+                acc = Account(asset=asset)
+                self.dbsession.add(acc)
+                self.dbsession.flush()
+
+                acc.do_withdraw_or_deposit(value, "Token {} deposit from {} in tx {}".format(asset.symbol, log_data["from"], log_entry["transactionHash"]))
+                op.holding_account = acc
+                self.dbsession.add(op)
+                return True
+            else:
+                # Unmonitored event
+                return False

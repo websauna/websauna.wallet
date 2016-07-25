@@ -10,8 +10,9 @@ from pyramid.registry import Registry
 from sqlalchemy.orm import Session
 from websauna.utils.time import now
 from websauna.wallet.ethereum.dbconfirmationupdater import DatabaseConfirmationUpdater
-from websauna.wallet.ethereum.dbcontractlistener import EthWalletListener
+from websauna.wallet.ethereum.dbcontractlistener import EthWalletListener, EthTokenListener
 from websauna.wallet.ethereum.interfaces import IOperationPerformer
+from websauna.wallet.ethereum.token import get_token_contract_class
 from websauna.wallet.ethereum.wallet import get_wallet_contract_class
 from websauna.wallet.models import CryptoOperation, CryptoOperationState
 from .ethjsonrpc import EthJsonRpc
@@ -92,14 +93,23 @@ class EthereumService:
         return success_count, failure_count
 
     def setup_listeners(self):
+        """Setup subsystems that scan for incoming events from geth."""
         wallet_contract = get_wallet_contract_class()
+        token_contract = get_token_contract_class()
         self.eth_wallet_listener = EthWalletListener(self.client, wallet_contract, self.dbsession, self.asset_network_id)
-
+        self.eth_token_listener = EthTokenListener(self.client, token_contract, self.dbsession, self.asset_network_id)
         self.confirmation_updater = DatabaseConfirmationUpdater(self.client, self.dbsession, self.asset_network_id)
 
     def run_listener_operations(self) -> Tuple[int, int]:
         """Return number of operations events read and handled."""
-        return self.eth_wallet_listener.poll()
+        total_success = total_failure = 0
+
+        for func in (self.eth_wallet_listener.poll, self.eth_token_listener.poll):
+            success, failure = func()
+            total_success += success
+            total_failure += failure
+
+        return total_success, total_failure
 
     def run_confirmation_updates(self) -> Tuple[int, int]:
         return self.confirmation_updater.poll()

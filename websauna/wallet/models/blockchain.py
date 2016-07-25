@@ -267,7 +267,7 @@ class CryptoAddressAccount(Base):
         op = CryptoAddressWithdraw(network=network)
         op.crypto_account  = self
         op.holding_account = Account(asset=self.account.asset)
-        op.to_address = to_address
+        op.external_address = to_address
         op.required_confirmation_count = required_confirmation_count
         dbsession = Session.object_session(self)
         dbsession.add(op)
@@ -330,8 +330,8 @@ class CryptoOperation(Base):
     #: When this operation reached wanted number of confirmations
     confirmed_at = Column(UTCDateTime, default=None, nullable=True)
 
-    #: For withdraws we need to address where we are withdrawing to
-    to_address = Column(LargeBinary(length=20), nullable=True)
+    #: For withdraws we need to address where we are withdrawing to. For deposits store the address where the transfer is coming in.
+    external_address = Column(LargeBinary(length=20), nullable=True)
 
     #: External network transaction id for this column
     txid = Column(LargeBinary(length=32), nullable=True)
@@ -577,13 +577,16 @@ class UserCryptoAddress(object):
 
 
 def import_token(network: AssetNetwork, address: bytes) -> CryptoOperation:
-    """Create operation to import existing token smart contract to system as asset."""
+    """Create operation to import existing token smart contract to system as asset.
+
+    :param address: Smart contract address
+    """
 
     assert network.id
     dbsession = Session.object_session(network)
 
     op = CryptoTokenImport(network=network)
-    op.to_address = address
+    op.external_address = address
     dbsession.add(op)
     dbsession.flush()
     return op

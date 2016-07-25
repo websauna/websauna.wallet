@@ -46,7 +46,7 @@ def withdraw_eth(service: EthereumService, op: CryptoAddressWithdraw):
     assert op.crypto_account.account.id
     assert op.holding_account.id
     assert op.holding_account.get_balance() > 0
-    assert op.to_address
+    assert op.external_address
     assert op.required_confirmation_count  # Should be set by the creator
 
     address = bin_to_eth_address(op.crypto_account.address.address)
@@ -58,7 +58,7 @@ def withdraw_eth(service: EthereumService, op: CryptoAddressWithdraw):
     wallet = HostedWallet.get(client, address)
 
     # Call geth RPC API over Populus contract proxy
-    txid = wallet.withdraw(bin_to_eth_address(op.to_address), amount)
+    txid = wallet.withdraw(bin_to_eth_address(op.external_address), amount)
 
     # Fill in details.
     # Block number will be filled in later, when confirmation updater picks a transaction receipt for this operation.
@@ -93,16 +93,16 @@ def create_token(service: EthereumService, op: CryptoTokenCreation):
     # Call geth RPC API over Populus contract proxy
     op.txid = txid_to_bin(token.initial_txid)
     op.block = None
-    op.to_address = eth_address_to_bin(token.address)
+    op.external_address = eth_address_to_bin(token.address)
 
     # Set information on asset that we have now created and have its smart contract id
     assert not asset.external_id
-    asset.external_id = op.to_address
+    asset.external_id = op.external_address
 
 
 def import_token(service: EthereumService, op: CryptoTokenCreation):
     """Import existing token smart contract as asset."""
-    address = bin_to_eth_address(op.to_address)
+    address = bin_to_eth_address(op.external_address)
     token = Token.get(service.client, address)
 
     network = op.network
@@ -118,7 +118,7 @@ def import_token(service: EthereumService, op: CryptoTokenCreation):
         return
 
     asset = network.create_asset(name=name, symbol=symbol, supply=supply, asset_class=AssetClass.token)
-    asset.external_id = op.to_address
+    asset.external_id = op.external_address
 
     # Fill in balances for the addresses we host
     # TODO: Too much for one transaction

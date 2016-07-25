@@ -116,6 +116,7 @@ def test_deposit_eth(dbsession, eth_network_id, client, eth_service, coinbase, d
         assert op.completed_at is None
         opid = op.id
 
+    # Wait that we reach critical confirmation count
     wait_for_op_confirmations(eth_service, opid)
 
     # Now account shoult have been settled
@@ -368,9 +369,9 @@ def test_deposit_token(dbsession, eth_network_id, client: Client, eth_service: E
     # Import a contract where coinbase has all balance
     with transaction.manager:
         network = dbsession.query(AssetNetwork).get(eth_network_id)
-        op = import_token(network, eth_address_to_bin(token.address))
-        opid = op.id
+        import_token(network, eth_address_to_bin(token.address))
 
+    # Run import token operation
     success_count, failure_count = eth_service.run_waiting_operations()
     assert success_count == 1
     assert failure_count == 0
@@ -379,6 +380,35 @@ def test_deposit_token(dbsession, eth_network_id, client: Client, eth_service: E
     txid = token.transfer(deposit_address, Decimal(4000))
     wait_tx(client, txid)
 
+    # We should pick up incoming deposit
+    success_count, failure_count = eth_service.run_listener_operations()
+    assert success_count == 1
+    assert failure_count == 0
+
+    # Check that data is setup correctly on incoming transaction
+    with transaction.manager:
+        op = dbsession.query(CryptoOperation).all()[-1]
+        opid = op.id
+        assert not op.confirmed_at
+        address = dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(deposit_address)).one()
+        asset = op.holding_account.asset
+        assert op.holding_account.get_balance() == 4000
+        assert op.completed_at is None
+        assert address.get_account(asset).account.get_balance() == 0  # Not credited until confirmations reached
+        assert address.crypto_address_accounts.count() == 1
+
+    # Wait the token transaction to get enough confirmations
+    wait_for_op_confirmations(eth_service, opid)
+
+    # Check that the transaction is not final
+    with transaction.manager:
+        op = dbsession.query(CryptoOperation).get(opid)
+        assert op.confirmed_at
+        assert op.completed_at
+        address = dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(deposit_address)).one()
+        asset = op.holding_account.asset
+        assert op.holding_account.get_balance() == 0
+        assert address.get_account(asset).account.get_balance() == 4000
 
 
 
