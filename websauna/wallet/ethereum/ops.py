@@ -1,12 +1,13 @@
 """Interaction between geth and database."""
-
+from decimal import Decimal
 from pyramid.registry import Registry
 
+from populus.contracts.common import EmptyDataError
 from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.ethereum.token import Token
 from websauna.wallet.ethereum.utils import txid_to_bin, eth_address_to_bin, bin_to_eth_address, to_wei
 from websauna.wallet.ethereum.wallet import HostedWallet
-from websauna.wallet.models import CryptoAddressCreation, CryptoAddressDeposit, CryptoAddressWithdraw, CryptoTokenCreation, CryptoTokenImport
+from websauna.wallet.models import CryptoAddressCreation, CryptoAddressDeposit, CryptoAddressWithdraw, CryptoTokenCreation, CryptoTokenImport, AssetClass, CryptoAddress
 
 from .interfaces import IOperationPerformer
 
@@ -100,7 +101,44 @@ def create_token(service: EthereumService, op: CryptoTokenCreation):
 
 
 def import_token(service: EthereumService, op: CryptoTokenCreation):
-    pass
+    """Import existing token smart contract as asset."""
+    address = bin_to_eth_address(op.to_address)
+    token = Token.get(service.client, address)
+
+    network = op.network
+    dbsession = service.dbsession
+    try:
+        name = token.contract.name().decode("utf-8")
+        symbol = token.contract.symbol().decode("utf-8")
+        supply = Decimal(token.contract.totalSupply())
+    except EmptyDataError as e:
+        # When we try to access a contract attrib which is not supported by underlying code
+        op.mark_failed()
+        op.other_data["failure_reason"] = str(e)
+        return
+
+    asset = network.create_asset(name=name, symbol=symbol, supply=supply, asset_class=AssetClass.token)
+    asset.external_id = op.to_address
+
+    # Fill in balances for the addresses we host
+    # TODO: Too much for one transaction
+    for caddress in dbsession.query(CryptoAddress).all():
+
+        # Returns 0 for unknown addresses
+        try:
+            amount = token.contract.balanceOf(bin_to_eth_address(caddress.address))
+        except EmptyDataError as e:
+            # Bad contract doesn't define balanceOf()
+            # This leaves badly imported asset
+            op.mark_failed()
+            op.other_data["failure_reason"] = str(e)
+            return
+
+        if amount > 0:
+            account = caddress.get_or_create_account(asset)
+            account.account.do_withdraw_or_deposit(Decimal(amount), "Token contract import")
+
+    op.mark_complete()
 
 
 def register_eth_operations(registry: Registry):

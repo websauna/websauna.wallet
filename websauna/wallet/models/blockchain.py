@@ -16,6 +16,7 @@ from sqlalchemy.orm import relationship, backref, Session
 from sqlalchemy.dialects.postgresql import UUID
 import sqlalchemy.dialects.postgresql as psql
 from websauna.system.model.columns import UTCDateTime
+from websauna.system.model.json import NestedMutationDict
 from websauna.system.user.models import User
 from websauna.utils.time import now
 from websauna.system.model.meta import Base
@@ -199,6 +200,10 @@ class CryptoAddress(Base):
         addr = dbsession.query(CryptoAddress).filter_by(network=network, address=address).one_or_none()
         return addr
 
+    def get_account_by_address(self, address: bytes) -> "CryptoAddressAccount":
+        """Get account for an asset by its smart contract address."""
+        asset = self.network.assets.filter_by(external_id=address).one()
+        return self.get_account(asset)
 
 
 class CryptoAddressAccount(Base):
@@ -235,7 +240,7 @@ class CryptoAddressAccount(Base):
         super().__init__(account=account)
 
     def __str__(self):
-        return "Address:{} account:{}".format(binascii.hexlify(self.address.address), self.account)
+        return "Address:0x{} account:{}".format(binascii.hexlify(self.address.address).decode("utf-8"), self.account)
 
     def __repr__(self):
         return self.__str__()
@@ -319,6 +324,9 @@ class CryptoOperation(Base):
     #: When this operation was completed and become final from our perspective.
     completed_at = Column(UTCDateTime, default=None, nullable=True)
 
+    #: This operation failed completely and cannot be retried
+    failed_at = Column(UTCDateTime, default=None, nullable=True)
+
     #: When this operation reached wanted number of confirmations
     confirmed_at = Column(UTCDateTime, default=None, nullable=True)
 
@@ -356,8 +364,8 @@ class CryptoOperation(Base):
                                         cascade="all, delete-orphan",
                                         single_parent=True,),)
 
-    #: Any other (subclass specific) data we associate with this transaction
-    other_data = Column(psql.JSONB, default=dict)
+    #: Any other (subclass specific) data we associate with this transaction. Contains ``failure_reason`` when ``mark_failed()``
+    other_data = Column(NestedMutationDict.as_mutable(psql.JSONB), default=dict)
 
     __mapper_args__ = {
         'polymorphic_on': operation_type,
@@ -377,6 +385,11 @@ class CryptoOperation(Base):
     def mark_confirmed(self):
         """We have reached wanted level of confirmations and scan stop polling this tx now."""
         self.confirmed_at = now()
+
+    def mark_failed(self):
+        """This operation cannot be completed."""
+        self.failed_at = now()
+        self.state = CryptoOperationState.failed
 
     def update_confirmations(self, confirmation_count) -> bool:
         """How this operation reacts for confirmation counts."""
@@ -561,3 +574,16 @@ class UserCryptoAddress(object):
         # Put the creation operation in pipeline
         op = CryptoAddressCreation(address=uca.address)
         dbsession.add(op)
+
+
+def import_token(network: AssetNetwork, address: bytes) -> CryptoOperation:
+    """Create operation to import existing token smart contract to system as asset."""
+
+    assert network.id
+    dbsession = Session.object_session(network)
+
+    op = CryptoTokenImport(network=network)
+    op.to_address = address
+    dbsession.add(op)
+    dbsession.flush()
+    return op

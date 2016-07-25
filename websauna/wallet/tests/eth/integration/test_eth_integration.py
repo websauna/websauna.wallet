@@ -11,11 +11,12 @@ from sqlalchemy.orm import Session
 
 from websauna.wallet.ethereum.asset import get_ether_asset
 from websauna.wallet.ethereum.service import EthereumService
+from websauna.wallet.ethereum.token import Token
 from websauna.wallet.models import AssetNetwork
 from websauna.wallet.ethereum.utils import eth_address_to_bin, txid_to_bin, bin_to_txid, to_wei, wei_to_eth
 from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw, CryptoOperationState
 from websauna.wallet.models.account import AssetClass
-from websauna.wallet.models.blockchain import MultipleAssetAccountsPerAddress, CryptoAddressDeposit
+from websauna.wallet.models.blockchain import MultipleAssetAccountsPerAddress, CryptoAddressDeposit, import_token
 
 # How many ETH we move for test transactiosn
 from websauna.wallet.tests.eth.utils import wait_tx, get_withdrawal_fee
@@ -300,18 +301,83 @@ def test_create_token(dbsession, eth_network_id, client, eth_service, coinbase, 
         assert address.get_account(asset).account.get_balance() == 10000
 
 
-def test_import_token(dbsession, eth_network_id, client, eth_service, coinbase, deposit_address, token):
+def test_import_token(dbsession, eth_network_id, client: Client, eth_service: EthereumService, coinbase: str, deposit_address: str, token: Token):
     """Import an existing smart contract token to system."""
+
+    # Make sure we have an address that holds some of the tokens so it is cleared up during import
+    txid = token.transfer(deposit_address, Decimal(4000))
+    wait_tx(client, txid)
 
     with transaction.manager:
 
         network = dbsession.query(AssetNetwork).get(eth_network_id)
+        op = import_token(network, eth_address_to_bin(token.address))
+        opid = op.id
 
-        # Create a token transfer
-        # Do a transaction over ETH network
-        txid = client.send_transaction(_from=coinbase, to=deposit_address, value=to_wei(TEST_VALUE, ))
-        wait_tx(client, txid)
+        # Let's create another address that doesn't hold tokens
+        # and see that import doesn't fail for it
+        addr = CryptoAddress(network=network, address=eth_address_to_bin("0x2f70d3d26829e412a602e83fe8eebf80255aeea5"))
+        dbsession.add(addr)
 
+    success_count, failure_count = eth_service.run_waiting_operations()
+    assert success_count == 1
+    assert failure_count == 0
+
+    # Check that we created a new asset and its imports where fulfilled
+    with transaction.manager:
+
+        op = dbsession.query(CryptoOperation).get(opid)
+        assert op.completed_at
+
+        # We got account with tokens on it
+        network = dbsession.query(AssetNetwork).get(eth_network_id)
+        caddress = CryptoAddress.get_network_address(network, eth_address_to_bin(deposit_address))
+
+        asset = network.assets.filter_by(external_id=eth_address_to_bin(token.address)).one()
+        assert asset.name == "Mootoken"
+        assert asset.symbol == "MOO"
+        assert asset.supply == 10000
+
+        caccount = caddress.get_account_by_address(eth_address_to_bin(token.address))
+        assert caccount.account.get_balance() == 4000
+
+
+def test_import_no_address_token(dbsession: Session, eth_network_id, client: Client, eth_service: EthereumService):
+    """Import should fail for address that doesn't exist."""
+
+    with transaction.manager:
+        network = dbsession.query(AssetNetwork).get(eth_network_id)
+        # Should be random address
+        op = import_token(network, eth_address_to_bin("0x2f70d3d26829e412a602e83fe8eebf80255aeea5"))
+        opid = op.id
+
+    # Success count here means the operation passed, but might be marked as failure
+    success_count, failure_count = eth_service.run_waiting_operations()
+    assert success_count == 1
+    assert failure_count == 0
+
+    with transaction.manager:
+        op = dbsession.query(CryptoOperation).get(opid)
+        assert op.failed_at
+        assert op.other_data["failure_reason"] == "call to name() unexpectedly returned no data"
+
+
+def test_deposit_token(dbsession, eth_network_id, client: Client, eth_service: EthereumService, coinbase: str, deposit_address: str, token: Token):
+    """"See that we can deposit tokens to accounts."""
+
+    # Import a contract where coinbase has all balance
+    with transaction.manager:
+        network = dbsession.query(AssetNetwork).get(eth_network_id)
+        op = import_token(network, eth_address_to_bin(token.address))
+        opid = op.id
+
+    success_count, failure_count = eth_service.run_waiting_operations()
+    assert success_count == 1
+    assert failure_count == 0
+
+    # Coinbase transfers token balance to deposit address
+    txid = token.transfer(deposit_address, Decimal(4000))
+    wait_tx(client, txid)
 
 
 

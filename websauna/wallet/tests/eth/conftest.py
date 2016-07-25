@@ -12,6 +12,7 @@ from populus.contracts.core import ContractBase
 from populus.plugin import geth_node, geth_node_command, _start_geth_node
 from websauna.wallet.ethereum.asset import get_eth_network
 from websauna.wallet.ethereum.populuscontract import get_compiled_contract_cached
+from websauna.wallet.ethereum.token import Token
 from websauna.wallet.ethereum.utils import to_wei
 from websauna.wallet.ethereum.wallet import send_coinbase_eth, HostedWallet
 from websauna.wallet.models import AssetNetwork
@@ -129,19 +130,7 @@ def simple_test_contract(client, coinbase) -> ContractBase:
 @pytest.fixture(scope="module")
 def token(client, coinbase) -> ContractBase:
     """Deploy a token contract in the blockchain."""
-    contract_meta = get_compiled_contract_cached("token.sol", "Token")
-    contract_class = Contract(contract_meta, "Token")
-
-    # uint256 initialSupply,
-    # string tokenName,
-    # uint8 decimalUnits,
-    # string tokenSymbol,
-    # string nOfTheCode
-    args = [10000, "Mootoken", 0, "MOO", "v1", coinbase]
-
-    address = deploy_contract_tx(client, geth_node, coinbase, contract_class, constructor_args=args)
-    return contract_class(address, client)
-
+    return Token.create(client, name="Mootoken", supply=10000, symbol="MOO", owner=coinbase)
 
 
 @pytest.fixture

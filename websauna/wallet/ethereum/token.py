@@ -1,5 +1,7 @@
 """Tokenized asset support."""
+from decimal import Decimal
 from eth_ipc_client import Client
+from math import floor
 
 from populus.contracts import Contract, deploy_contract
 from populus.contracts.core import ContractBase
@@ -51,7 +53,27 @@ class Token:
     @property
     def client(self) -> Client:
         """Get access to RPC client we are using for this wallet."""
-        return self.wallet_contract._meta.blockchain_client
+        return self.contract._meta.blockchain_client
+
+    def transfer(self, to_address: str, amount: Decimal) -> str:
+        """Transfer tokens from the .
+
+        Tokens must be owned by coinbase.
+
+        :param amount: How much
+        :param to_address: Address we are withdrawing to
+        :return: Transaction id
+        """
+
+        assert isinstance(amount, Decimal)
+
+        if amount - Decimal(floor(amount)) != 0:
+            # TODO: Handle decimal units in contract units
+            raise ValueError("Cannot transfer fractional tokens")
+
+        amount = int(amount)
+
+        return self.contract.transfer(to_address, amount)
 
     @classmethod
     def get(cls, rpc: Client, address: str, contract=get_token_contract_class()) -> "Token":
