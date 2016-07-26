@@ -29,13 +29,16 @@ def create_address(service: EthereumService, op: CryptoAddressCreation):
     op.txid = txid_to_bin(txid)
     op.block = int(receipt["blockNumber"], 16)
     op.address.address = eth_address_to_bin(wallet.address)
+    op.external_address = op.address.address
 
+    op.mark_performed()
     op.mark_complete()
 
 
 def deposit_eth(service: EthereumService, op: CryptoAddressDeposit):
     """This can be settled internally, as we do not have any external communications in this point."""
     op.resolve()
+    op.mark_performed()
     op.mark_complete()
 
 
@@ -65,6 +68,8 @@ def withdraw_eth(service: EthereumService, op: CryptoAddressWithdraw):
     # Block number will be filled in later, when confirmation updater picks a transaction receipt for this operation.
     op.txid = txid_to_bin(txid)
     op.block = None
+
+    op.mark_performed()
     op.mark_complete()  # This cannot be cancelled
 
 
@@ -100,6 +105,8 @@ def withdraw_token(service: EthereumService, op: CryptoAddressWithdraw):
     # Block number will be filled in later, when confirmation updater picks a transaction receipt for this operation.
     op.txid = txid_to_bin(txid)
     op.block = None
+
+    op.mark_performed()
     op.mark_complete()  # This cannot be cancelled
 
 
@@ -118,11 +125,6 @@ def withdraw(service: EthereumService, op: CryptoAddressWithdraw):
 def create_token(service: EthereumService, op: CryptoTokenCreation):
     """Creates a new token and assigns it ownership to user.
 
-    This takes two transactions
-
-    * One to create the smart contract
-
-    * Other to assign the ownership of all tokens from coinbase to the user
     """
 
     # Check everyting looks sane
@@ -131,6 +133,9 @@ def create_token(service: EthereumService, op: CryptoTokenCreation):
 
     asset = op.holding_account.asset
     assert asset.id
+
+    # Set information on asset that we have now created and have its smart contract id
+    assert not asset.external_id, "Asset has been already assigned its smart contract id. Recreate error?"
 
     address = bin_to_eth_address(op.crypto_account.address.address)
 
@@ -143,9 +148,9 @@ def create_token(service: EthereumService, op: CryptoTokenCreation):
     op.block = None
     op.external_address = eth_address_to_bin(token.address)
 
-    # Set information on asset that we have now created and have its smart contract id
-    assert not asset.external_id
     asset.external_id = op.external_address
+
+    op.mark_performed()
 
 
 def import_token(service: EthereumService, op: CryptoTokenCreation):
@@ -186,6 +191,7 @@ def import_token(service: EthereumService, op: CryptoTokenCreation):
             account = caddress.get_or_create_account(asset)
             account.account.do_withdraw_or_deposit(Decimal(amount), "Token contract import")
 
+    op.mark_performed()
     op.mark_complete()
 
 

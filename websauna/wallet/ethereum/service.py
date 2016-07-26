@@ -9,13 +9,15 @@ from pyramid.registry import Registry
 
 from sqlalchemy.orm import Session
 from websauna.utils.time import now
+from websauna.wallet.ethereum.asset import get_eth_network
 from websauna.wallet.ethereum.dbconfirmationupdater import DatabaseConfirmationUpdater
 from websauna.wallet.ethereum.dbcontractlistener import EthWalletListener, EthTokenListener
+from websauna.wallet.ethereum.ethjsonrpc import get_eth_json_rpc_client
 from websauna.wallet.ethereum.interfaces import IOperationPerformer
 from websauna.wallet.ethereum.token import get_token_contract_class
 from websauna.wallet.ethereum.wallet import get_wallet_contract_class
 from websauna.wallet.models import CryptoOperation, CryptoOperationState
-from .ethjsonrpc import EthJsonRpc
+
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +82,8 @@ class EthereumService:
                     if not performer:
                         raise RuntimeError("Doesn't have a performer for operation {}".format(op))
 
+                    logger.info("Running op: %s", op)
+
                     # Do the actual operation
                     performer(self, op)
                     success_count += 1
@@ -124,3 +128,5 @@ class EthereumService:
             total_failure += failure
 
         return total_success, total_failure
+
+

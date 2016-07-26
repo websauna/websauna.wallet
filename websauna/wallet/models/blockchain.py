@@ -49,6 +49,9 @@ class CryptoOperationState(enum.Enum):
     #: Operation is created by web process and it's waiting to be picked up the service daemon
     waiting = "waiting"
 
+    #: Operation has been broadcasted or received from the network and is waiting for more confirmations
+    pending = "pending"
+
     #: The operation was success
     success = "success"
 
@@ -338,6 +341,9 @@ class CryptoOperation(Base):
     #: It's up to service daemon to complete the operation and update the state field.
     state = Column(Enum(CryptoOperationState, name="operation_state"), nullable=False, default='waiting')
 
+    #: The operation async speaking to network was carried out. It might not be completed or confirmed yet, as it might need network propagation to carry out. When this is set the state of the operation should be set to pending.
+    performed_at = Column(UTCDateTime, default=None, nullable=True)
+
     #: When this operation was completed and become final from our perspective.
     completed_at = Column(UTCDateTime, default=None, nullable=True)
 
@@ -401,6 +407,11 @@ class CryptoOperation(Base):
 
     def __repr__(self):
         return self.__str__()
+
+    def mark_performed(self):
+        """This operation has been broadcasted to network. It's completion and confirmation might require further network confirmations.."""
+        self.performed_at = now()
+        self.state = CryptoOperationState.pending
 
     def mark_complete(self):
         """This operation is now finalized and there should be no further changes."""
@@ -549,6 +560,12 @@ class CryptoAddressWithdraw(CryptoOperation):
 
 class CryptoTokenCreation(DepositResolver, CryptoOperation):
     """Create a token.
+
+    * Set asset information on holding_account for creation information
+
+     * Run ops to get smart contract address
+
+    * Let confirmations to resolve this and credit the initial token supply to owner :class:`CryptoAddressAccount`
 
     See :meth:`CryptoAddress.create_token`.
     """

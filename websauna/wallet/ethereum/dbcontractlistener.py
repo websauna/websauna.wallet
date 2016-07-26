@@ -157,8 +157,6 @@ class EthWalletListener(DatabaseContractListener):
     def handle_event(self, event_name: str, contract_address: str, log_data: dict, log_entry: dict):
         """Map incoming EVM log to database entry."""
 
-        print("Checking event", event_name, log_data)
-
         with transaction.manager:
             opid = self.get_unique_transaction_id(log_entry)
 
@@ -171,6 +169,10 @@ class EthWalletListener(DatabaseContractListener):
             address = self.dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(contract_address), network=network).one()
 
             op = self.create_op(event_name, address, opid, log_data, log_entry)
+            if not op:
+                # This was an event we don't care about
+                return False
+
             op.opid = opid
             op.txid = txid_to_bin(log_entry["transactionHash"])
             op.address = address
@@ -179,13 +181,23 @@ class EthWalletListener(DatabaseContractListener):
             self.dbsession.add(op)
             return True
 
-    def create_op(self, event_name: str, address: CryptoAddress, opid: bytes, log_data: dict, log_entry: dict) -> CryptoOperation:
+    def create_op(self, event_name: str, address: CryptoAddress, opid: bytes, log_data: dict, log_entry: dict) -> Optional[CryptoOperation]:
         """Create new database cryptoperation matching the new event."""
         func_name = "on_" + event_name.lower()
-        func = getattr(self, func_name)
-        return func(address, opid, log_data, log_entry)
+        func = getattr(self, func_name, None)
+
+        # This is an event we have a handler for and looking forward to modify our database based on it (Deposit)
+        if func:
+            return func(address, opid, log_data, log_entry)
+        else:
+            # Execute, etc. event we are not interested in this time
+            return None
 
     def on_deposit(self, address: CryptoAddress, opid, log_data, log_entry) -> CryptoAddressDeposit:
+        """Handle Hosted Wallet Deposit event.
+
+        Create incoming holding account holding the ETH assets until we receive enough confirmations.
+        """
 
         op = CryptoAddressDeposit(address.network)
 

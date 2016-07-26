@@ -12,7 +12,7 @@ from websauna.wallet.models.blockchain import MultipleAssetAccountsPerAddress
 
 TEST_ADDRESS = "0x2f70d3d26829e412a602e83fe8eebf80255aeea5"
 
-TEST_TXID = "0xdf829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcf"
+TEST_TXID = "0x00df829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcf"
 
 
 def test_create_eth_account(dbsession, eth_network_id, eth_service):
@@ -35,6 +35,9 @@ def test_create_eth_account(dbsession, eth_network_id, eth_service):
     def _create_address(service, op):
         assert isinstance(op.address, CryptoAddress)
         op.address.address = eth_address_to_bin(TEST_ADDRESS)
+        op.mark_performed()
+        op.mark_complete()
+
 
     with mock.patch("websauna.wallet.ethereum.ops.create_address", new=_create_address):
         success_op_count, failed_op_count = eth_service.run_waiting_operations()
