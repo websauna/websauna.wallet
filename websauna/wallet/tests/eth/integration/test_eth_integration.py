@@ -471,14 +471,24 @@ def test_transfer_tokens_between_accounts(dbsession, eth_network_id, client: Cli
         assert op.completed_at
         assert op.confirmed_at, "Op not confirmed {}".format(op)
 
+        # We should have received a Transfer operation targetting target account
+        op = dbsession.query(CryptoOperation).join(CryptoAddressAccount).join(CryptoAddress).filter_by(address=addr).one()
+        opid = op.id
+        confirmed = op.confirmed_at
+
+    # Confirm incoming Transfer
+    if not confirmed:
+        wait_for_op_confirmations(eth_service, opid)
+
+    # Check Transfer looks valid
+    with transaction.manager:
+        op = dbsession.query(CryptoOperation).get(opid)
+        assert op.completed_at
+        assert op.confirmed_at, "Op not confirmed {}".format(op)
+
         asset = dbsession.query(Asset).get(token_asset)
         source = dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(deposit_address)).one()
         target = dbsession.query(CryptoAddress).filter_by(address=addr).one()
-
-        # We should have received a Transfer operation targetting target account
-        op = dbsession.query(CryptoOperation).join(CryptoAddressAccount).join(CryptoAddress).filter_by(address=addr).one()
-        assert op.completed_at
-        assert op.confirmed_at
 
         assert source.get_account(asset).account.get_balance() == 8000
         assert target.get_account(asset).account.get_balance() == 2000

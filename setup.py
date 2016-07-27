@@ -36,7 +36,7 @@ setup(name='websauna.wallet',
       install_requires=['websauna'],
       extras_require={
         # Dependencies for running test suite
-        'test': ['websauna[test]'],
+        'test': ['websauna[test]', 'pexpect'],
 
         # Dependencies to make releases
         'dev': ['websauna[dev]'],

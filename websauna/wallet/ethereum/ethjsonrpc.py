@@ -24,7 +24,7 @@ class EthJsonRpc(Client):
         return request
 
 
-def get_eth_json_rpc_client(registry: Registry) -> EthJsonRpc:
+def get_eth_json_rpc_client(registry: Registry) -> Client:
     """Create a new Ethereum RPC client based on INI configuration."""
     assert isinstance(registry, Registry)
     host = registry.settings.get("ethereum.ethjsonrpc.host")

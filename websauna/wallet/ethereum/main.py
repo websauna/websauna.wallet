@@ -33,18 +33,22 @@ def main(argv=sys.argv):
 
     config_uri = argv[1]
 
+    # console_app sets up colored log output
     request = init_websauna(config_uri, sanity_check=True)
+
     client = get_eth_json_rpc_client(request.registry)
-    with transaction.manger:
+    with transaction.manager:
         network = get_eth_network(request.dbsession)
         network_id = network.id
 
+    sleepy = int(request.registry.settings.get("ethereum.daemon_poll_seconds", 2))
+
     service = EthereumService(client, network_id, request.dbsession, request.registry)
-    logger.info("Service started")
+    logger.info("Ethereum service started")
     while True:
         service.run_event_cycle()
         logger.info("Service event cycled")
-        time.sleep(2)
+        time.sleep(sleepy)
 
     sys.exit(0)
 
