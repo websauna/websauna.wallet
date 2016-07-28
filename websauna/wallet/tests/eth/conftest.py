@@ -135,13 +135,22 @@ def token(client, coinbase) -> ContractBase:
 
 @pytest.fixture
 def eth_network_id(dbsession):
-    """Create service to talk with Ethereum network."""
-
-    asset_network_name = "ethereum"
-
+    """Get id for Ethereum primary AssetNetwork."""
     with transaction.manager:
         network = get_eth_network(dbsession)
         return network.id
+
+
+@pytest.fixture
+def testnet_network_id(dbsession):
+    """Get id for Ethereum test AssetNetwork."""
+
+    asset_network_name = "testnet"
+
+    with transaction.manager:
+        network = get_eth_network(dbsession, asset_network_name)
+        return network.id
+
 
 
 

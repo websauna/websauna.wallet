@@ -6,6 +6,9 @@ import mock
 from decimal import Decimal
 
 import sqlalchemy
+
+from websauna.tests.utils import create_user
+from websauna.wallet.ethereum.asset import setup_user_account
 from websauna.wallet.ethereum.utils import eth_address_to_bin, txid_to_bin, bin_to_txid
 from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw, CryptoOperationState
 from websauna.wallet.models.blockchain import MultipleAssetAccountsPerAddress
@@ -226,4 +229,30 @@ def test_withdraw_eth_account(dbsession, eth_service, eth_network_id, eth_asset_
         assert isinstance(ops[0], CryptoAddressWithdraw)
         assert ops[0].state == CryptoOperationState.success
         assert ops[0].txid == txid_to_bin(TEST_TXID)
+
+
+def test_setup_user_account(dbsession, registry, eth_service, testnet_service, eth_network_id):
+    """See that we create primary and testnet address."""
+
+    with transaction.manager:
+        user = create_user(dbsession, registry)
+        setup_user_account(user)
+        assert user.owned_crypto_addresses.count() == 2  # 2 addresses
+        assert user.owned_crypto_operations.count() == 2  # 2 account creations
+
+    def _create_address(service, op):
+        print("xxx")
+        assert isinstance(op.address, CryptoAddress)
+        op.address.address = eth_address_to_bin(TEST_ADDRESS)
+        op.mark_performed()
+        op.mark_complete()
+
+    with mock.patch("websauna.wallet.ethereum.ops.create_address", new=_create_address):
+        success_op_count, failed_op_count = eth_service.run_waiting_operations()
+        assert success_op_count == 1
+        assert failed_op_count == 0
+
+        success_op_count, failed_op_count = testnet_service.run_waiting_operations()
+        assert success_op_count == 1
+        assert failed_op_count == 0
 

@@ -1,0 +1,2 @@
+"""Test basic wallet functionality."""
+

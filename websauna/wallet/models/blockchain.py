@@ -583,18 +583,20 @@ class CryptoTokenImport(CryptoOperation):
     }
 
 
-class UserCryptoAddress(object):
+class UserCryptoAddress(Base):
     """An account belonging to a some user."""
 
     __tablename__ = "user_owned_crypto_address"
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=sqlalchemy.text("uuid_generate_v4()"),)
 
-    address_account_id = Column(ForeignKey("crypto_address_account.id"))
-    address_account_id = relationship(CryptoAddressAccount,
+    #: User given label for this address
+    name = Column(String(256))
+
+    address_id = Column(ForeignKey("crypto_address.id"), nullable=False)
+    address = relationship(CryptoAddress,
                            single_parent=True,
                            cascade="all, delete-orphan",
-                           primaryjoin=address_account_id == CryptoAddressAccount.id,
                            backref="user_owned_crypto_addresses")
 
     user_id = Column(ForeignKey("users.id"), nullable=False)
@@ -616,6 +618,27 @@ class UserCryptoAddress(object):
         # Put the creation operation in pipeline
         op = CryptoAddressCreation(address=uca.address)
         dbsession.add(op)
+
+
+class UserCryptoOperation(Base):
+    """Operation initiated by a user.."""
+
+    __tablename__ = "user_crypto_operation"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=sqlalchemy.text("uuid_generate_v4()"),)
+
+    crypto_operation_id = Column(ForeignKey("crypto_operation.id"), nullable=False)
+    crypto_operation = relationship(CryptoOperation,
+                           single_parent=True,
+                           cascade="all, delete-orphan",
+                           backref="user_crypto_operations")
+
+    user_id = Column(ForeignKey("users.id"), nullable=False)
+    user = relationship(User,
+                        backref=backref("owned_crypto_operations",
+                                        lazy="dynamic",
+                                        cascade="all, delete-orphan",
+                                        single_parent=True,),)
 
 
 def import_token(network: AssetNetwork, address: bytes) -> CryptoOperation:

@@ -66,6 +66,7 @@ class EthereumService:
         failure_count = 0
 
         ops = self.get_waiting_operation_ids()
+
         for o_id in ops:
             with transaction.manager:
                 op = self.dbsession.query(CryptoOperation).get(o_id)
