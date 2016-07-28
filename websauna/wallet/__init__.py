@@ -39,10 +39,15 @@ class AddonInitializer:
         self.config.scan(adminviews)
         self.config.scan(panels)
 
-    def run(self):
-        # We override this method, so that we route home to our home screen, not Websauna default one
+    @after(Initializer.configure_views)
+    def configure_views(self):
+        self.config.add_route('wallet', '/wallet/*traverse', factory="websauna.wallet.views.wallet.route_factory")
+
         from . import views
         self.config.scan(views)
+
+    def run(self):
+        # We override this method, so that we route home to our home screen, not Websauna default one
         bind_events(self.config.registry.initializer, self)
 
 

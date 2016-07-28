@@ -7,6 +7,7 @@ from decimal import Decimal
 
 import sqlalchemy
 
+from websauna.system.user.models import User
 from websauna.tests.utils import create_user
 from websauna.wallet.ethereum.asset import setup_user_account
 from websauna.wallet.ethereum.utils import eth_address_to_bin, txid_to_bin, bin_to_txid
@@ -241,7 +242,6 @@ def test_setup_user_account(dbsession, registry, eth_service, testnet_service, e
         assert user.owned_crypto_operations.count() == 2  # 2 account creations
 
     def _create_address(service, op):
-        print("xxx")
         assert isinstance(op.address, CryptoAddress)
         op.address.address = eth_address_to_bin(TEST_ADDRESS)
         op.mark_performed()
@@ -255,4 +255,12 @@ def test_setup_user_account(dbsession, registry, eth_service, testnet_service, e
         success_op_count, failed_op_count = testnet_service.run_waiting_operations()
         assert success_op_count == 1
         assert failed_op_count == 0
+
+    # Make sure more addresses is not get created when we are called again
+    with transaction.manager:
+        user = dbsession.query(User).first()
+        setup_user_account(user)
+        assert user.owned_crypto_addresses.count() == 2  # 2 addresses
+        assert user.owned_crypto_operations.count() == 2  # 2 account creations
+
 
