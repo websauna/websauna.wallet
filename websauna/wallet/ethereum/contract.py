@@ -22,7 +22,7 @@ def deploy_contract(
         timeout=60.0,
         constructor_arguments: Optional[list]=None,
         from_account=None) -> Tuple[_Contract, str]:
-    """Deploys a contract using Web3 client.
+    """Deploys a single contract using Web3 client.
 
     :param web3: Web3 client instance
 

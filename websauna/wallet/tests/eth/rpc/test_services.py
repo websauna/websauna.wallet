@@ -8,7 +8,7 @@ from eth_rpc_client import Client
 from websauna.wallet.ethereum.contract import Contract
 from websauna.wallet.ethereum.utils import wei_to_eth, eth_address_to_bin
 
-from websauna.wallet.tests.eth.utils import wait_tx
+from websauna.wallet.tests.eth.utils import wait_tx, send_balance_to_contract
 
 # How many ETH we move for test transactiosn
 TEST_VALUE = Decimal("0.01")
@@ -34,7 +34,7 @@ def tx_fee(client, geth_coinbase, hosted_wallet):
 
 
 @pytest.mark.slow
-def test_create_wallet(client, hosted_wallet):
+def test_create_wallet(hosted_wallet):
     """Deploy a wallet contract on a testnet chain.
 
     """
@@ -44,15 +44,15 @@ def test_create_wallet(client, hosted_wallet):
 
 
 @pytest.mark.slow
-def test_fund_wallet(client, hosted_wallet):
+def test_fund_wallet(web3, coinbase, hosted_wallet):
     """Send some funds int the wallet and see the balance updates."""
 
-    current_balance = hosted_wallet.get_balance()
+    current_balance = wei_to_eth(web3.eth.getBalance(hosted_wallet.address))
 
     # value = get_wallet_balance(wallet_contract_address)
-    txid = send_coinbase_eth(client, TEST_VALUE, hosted_wallet.address)
+    txid = send_balance_to_contract(hosted_wallet, TEST_VALUE)
 
-    wait_tx(client, txid)
+    wait_tx(web3, txid)
 
     new_balance = hosted_wallet.get_balance()
 

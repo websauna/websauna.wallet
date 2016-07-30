@@ -16,7 +16,7 @@ from websauna.wallet.ethereum.wallet import HostedWallet
 from websauna.wallet.models import AssetNetwork
 from websauna.wallet.models.account import AssetClass
 
-from websauna.wallet.tests.eth.utils import wait_tx, deploy_wallet, deploy_contract_tx
+from websauna.wallet.tests.eth.utils import wait_tx
 
 #: We enable populus plugin for this test file
 #: http://doc.pytest.org/en/latest/plugins.html#requiring-loading-plugins-in-a-test-module-or-conftest-file

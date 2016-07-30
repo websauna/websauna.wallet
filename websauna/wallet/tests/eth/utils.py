@@ -7,16 +7,17 @@ import pytest
 import time
 import transaction
 from eth_rpc_client import Client
+from web3 import Web3
 
+from populus.utils.transactions import wait_for_transaction_receipt
 from websauna.wallet.ethereum.contract import Contract
 from websauna.wallet.ethereum.contractlistener import ContractListener
 from websauna.wallet.ethereum.populuslistener import create_populus_listener
 from websauna.wallet.ethereum.service import EthereumService
-from websauna.wallet.ethereum.wallet import get_wallet_contract_class
-
 
 
 # http://testnet.etherscan.io/tx/0xe9f35838f45958f1f2ddcc24247d81ed28c4aecff3f1d431b1fe81d92db6c608
+from websauna.wallet.ethereum.utils import to_wei
 from websauna.wallet.models import CryptoOperation
 
 GAS_PRICE = Decimal("0.00000002")
@@ -36,47 +37,8 @@ NETWORK_PARAMETERS = {
     }
 }
 
-def wait_tx(eth_json_rpc, txid):
-    try:
-        eth_json_rpc.wait_for_transaction(txid, max_wait=90.0)
-    except ValueError as e:
-        raise ValueError("Could not broadcast transaction {}".format(txid)) from e
-
-
-def deploy_contract_tx(client, geth_node, geth_coinbase, contract: type, constructor_args=None) -> str:
-    """Deploy a contract.
-
-    :return: Deployed contract address
-    """
-
-    # Make sure that we have at least one block mined
-    client.wait_for_block(1)
-
-    # Make sure we have some ETH on coinbase account
-    # so that we can deploy a contract
-    assert client.get_balance(geth_coinbase) > 0
-
-    # Get a transaction hash where our contract is deployed.
-    # We set gas to very high randomish value, to make sure we don't
-    # run out of gas when deploying the contract.
-    deploy_txn_hash = deploy_contract(client, contract, gas=1500000, constructor_args=constructor_args)
-
-    # Wait that the geth mines a block with the deployment
-    # transaction
-    client.wait_for_transaction(deploy_txn_hash)
-
-    contract_addr = get_contract_address_from_txn(client, deploy_txn_hash)
-
-    return contract_addr
-
-
-def deploy_wallet(client, geth_node, get_coinbase):
-    # We define the Populus Contract class outside the scope
-    # of this example. It would come from compiled .sol
-    # file loaded through Populus framework contract
-    # mechanism.
-    contract = get_wallet_contract_class()
-    return deploy_contract_tx(client, geth_node, get_coinbase, contract)
+def wait_tx(web3: Web3, txid: str):
+    wait_for_transaction_receipt(web3, txid, 60)
 
 
 def create_contract_listener(contract: Contract) -> Tuple[ContractListener, list]:
@@ -136,3 +98,21 @@ def wait_for_op_confirmations(eth_service: EthereumService, opid: UUID):
 
     if time.time() > deadline:
         pytest.fail("Did not receive confirmation updates")
+
+
+def send_balance_to_contract(contract: Contract, value: Decimal) -> str:
+    """Send balance from geth coinbase to the contract.
+
+    :param contract: Contract instance with an address
+
+    :param value: How much to send
+
+    :return: Transaction hash of the send operation
+    """
+    web3 = contract.web3
+    tx = {
+        "from": web3.eth.coinbase,
+        "to": contract.address,
+        "value": to_wei(value)
+    }
+    return web3.eth.sendTransaction(tx)
