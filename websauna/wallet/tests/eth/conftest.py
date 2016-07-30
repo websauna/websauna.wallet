@@ -6,17 +6,20 @@ from decimal import Decimal
 
 import transaction
 from eth_rpc_client import Client
+from web3 import Web3, RPCProvider
+from populus.chain import testing_geth_process
+
 
 from websauna.wallet.ethereum.asset import get_eth_network
 from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
-from websauna.wallet.ethereum.contract import Contract
+from websauna.wallet.ethereum.contract import Contract, deploy_contract
 from websauna.wallet.ethereum.token import Token
 from websauna.wallet.ethereum.utils import to_wei
 from websauna.wallet.ethereum.wallet import HostedWallet
 from websauna.wallet.models import AssetNetwork
 from websauna.wallet.models.account import AssetClass
 
-from websauna.wallet.tests.eth.utils import wait_tx
+from websauna.wallet.tests.eth.utils import wait_tx, send_balance_to_contract
 
 #: We enable populus plugin for this test file
 #: http://doc.pytest.org/en/latest/plugins.html#requiring-loading-plugins-in-a-test-module-or-conftest-file
@@ -44,10 +47,6 @@ def client_credentials(registry) -> tuple:
     password = registry.settings.get("ethereum.ethjsonrpc.unlock_password", "")
     unlock_seconds = int(registry.settings.get("ethereum.ethjsonrpc.unlock_seconds", 24 * 3600))
     return password, unlock_seconds
-
-
-from web3 import Web3, RPCProvider
-from populus.chain import testing_geth_process
 
 
 @pytest.fixture(scope="session")
@@ -111,22 +110,21 @@ def hosted_wallet(web3: Web3, coinbase: str) -> HostedWallet:
 
 
 @pytest.fixture(scope="module")
-def topped_up_hosted_wallet(client, coinbase, hosted_wallet):
+def topped_up_hosted_wallet(web3, hosted_wallet):
     """Wallet with ensured amount of funds."""
 
-    txid = client.send_transaction(_from=coinbase, to=hosted_wallet.address, value=to_wei(TOP_UP_VALUE))
-    wait_tx(client, txid)
+    txid = send_balance_to_contract(hosted_wallet, TOP_UP_VALUE)
+    wait_tx(web3, txid)
     return hosted_wallet
 
 
 @pytest.fixture(scope="module")
-def simple_test_contract(client, coinbase) -> Contract:
+def simple_test_contract(web3) -> Contract:
     """Create a contract where we can set a global variable for testing."""
 
-    contract_meta = get_compiled_contract_cached("testcontract.sol", "TestContract")
-    contract_class = Contract(contract_meta, "TestContract")
-    address = deploy_contract_tx(client, geth_node, coinbase, contract_class)
-    return contract_class(address, client)
+    contract_def= get_compiled_contract_cached("TestContract")
+    contract, txid = deploy_contract(web3, contract_def)
+    return contract
 
 
 @pytest.fixture(scope="module")

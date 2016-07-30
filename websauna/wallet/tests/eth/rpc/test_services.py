@@ -3,7 +3,7 @@ import random
 import pytest
 from decimal import Decimal
 
-from eth_rpc_client import Client
+from web3 import Web3
 
 from websauna.wallet.ethereum.contract import Contract
 from websauna.wallet.ethereum.utils import wei_to_eth, eth_address_to_bin
@@ -12,25 +12,6 @@ from websauna.wallet.tests.eth.utils import wait_tx, send_balance_to_contract
 
 # How many ETH we move for test transactiosn
 TEST_VALUE = Decimal("0.01")
-
-# http://testnet.etherscan.io/tx/0xe9f35838f45958f1f2ddcc24247d81ed28c4aecff3f1d431b1fe81d92db6c608
-GAS_PRICE = Decimal("0.00000002")
-GAS_USED_BY_TRANSACTION = Decimal("32996")
-
-#: How much withdrawing from a hosted wallet costs to the wallet owner
-WITHDRAWAL_FEE = GAS_PRICE * GAS_USED_BY_TRANSACTION
-
-
-@pytest.fixture
-def tx_fee(client, geth_coinbase, hosted_wallet):
-    """Estimate transaction fee."""
-    # params = {"from": geth_coinbase, "to": wallet_contract_address, "value": 1}
-    # response = client.make_request("eth_estimateGas", [params])
-    # wei = wei_to_eth(int(response["result"], 16))
-    # return wei * GAS_PRICE
-
-    # Hardcoded for the geth test network
-    return Decimal(10)
 
 
 @pytest.mark.slow
@@ -60,23 +41,23 @@ def test_fund_wallet(web3, coinbase, hosted_wallet):
 
 
 @pytest.mark.slow
-def test_withdraw_wallet(client, topped_up_hosted_wallet, coinbase, tx_fee):
+def test_withdraw_wallet(web3, topped_up_hosted_wallet, coinbase):
     """Withdraw eths from wallet contract to RPC coinbase address."""
 
     hosted_wallet = topped_up_hosted_wallet
 
     current_balance = hosted_wallet.get_balance()
-    current_coinbase_balance = wei_to_eth(client.get_balance(coinbase))
+    current_coinbase_balance = wei_to_eth(web3.eth.getBalance(coinbase))
 
     # We have enough coints to perform the test
     assert current_balance > TEST_VALUE
 
     # Withdraw and wait it go through
     txid = hosted_wallet.withdraw(coinbase, TEST_VALUE)
-    wait_tx(client, txid)
+    wait_tx(web3, txid)
 
     new_balance = hosted_wallet.get_balance()
-    new_coinbase_balance = wei_to_eth(client.get_balance(coinbase))
+    new_coinbase_balance = wei_to_eth(web3.eth.getBalance(coinbase))
 
     assert new_coinbase_balance != current_coinbase_balance, "Coinbase address balance did not change: {}".format(new_coinbase_balance)
 
@@ -85,13 +66,13 @@ def test_withdraw_wallet(client, topped_up_hosted_wallet, coinbase, tx_fee):
 
 
 @pytest.mark.slow
-def test_call_contract(client: Client, topped_up_hosted_wallet, simple_test_contract: Contract):
+def test_call_contract(web3: Web3, topped_up_hosted_wallet, simple_test_contract: Contract):
     """Call a test contract from the hosted wallet and see the value is correctly set."""
     hosted_wallet = topped_up_hosted_wallet
 
     magic = random.randint(0, 2**30)
     txid = hosted_wallet.execute(simple_test_contract, "setValue", args=[magic])
-    wait_tx(client, txid)
+    wait_tx(web3, txid)
 
     assert simple_test_contract.value() == magic
 

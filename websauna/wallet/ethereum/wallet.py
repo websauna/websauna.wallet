@@ -8,6 +8,8 @@ from typing import Tuple, Optional
 
 from decimal import Decimal
 
+from web3.contract import call_contract_function
+
 from websauna.wallet.ethereum.contract import Contract
 from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
 from websauna.wallet.ethereum.contractwrapper import ContractWrapper
@@ -37,7 +39,8 @@ class HostedWallet(ContractWrapper):
         assert isinstance(amount_in_eth, Decimal)  # Don't let floats slip through
 
         wei = to_wei(amount_in_eth)
-        txid = self.wallet_contract.withdraw(to_address, wei)
+        tx_args = None
+        txid = call_contract_function(self.contract, "withdraw", tx_args, wei)
         return txid
 
     def execute(self, contract: Contract,
@@ -69,8 +72,7 @@ class HostedWallet(ContractWrapper):
         data = func.get_call_data(args)
         data = bytes(bytearray.fromhex(data[2:]))
 
-        address = contract._meta.address
-        txid = self.wallet_contract.execute(address, value, gas, data)
+        txid = call_contract_function(self.contract, "execute", value, data, gas)
         return txid
 
     def claim_fees(self, original_txid: str) -> Tuple[str, Decimal]:
@@ -84,6 +86,8 @@ class HostedWallet(ContractWrapper):
         """
 
         assert original_txid.startswith("0x")
+
+        raise NotImplementedError()
 
         original_txid_b = bytes(bytearray.fromhex(original_txid[2:]))
 
@@ -99,7 +103,7 @@ class HostedWallet(ContractWrapper):
         # and add it on the top of the original transaction gas
 
         # Transfer value back to owner, post a tx fee event
-        txid = self.wallet_contract.claimFees(original_txid_b, wei_value)
+        txid = self.contract.claimFees(original_txid_b, wei_value)
         return txid, price
 
 

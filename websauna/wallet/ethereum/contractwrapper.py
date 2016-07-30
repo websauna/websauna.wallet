@@ -52,7 +52,7 @@ class ContractWrapper:
         contract, txid = deploy_contract(web3, contract_class, gas=gas, timeout=wait_for_tx_seconds)
 
         # Use hardcoded version for now
-        return ContractWrapper(contract, version=2, initial_txid=txid)
+        return cls(contract, version=2, initial_txid=txid)
 
     @property
     def address(self) -> str:
