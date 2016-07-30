@@ -2,7 +2,6 @@
 from decimal import Decimal
 from pyramid.registry import Registry
 
-from populus.contracts.common import EmptyDataError
 from websauna.wallet.ethereum.asset import get_ether_asset
 from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.ethereum.token import Token
@@ -164,8 +163,9 @@ def import_token(service: EthereumService, op: CryptoTokenCreation):
         name = token.contract.name().decode("utf-8")
         symbol = token.contract.symbol().decode("utf-8")
         supply = Decimal(token.contract.totalSupply())
-    except EmptyDataError as e:
+    except ValueError as e:
         # When we try to access a contract attrib which is not supported by underlying code
+        import pdb ; pdb.set_trace()
         op.mark_failed()
         op.other_data["failure_reason"] = str(e)
         return
@@ -180,7 +180,8 @@ def import_token(service: EthereumService, op: CryptoTokenCreation):
         # Returns 0 for unknown addresses
         try:
             amount = token.contract.balanceOf(bin_to_eth_address(caddress.address))
-        except EmptyDataError as e:
+        except ValueError as e:
+            import pdb ; pdb.set_trace()
             # Bad contract doesn't define balanceOf()
             # This leaves badly imported asset
             op.mark_failed()

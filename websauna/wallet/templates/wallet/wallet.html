@@ -13,16 +13,18 @@
     </tr>
   </thead>
 
-  {% for address in wallet.address_folder.get_addresses() %}
-    <tr>
-      <td>
-        {{ address.address.name }}
-      </td>
+  <tbody>
+    {% for address in wallet.address_folder.get_addresses() %}
+      <tr>
+        <td>
+          {{ address.address.name }}
+        </td>
 
-      <td>
-        xxx
-      </td>
-    </tr>
-  {% endfor %}
+        <td>
+          xxx
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
 </table>
 {% endblock %}

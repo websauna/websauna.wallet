@@ -8,9 +8,7 @@ import time
 import transaction
 from eth_rpc_client import Client
 
-from populus.contracts import deploy_contract
-from populus.contracts.core import ContractBase
-from populus.utils import get_contract_address_from_txn
+from websauna.wallet.ethereum.contract import Contract
 from websauna.wallet.ethereum.contractlistener import ContractListener
 from websauna.wallet.ethereum.populuslistener import create_populus_listener
 from websauna.wallet.ethereum.service import EthereumService
@@ -81,7 +79,7 @@ def deploy_wallet(client, geth_node, get_coinbase):
     return deploy_contract_tx(client, geth_node, get_coinbase, contract)
 
 
-def create_contract_listener(contract: ContractBase) -> Tuple[ContractListener, list]:
+def create_contract_listener(contract: Contract) -> Tuple[ContractListener, list]:
     """Get a listener which pushes incoming events to a list object."""
     contract_events = []
 

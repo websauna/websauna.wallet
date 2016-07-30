@@ -3,12 +3,8 @@ from decimal import Decimal
 from eth_ipc_client import Client
 from math import floor
 
-from populus.contracts import Contract, deploy_contract
-from populus.contracts.core import ContractBase
-from populus.utils import get_contract_address_from_txn
-from websauna.wallet.ethereum.populuscontract import get_compiled_contract_cached
-
-
+from websauna.wallet.ethereum.contract import Contract
+from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
 
 DEFAULT_TOKEN_CREATION_GAS = 1500000
 
@@ -17,11 +13,10 @@ class TokenCreationError(Exception):
     pass
 
 
-def get_token_contract_class() -> type:
+def get_token_contract_class() -> dict:
     name = "Token"
-    contract_meta = get_compiled_contract_cached("token.sol", name)
-    contract = Contract(contract_meta, name)
-    return contract
+    contract_meta = get_compiled_contract_cached(name)
+    return contract_meta
 
 
 class Token:
@@ -30,7 +25,7 @@ class Token:
     Allows creation of new token contracts as well accessing existing ones.
     """
 
-    def __init__(self, contract: ContractBase, version=0, initial_txid=None):
+    def __init__(self, contract: Contract, version=0, initial_txid=None):
         """
         :param contract: Populus Contract object for underlying token contract
         :param version: What is the version of the deployed contract.
@@ -68,15 +63,15 @@ class Token:
         return self.contract.transfer(to_address, amount)
 
     @classmethod
-    def get(cls, rpc: Client, address: str, contract=get_token_contract_class()) -> "Token":
-        """Get a proxy object to existing hosted token contrac.t"""
-
+    def get(cls, rpc: Client, address: str, contract_factory=get_token_contract_class) -> "Token":
+        """Get a proxy object to existing hosted token contract."""
+        contract = contract_factory()
         assert address.startswith("0x")
         instance = contract(address, rpc)
         return Token(instance, rpc)
 
     @classmethod
-    def create(cls, rpc: Client, name: str, symbol: str, supply: int, owner: str, wait_for_tx_seconds=90, gas=DEFAULT_TOKEN_CREATION_GAS, contract=get_token_contract_class()) -> "Token":
+    def create(cls, rpc: Client, name: str, symbol: str, supply: int, owner: str, wait_for_tx_seconds=90, gas=DEFAULT_TOKEN_CREATION_GAS, contract_factory=get_token_contract_class) -> "Token":
         """Creates a new token contract.
 
         The cost of deployment is paid from coinbase account.
@@ -89,7 +84,7 @@ class Token:
 
         :param owner: Initial owner os the asset
 
-        :param contract: Which contract we deploy as Populus Contract class.
+        :param contract_factory: Which contract we deploy as Populus Contract class. Function that retunrns new Contract instance.
 
         :return: Populus Contract proxy object for new contract
         """
@@ -97,6 +92,8 @@ class Token:
         assert owner.startswith("0x")
 
         version = 2  # Hardcoded for now
+
+        contract = contract_factory()
 
         txid = deploy_contract(rpc, contract, gas=gas, constructor_args=[supply, name, 0, symbol, str(version), owner])
 

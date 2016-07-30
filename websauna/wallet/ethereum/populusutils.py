@@ -1,11 +1,11 @@
 """Populus-related helper functions."""
 from typing import List, Tuple, Iterable
 
-from populus.contracts import Function
-from populus.contracts.events import Event
+from web3 import Web3
+from web3.contract import _Contract
 
 
-def find_abi(contract: type, signature: bytes) -> Function:
+def find_abi(contract: type, signature: bytes) -> object:
     """Check if contract class implements an ABI method of a certain type.
 
     Ethereum contract function signature is 4 bytes.
@@ -22,12 +22,18 @@ def find_abi(contract: type, signature: bytes) -> Function:
     return None
 
 
-def get_contract_events(contract: type) -> Iterable[Tuple[bytes, Event]]:
+def get_contract_events(contract: type) -> Iterable[Tuple[bytes, object]]:
     """Get list of events provided by Populus contract.
 
     :yield: events in (event topic signature, Event object) tuples
     """
     for attr_name in dir(contract):
         attr = getattr(contract, attr_name)
+        import pdb ; pdb.set_trace()
         if isinstance(attr, Event):
             yield (attr.event_topic, attr)
+
+
+
+
+

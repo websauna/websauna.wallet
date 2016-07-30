@@ -4,89 +4,27 @@ Deploy a wallet contract over JSON RPC using a Solidity source code as base. The
 
 Many of these functions are cherry picked from Populous project and made Python 3 compatible.
 """
-import os
-from typing import Tuple, Iterable, Optional
+from typing import Tuple, Optional
 
 from decimal import Decimal
 
-from eth_rpc_client import Client
-
-from populus.contracts import Contract, deploy_contract
-from populus.contracts.core import ContractBase
-from populus.utils import get_contract_address_from_txn
-
-from websauna.wallet.ethereum.populuscontract import get_compiled_contract_cached
+from websauna.wallet.ethereum.contract import Contract
+from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
+from websauna.wallet.ethereum.contractwrapper import ContractWrapper
 from websauna.wallet.ethereum.utils import to_wei, wei_to_eth
 
 
-#: Gas limits are at
-#: https://github.com/ethereum/meteor-dapp-wallet#gas-usage-statistics
-#: but they are only guidelining, not accurate anymore
-DEFAULT_WALLET_CREATION_GAS = 2500400  # 1919430 gas, 0.0383886 Ether ($0.40)
-
-
-#: Wallet contract ABI and such
-_contract = None
-
-
-class WalletCreationError(Exception):
-    """Wallet contract could not be deployed. Most likely out of gas."""
-
-
-def get_wallet_contract_class() -> type:
-    name = "Wallet"
-    contract_meta = get_compiled_contract_cached("simplewallet.sol", name)
-    contract = Contract(contract_meta, name)
-    return contract
-
-
-def send_coinbase_eth(rpc: Client, amount: Decimal, address: str) -> str:
-    """Draw some funds from the wallet coinbase account and send them to a (contract) address.
-
-    :param amount: Send value in ethers
-    :return: transaction id
-    """
-
-    wei = to_wei(amount)
-    coinbase = rpc.get_coinbase()
-    txid = rpc.send_transaction(_from=coinbase, to=address, value=wei)
-    return txid
-
-
-class HostedWallet:
+class HostedWallet(ContractWrapper):
     """Hosted wallet functionality.
 
     Calls underlying wallet contract for wallet actions taken on the behalf of the user.
     """
 
-    def __init__(self, wallet_contract: ContractBase, version=0, initial_txid=None):
-        """
-        :param wallet_contract: Populus Contract object for underlying wallet contract
-        :param version: What is the version of the deployed contract.
-        :param initial_txid: Set on wallet creation to the txid that deployed the contract. Only available objects accessed through create().
-        """
-
-        # Make sure we are bound to an address
-        assert wallet_contract._meta.address
-        self.wallet_contract = wallet_contract
-
-        self.version = version
-
-        self.initial_txid = initial_txid
-
-    @property
-    def address(self) -> str:
-        """Get wallet address as 0x hex string."""
-        return self.wallet_contract._meta.address
-
-    @property
-    def client(self) -> Client:
-        """Get access to RPC client we are using for this wallet."""
-        return self.wallet_contract._meta.blockchain_client
-
-    def get_balance(self) -> Decimal:
-        """Gets the balance on this contract address over RPC and converts to ETH."""
-        return wei_to_eth(self.wallet_contract.get_balance())
+    @classmethod
+    def abi_factory(cls):
+        name = "Wallet"
+        contract_meta = get_compiled_contract_cached(name)
+        return contract_meta
 
     def withdraw(self, to_address: str, amount_in_eth: Decimal):
         """Withdraw funds from a wallet contract.
@@ -102,7 +40,7 @@ class HostedWallet:
         txid = self.wallet_contract.withdraw(to_address, wei)
         return txid
 
-    def execute(self, contract: ContractBase,
+    def execute(self, contract: Contract,
             method: str,
             args=[],
             amount_in_eth: Optional[Decimal]=None,
@@ -164,42 +102,6 @@ class HostedWallet:
         txid = self.wallet_contract.claimFees(original_txid_b, wei_value)
         return txid, price
 
-    @classmethod
-    def get(cls, rpc: Client, address: str, contract=get_wallet_contract_class()) -> "HostedWallet":
-        """Get a proxy object to existing hosted wallet contrac.t"""
-
-        assert address.startswith("0x")
-        instance = contract(address, rpc)
-        return HostedWallet(instance, rpc)
-
-
-    @classmethod
-    def create(cls, rpc: Client, wait_for_tx_seconds=90, gas=DEFAULT_WALLET_CREATION_GAS, contract=get_wallet_contract_class()) -> ContractBase:
-        """Creates a new hosted wallet.
-
-        The cost of deployment is paid from coinbase account.
-
-        :param contract: Which contract we deploy as Populus Contract class.
-
-        :return: Populus Contract proxy object for new contract
-        """
-        version = 2  # Hardcoded for now
-
-        txid = deploy_contract(rpc, contract, gas=gas)
-
-        if wait_for_tx_seconds:
-            rpc.wait_for_transaction(txid, max_wait=wait_for_tx_seconds)
-        else:
-            # We cannot get contract address until the block is mined
-            return (None, txid, version)
-
-        try:
-            contract_addr = get_contract_address_from_txn(rpc, txid)
-        except ValueError:
-            raise WalletCreationError("Could not create wallet with {} gas. Txid {}. Out of gas? Check in http://testnet.etherscan.io/tx/{}".format(DEFAULT_WALLET_CREATION_GAS, txid, txid))
-
-        instance = contract(contract_addr, rpc)
-        return HostedWallet(instance, version=2, initial_txid=txid)
 
 
 

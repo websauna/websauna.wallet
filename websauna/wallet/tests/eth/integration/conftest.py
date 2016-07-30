@@ -7,7 +7,8 @@ from decimal import Decimal
 
 from eth_rpc_client import Client
 
-from populus.geth import create_geth_account
+from geth.accounts import create_new_account
+
 from websauna.wallet.ethereum.ops import register_eth_operations
 from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.ethereum.utils import bin_to_eth_address, to_wei, eth_address_to_bin, bin_to_txid
@@ -84,8 +85,10 @@ def target_account(client: Client) -> str:
     :return: 0x address of the account
     """
 
+    # We store keystore files in the current working directory
+    # of the test run
     data_dir = os.getcwd()
-    account = create_geth_account(data_dir)
+    account = create_new_account(data_dir, password="")
     return account
 
 

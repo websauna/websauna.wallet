@@ -5,9 +5,8 @@ from decimal import Decimal
 
 from eth_rpc_client import Client
 
-from populus.contracts.core import ContractBase
+from websauna.wallet.ethereum.contract import Contract
 from websauna.wallet.ethereum.utils import wei_to_eth, eth_address_to_bin
-from websauna.wallet.ethereum.wallet import send_coinbase_eth
 
 from websauna.wallet.tests.eth.utils import wait_tx
 
@@ -86,7 +85,7 @@ def test_withdraw_wallet(client, topped_up_hosted_wallet, coinbase, tx_fee):
 
 
 @pytest.mark.slow
-def test_call_contract(client: Client, topped_up_hosted_wallet, simple_test_contract: ContractBase):
+def test_call_contract(client: Client, topped_up_hosted_wallet, simple_test_contract: Contract):
     """Call a test contract from the hosted wallet and see the value is correctly set."""
     hosted_wallet = topped_up_hosted_wallet
 

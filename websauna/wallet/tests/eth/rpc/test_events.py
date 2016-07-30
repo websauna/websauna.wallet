@@ -7,7 +7,6 @@ from decimal import Decimal
 from eth_rpc_client import Client
 
 from websauna.wallet.ethereum.utils import to_wei, txid_to_bin
-from websauna.wallet.ethereum.wallet import send_coinbase_eth
 
 # How many ETH we move for test transactiosn
 from websauna.wallet.tests.eth.utils import wait_tx, create_contract_listener

@@ -7,14 +7,12 @@ from decimal import Decimal
 import transaction
 from eth_rpc_client import Client
 
-from populus.contracts import Contract
-from populus.contracts.core import ContractBase
-from populus.plugin import geth_node, geth_node_command, _start_geth_node
 from websauna.wallet.ethereum.asset import get_eth_network
-from websauna.wallet.ethereum.populuscontract import get_compiled_contract_cached
+from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
+from websauna.wallet.ethereum.contract import Contract
 from websauna.wallet.ethereum.token import Token
 from websauna.wallet.ethereum.utils import to_wei
-from websauna.wallet.ethereum.wallet import send_coinbase_eth, HostedWallet
+from websauna.wallet.ethereum.wallet import HostedWallet
 from websauna.wallet.models import AssetNetwork
 from websauna.wallet.models.account import AssetClass
 
@@ -29,7 +27,7 @@ pytest_plugins = "populus.plugin",
 TOP_UP_VALUE = Decimal("0.03")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def client_mode():
     """We run either against public testnet or our internal geth node."""
     client_mode = os.environ.get("ETHEREUM_MODE")
@@ -39,7 +37,7 @@ def client_mode():
         return "local_geth"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def client_credentials(registry) -> tuple:
     """Return password and unlock seconds needed to unlock the client."""
 
@@ -48,52 +46,56 @@ def client_credentials(registry) -> tuple:
     return password, unlock_seconds
 
 
-@pytest.fixture(scope="module")
-def client(request, client_mode, client_credentials, populus_config) -> Client:
-    """Create a RPC client.
+from web3 import Web3, RPCProvider
+from populus.chain import testing_geth_process
 
-    This either points to a geth running in public testnet or we will spin up a new local instance.
+
+@pytest.fixture(scope="session")
+def client(request, client_mode, client_credentials) -> Web3:
+    pass
+
+
+@pytest.yield_fixture(scope="session")
+def web3(request, client_mode, client_credentials) -> Web3:
+    """A py.test fixture to get a Web3 interface to locally launched geth.
+
+    This is session scoped fixture.
+    Geth is launched only once during the beginning of the test run.
+
+    Geth will have huge instant balance on its coinbase account.
+    Geth will also mine our transactions on artificially
+    low difficulty level.
     """
 
-    from eth_rpc_client import Client
+    # Ramp up a local geth server, store blockchain files in the
+    # current working directory
+    with testing_geth_process(project_dir=os.getcwd(), test_name="test") as geth_proc:
+        # Launched in port 8080
+        web3 = Web3(RPCProvider(host="127.0.0.1", port="8545"))
 
-    if client_mode == "local_geth":
-        cmd = geth_node_command(request, populus_config)
-        proc = _start_geth_node(request, populus_config, cmd)
-        rpc_port = populus_config.get_value(request, 'rpc_client_port')
-        rpc_hostname = populus_config.get_value(request, 'rpc_client_host')
-        client = Client(rpc_hostname, rpc_port)
+        # Allow access to sendTransaction() to use coinbase balance
+        # to deploy contracts. Password is from py-geth
+        # default_blockchain_password file. Assume we don't
+        # run tests for more than 9999 seconds
+        coinbase = web3.eth.coinbase
+        success = web3.personal.unlockAccount(
+            coinbase,
+            passphrase="this-is-not-a-secure-password",
+            duration=9999)
 
-        def kill_it():
-            from populus.utils import (
-                kill_proc,
-            )
-            kill_proc(proc)
+        assert success, "Could not unlock test geth coinbase account"
 
-        request.addfinalizer(kill_it)
+        yield web3
 
-    else:
-        rpc_port = populus_config.get_value(request, 'rpc_client_port')
-        rpc_hostname = populus_config.get_value(request, 'rpc_client_host')
-        client = Client(rpc_hostname, rpc_port)
 
-        # We need to unlock to allow withdraws
-        coinbase = client.get_coinbase()
-        password, unlock_seconds = client_credentials
-        # https://github.com/ethereum/go-ethereum/wiki/Management-APIs#personal_unlockaccount
-        client.make_request("personal_unlockAccount", [coinbase, password, unlock_seconds])
-
-    client.mode = client_mode
-    return client
+@pytest.fixture(scope="session")
+def coinbase(web3) -> str:
+    """Get coinbase address of locally running geth."""
+    return web3.eth.coinbase
 
 
 @pytest.fixture(scope="module")
-def coinbase(client):
-    return client.get_coinbase()
-
-
-@pytest.fixture(scope="module")
-def hosted_wallet(client: Client, coinbase: str) -> HostedWallet:
+def hosted_wallet(web3: Web3, coinbase: str) -> HostedWallet:
     """Deploy a smart contract to local private blockchain so test functions can stress it out.
 
     :param client: py.test fixture to create RPC client to call geth node
@@ -105,7 +107,7 @@ def hosted_wallet(client: Client, coinbase: str) -> HostedWallet:
     :return: 0x prefixed hexadecimal address of the deployed contract
     """
 
-    return HostedWallet.create(client)
+    return HostedWallet.create(web3)
 
 
 @pytest.fixture(scope="module")
@@ -118,7 +120,7 @@ def topped_up_hosted_wallet(client, coinbase, hosted_wallet):
 
 
 @pytest.fixture(scope="module")
-def simple_test_contract(client, coinbase) -> ContractBase:
+def simple_test_contract(client, coinbase) -> Contract:
     """Create a contract where we can set a global variable for testing."""
 
     contract_meta = get_compiled_contract_cached("testcontract.sol", "TestContract")
@@ -128,7 +130,7 @@ def simple_test_contract(client, coinbase) -> ContractBase:
 
 
 @pytest.fixture(scope="module")
-def token(client, coinbase) -> ContractBase:
+def token(client, coinbase) -> Contract:
     """Deploy a token contract in the blockchain."""
     return Token.create(client, name="Mootoken", supply=10000, symbol="MOO", owner=coinbase)
 
