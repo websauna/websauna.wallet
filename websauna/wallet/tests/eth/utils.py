@@ -38,7 +38,7 @@ NETWORK_PARAMETERS = {
 }
 
 def wait_tx(web3: Web3, txid: str):
-    wait_for_transaction_receipt(web3, txid, 60)
+    return wait_for_transaction_receipt(web3, txid, 60)
 
 
 def create_contract_listener(contract: Contract) -> Tuple[ContractListener, list]:

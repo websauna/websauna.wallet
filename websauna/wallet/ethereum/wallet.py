@@ -8,7 +8,7 @@ from typing import Tuple, Optional
 
 from decimal import Decimal
 
-from web3.contract import call_contract_function
+from web3.contract import call_contract_function, transact_with_contract_function, estimate_gas_for_function
 
 from websauna.wallet.ethereum.contract import Contract
 from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
@@ -24,30 +24,40 @@ class HostedWallet(ContractWrapper):
 
     @classmethod
     def abi_factory(cls):
-        name = "Wallet"
-        contract_meta = get_compiled_contract_cached(name)
+        contract_meta = get_compiled_contract_cached("Wallet")
         return contract_meta
 
-    def withdraw(self, to_address: str, amount_in_eth: Decimal):
+    def withdraw(self, to_address: str, amount_in_eth: Decimal, from_account=None, max_gas=50000000) -> str:
         """Withdraw funds from a wallet contract.
 
-        :param amount_in_eth: How much
-        :param to_address: Address we are withdrawing to
-        :return: Transaction id
+        :param amount_in_eth: How much as ETH
+        :param to_address: Destination address we are withdrawing to
+        :param from_account: Which Geth accout pays the gas
+        :return: Transaction hash
         """
 
         assert isinstance(amount_in_eth, Decimal)  # Don't let floats slip through
 
         wei = to_wei(amount_in_eth)
-        tx_args = None
-        txid = call_contract_function(self.contract, "withdraw", tx_args, wei)
+
+        if not from_account:
+            # Default to coinbase for transaction fees
+            from_account = self.contract.web3.eth.coinbase
+
+        tx_info = {
+            # The Ethereum account that pays the gas for this operation
+            "from": from_account,
+        }
+
+        # Interact with underlying wrapped contract
+        txid = transact_with_contract_function(self.contract, "withdraw", tx_info, to_address, wei)
         return txid
 
     def execute(self, contract: Contract,
             method: str,
             args=[],
             amount_in_eth: Optional[Decimal]=None,
-            gas=100000):
+            max_gas=100000):
         """Calls a smart contract from the hosted wallet.
 
         Creates a transaction that is proxyed through hosted wallet execute method. We need to have ABI as Populus Contract instance.

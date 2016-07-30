@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from web3 import Web3
 
-from websauna.wallet.ethereum.contract import Contract
+from websauna.wallet.ethereum.contract import Contract, confirm_transaction
 from websauna.wallet.ethereum.utils import wei_to_eth, eth_address_to_bin
 
 from websauna.wallet.tests.eth.utils import wait_tx, send_balance_to_contract
@@ -54,7 +54,7 @@ def test_withdraw_wallet(web3, topped_up_hosted_wallet, coinbase):
 
     # Withdraw and wait it go through
     txid = hosted_wallet.withdraw(coinbase, TEST_VALUE)
-    wait_tx(web3, txid)
+    confirm_transaction(web3, txid)
 
     new_balance = hosted_wallet.get_balance()
     new_coinbase_balance = wei_to_eth(web3.eth.getBalance(coinbase))

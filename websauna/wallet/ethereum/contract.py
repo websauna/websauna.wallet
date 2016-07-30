@@ -1,9 +1,10 @@
 from typing import Optional, Tuple
 
+from gevent import Timeout
 from web3 import Web3
 from web3.contract import _Contract, construct_contract_class
 
-from populus.utils.transactions import get_contract_address_from_txn
+from populus.utils.transactions import get_contract_address_from_txn, wait_for_transaction_receipt
 
 
 class Contract(_Contract):
@@ -83,4 +84,33 @@ def deploy_contract(
     return contract, txn_hash
 
 
+class TransactionConfirmationError(Exception):
+    """A transaction was not correctly included in blockchain."""
 
+
+def confirm_transaction(web3: Web3, txid: str, timeout=60) -> dict:
+    """Make sure a transaction was correctly performed.
+
+    Confirm that
+
+    * The transaction has been mined in blockchain
+
+    * The transaction did not throw an error (used up all its gas)
+
+    http://ethereum.stackexchange.com/q/6007/620
+
+    :raise TransactionConfirmationError: If we did not get it confirmed in time
+    :return: Transaction receipt
+    """
+
+    try:
+        receipt = wait_for_transaction_receipt(web3, txid, timeout)
+    except Timeout as e:
+        raise TransactionConfirmationError("Could not confirm tx {} within timeout {}".format(txid, timeout)) from e
+
+    tx = web3.eth.getTransaction(txid)
+
+    if tx["gas"] == receipt["gasUsed"]:
+        raise TransactionConfirmationError("Transaction failed (out of gas, thrown): {}".format(txid))
+
+    return receipt
