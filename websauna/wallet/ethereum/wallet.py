@@ -8,9 +8,8 @@ from typing import Tuple, Optional
 
 from decimal import Decimal
 
-from web3.contract import call_contract_function, transact_with_contract_function, estimate_gas_for_function, Contract
+from web3.contract import Contract
 
-from websauna.wallet.ethereum.contract import Contract
 from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
 from websauna.wallet.ethereum.contractwrapper import ContractWrapper
 from websauna.wallet.ethereum.utils import to_wei, wei_to_eth

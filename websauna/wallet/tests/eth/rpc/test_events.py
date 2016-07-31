@@ -5,11 +5,13 @@ import pytest
 from decimal import Decimal
 
 from eth_rpc_client import Client
+from web3 import Web3
 
-from websauna.wallet.ethereum.contract import confirm_transaction
+from websauna.wallet.ethereum.contract import confirm_transaction, Contract
 from websauna.wallet.ethereum.utils import to_wei, txid_to_bin
 
 # How many ETH we move for test transactiosn
+from websauna.wallet.ethereum.wallet import HostedWallet
 from websauna.wallet.tests.eth.utils import wait_tx, create_contract_listener, send_balance_to_contract
 
 TEST_VALUE = Decimal("0.0001")
@@ -54,17 +56,17 @@ def test_event_fund_wallet(web3, hosted_wallet):
 
 
 @pytest.mark.slow
-def test_event_withdraw_wallet(client: Client, topped_up_hosted_wallet, coinbase):
+def test_event_withdraw_wallet(web3, topped_up_hosted_wallet, coinbase):
     """Withdraw funds from the wallet and see that we get the event of the deposit."""
 
     hosted_wallet = topped_up_hosted_wallet
     coinbase_address = coinbase
 
-    listener, events = create_contract_listener(hosted_wallet.wallet_contract)
+    listener, events = create_contract_listener(hosted_wallet.contract)
 
     # Do a withdraw from wallet
     txid = hosted_wallet.withdraw(coinbase_address, TEST_VALUE)
-    wait_tx(client, txid)
+    confirm_transaction(web3, txid)
 
     # Wallet contract should generate events if the withdraw succeeded or not
     update_count = listener.poll()
@@ -74,32 +76,32 @@ def test_event_withdraw_wallet(client: Client, topped_up_hosted_wallet, coinbase
     event_name, input_data = events[0]
     assert event_name == "Withdraw"
     assert input_data["value"] == to_wei(TEST_VALUE)
-    assert input_data["to"].decode("utf-8") == coinbase_address
+    assert input_data["to"] == coinbase_address
 
     # Deposit some more, should generate one new event
     txid = hosted_wallet.withdraw(coinbase_address, TEST_VALUE)
-    wait_tx(client, txid)
+    confirm_transaction(web3, txid)
 
     update_count = listener.poll()
     assert update_count == 1
     assert event_name == "Withdraw"
     assert input_data["value"] == to_wei(TEST_VALUE)
-    assert input_data["to"].decode("utf-8") == coinbase_address
+    assert input_data["to"] == coinbase_address
 
 
 @pytest.mark.slow
-def test_event_withdraw_wallet_too_much(client: Client, topped_up_hosted_wallet, coinbase):
+def test_event_withdraw_wallet_too_much(web3: Web3, topped_up_hosted_wallet, coinbase):
     """Try to withdraw more than the wallet has."""
 
     hosted_wallet = topped_up_hosted_wallet
     coinbase_address = coinbase
 
-    listener, events = create_contract_listener(hosted_wallet.wallet_contract)
+    listener, events = create_contract_listener(hosted_wallet.contract)
 
     too_much = Decimal(99999999)
 
     txid = hosted_wallet.withdraw(coinbase_address, too_much)
-    wait_tx(client, txid)
+    confirm_transaction(web3, txid)
 
     update_count = listener.poll()
 
@@ -118,36 +120,36 @@ def test_event_withdraw_wallet_no_gas(client: Client, coinbase):
     pass
 
 
-def test_contract_abi(client, simple_test_contract):
+def test_contract_abi(web3, simple_test_contract: Contract):
     """Check that we can manipulate test contract from coinbase address."""
 
     # First check we can manipulate wallet from the coinbase address
-    txid = simple_test_contract.setValue(1)
-    wait_tx(client, txid)
+    txid = simple_test_contract.transact().setValue(1)
+    confirm_transaction(web3, txid)
 
-    assert simple_test_contract.value() == 1
+    assert simple_test_contract.call().value() == 1
 
 
-def test_event_execute(client: Client, topped_up_hosted_wallet, simple_test_contract):
+def test_event_execute(web3: Web3, topped_up_hosted_wallet: HostedWallet, simple_test_contract: Contract):
     """Test calling a contract froma hosted wallet."""
 
     hosted_wallet = topped_up_hosted_wallet
 
     # Events of the hosted wallet
-    listener, events = create_contract_listener(hosted_wallet.wallet_contract)
+    listener, events = create_contract_listener(hosted_wallet.contract)
 
     # Events of the contract we are calling
     target_listener, target_events = create_contract_listener(simple_test_contract)
 
     # Make gas a huge number so we don't run out of gas.
     # No idea of actual gas consumption.
-    gas_amount = 400000000000000
+    gas_amount = 1500000
 
     balance_before = hosted_wallet.get_balance()
 
     magic = random.randint(0, 2**30)
-    txid = hosted_wallet.execute(simple_test_contract, "setValue", args=[magic], gas=gas_amount)
-    wait_tx(client, txid)
+    txid = hosted_wallet.execute(simple_test_contract, "setValue", args=[magic], max_gas=gas_amount)
+    confirm_transaction(web3, txid)
 
     balance_after = hosted_wallet.get_balance()
 
@@ -161,7 +163,7 @@ def test_event_execute(client: Client, topped_up_hosted_wallet, simple_test_cont
     assert input_data["value"] == 0
     # Hmm looks like this network doesn't spend any gas
     # assert input_data["spentGas"] == 100000000000000  # Hardcoded value for private test geth
-    assert input_data["to"].decode("utf-8") == simple_test_contract._meta.address
+    assert input_data["to"] == simple_test_contract.address
 
     # Doing call() doesn't incur any gas cost on the contract
     assert balance_after == balance_before

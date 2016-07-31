@@ -7,14 +7,6 @@ from web3.contract import Contract, construct_contract_class
 from populus.utils.transactions import get_contract_address_from_txn, wait_for_transaction_receipt
 
 
-class Contract(Contract):
-    """Statically typing helper for contract class.
-
-    May contain methods in the future.
-    """
-    pass
-
-
 
 def deploy_contract(
         web3: Web3,
