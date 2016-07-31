@@ -66,13 +66,12 @@ def test_withdraw_wallet(web3, topped_up_hosted_wallet, coinbase):
 
 
 @pytest.mark.slow
-def test_call_contract(web3: Web3, topped_up_hosted_wallet, simple_test_contract: Contract):
+def test_call_contract(web3: Web3, hosted_wallet, simple_test_contract: Contract):
     """Call a test contract from the hosted wallet and see the value is correctly set."""
-    hosted_wallet = topped_up_hosted_wallet
 
     magic = random.randint(0, 2**30)
     txid = hosted_wallet.execute(simple_test_contract, "setValue", args=[magic])
-    wait_tx(web3, txid)
+    confirm_transaction(web3, txid)
 
-    assert simple_test_contract.value() == magic
+    assert simple_test_contract.call().value() == magic
 

@@ -25,7 +25,7 @@ contract Wallet {
 
     // Who is the owner of this hosted wallet. This is the (coinbase) address or geth node
     // that your server speaks to via RPC
-    address owner;
+    address public owner;
 
     function Wallet() {
         // Lock down the wallet, so that only our private geth

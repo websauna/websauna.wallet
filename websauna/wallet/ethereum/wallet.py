@@ -8,7 +8,7 @@ from typing import Tuple, Optional
 
 from decimal import Decimal
 
-from web3.contract import call_contract_function, transact_with_contract_function, estimate_gas_for_function
+from web3.contract import call_contract_function, transact_with_contract_function, estimate_gas_for_function, _Contract
 
 from websauna.wallet.ethereum.contract import Contract
 from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
@@ -27,13 +27,13 @@ class HostedWallet(ContractWrapper):
         contract_meta = get_compiled_contract_cached("Wallet")
         return contract_meta
 
-    def withdraw(self, to_address: str, amount_in_eth: Decimal, from_account=None, max_gas=50000000) -> str:
+    def withdraw(self, to_address: str, amount_in_eth: Decimal, from_account=None, max_gas=50000) -> str:
         """Withdraw funds from a wallet contract.
 
         :param amount_in_eth: How much as ETH
         :param to_address: Destination address we are withdrawing to
-        :param from_account: Which Geth accout pays the gas
-        :return: Transaction hash
+        :param from_account: Which Geth account pays the gas
+        :return: Transaction hash as 0x string
         """
 
         assert isinstance(amount_in_eth, Decimal)  # Don't let floats slip through
@@ -47,15 +47,21 @@ class HostedWallet(ContractWrapper):
         tx_info = {
             # The Ethereum account that pays the gas for this operation
             "from": from_account,
+            "gas": max_gas,
         }
 
+        # Sanity check that we own this wallet
+        owner = self.contract.call().owner()
+        owner = "0x" + owner.decode("ascii")
+        assert owner == from_account
+
         # Interact with underlying wrapped contract
-        txid = transact_with_contract_function(self.contract, "withdraw", tx_info, to_address, wei)
+        txid = self.contract.transact(tx_info).withdraw(to_address, wei)
         return txid
 
-    def execute(self, contract: Contract,
-            method: str,
-            args=[],
+    def execute(self, to_contract: _Contract,
+            func: str,
+            args=None,
             amount_in_eth: Optional[Decimal]=None,
             max_gas=100000):
         """Calls a smart contract from the hosted wallet.
@@ -64,25 +70,34 @@ class HostedWallet(ContractWrapper):
 
         :param wallet_address: Wallet address
         :param contract: Contract to called as address bound Populus Contract class
-        :param method: Method name to be called
+        :param func: Method name to be called
         :param args: Arguments passed to the method
         :param value: Additional value carried in the call in ETH
-        :param gas: The max amount of gas the hosted wallet is allowed to pay for this call
+        :param gas: The max amount of gas the coinbase account is allowed to pay for this transaction.
         :return: txid of the execution as hex string
         """
+
+        assert isinstance(to_contract, _Contract)
+
         if amount_in_eth:
             assert isinstance(amount_in_eth, Decimal)  # Don't let floats slip through
             value = to_wei(amount_in_eth)
         else:
             value = 0
 
-        func = getattr(contract, method)
-
         # Encode function arguments
-        data = func.get_call_data(args)
+        data = to_contract.encodeABI(func, arguments=args)
+
+        # Convert data to raw bytes
         data = bytes(bytearray.fromhex(data[2:]))
 
-        txid = call_contract_function(self.contract, "execute", value, data, gas)
+        tx_info = {
+            # The Ethereum account that pays the gas for this operation
+            "from": self.contract.web3.eth.coinbase,
+            "gas": max_gas,
+        }
+
+        txid = self.contract.transact(tx_info).execute(to_contract.address, value, max_gas, data)
         return txid
 
     def claim_fees(self, original_txid: str) -> Tuple[str, Decimal]:

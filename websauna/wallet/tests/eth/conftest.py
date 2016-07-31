@@ -122,7 +122,7 @@ def topped_up_hosted_wallet(web3, hosted_wallet):
 def simple_test_contract(web3) -> Contract:
     """Create a contract where we can set a global variable for testing."""
 
-    contract_def= get_compiled_contract_cached("TestContract")
+    contract_def = get_compiled_contract_cached("TestContract")
     contract, txid = deploy_contract(web3, contract_def)
     return contract
 
