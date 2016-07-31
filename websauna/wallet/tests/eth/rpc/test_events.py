@@ -41,8 +41,8 @@ def test_event_fund_wallet(web3, hosted_wallet):
     assert input_data["value"] == to_wei(TEST_VALUE)
 
     # Deposit some more, should generate one new event
-    txid = send_coinbase_eth(client, TEST_VALUE, hosted_wallet.address)
-    wait_tx(client, txid)
+    txid = send_balance_to_contract(hosted_wallet, TEST_VALUE)
+    confirm_transaction(web3, txid)
 
     update_count = listener.poll()
 

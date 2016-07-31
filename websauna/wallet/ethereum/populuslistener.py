@@ -8,6 +8,9 @@ from ethereum import utils as ethereum_utils
 from web3 import Web3
 
 from .contractlistener import ContractListener, callback_type
+from .decodeutils import decode_multi
+from .decodeutils import decode_single
+
 
 #: Default logger
 _logger = logging.getLogger(__name__)
@@ -42,21 +45,6 @@ def create_populus_listener(web3: Web3,
     return listener
 
 
-def get_event_signature(abi_data: dict):
-    """Get function signature of event as Solidity handles it.
-    :return:
-    """
-
-    input_types = [i["type"] for i in abi_data["inputs"]]
-
-    signature = "{name}({arg_types})".format(
-        name=abi_data["name"],
-        arg_types=','.join(input_types),
-    )
-
-    return signature
-
-
 def get_contract_events(contract: type) -> Iterable[Tuple[bytes, object]]:
     """Get list of events provided by Populus contract.
 
@@ -65,7 +53,87 @@ def get_contract_events(contract: type) -> Iterable[Tuple[bytes, object]]:
 
     for member in contract.abi:
         if member["type"] == "event":
-            signature = get_event_signature(member)
-            hash = ethereum_utils.big_endian_to_int(ethereum_utils.sha3(signature)[:4])
-            yield (hash, member["name"])
+            event = Event(member["name"], member["inputs"], member["anonymous"])
+            hash = event.event_topic
+            hash = int(hash, 16)
+            yield (hash, event)
 
+
+class EmptyDataError(Exception):
+    pass
+
+
+class Event:
+    """Helper class for managing topics/events.
+
+    Lifted from Populus 0.8.0 before web3 migration.
+    """
+
+    def __init__(self, name, inputs, anonymous):
+        self.name = name
+        self.inputs = inputs
+        self.anonymous = anonymous
+
+    @property
+    def event_topic(self):
+        return hex(ethereum_utils.big_endian_to_int(
+            ethereum_utils.sha3(self.signature)
+        )).strip('L')
+
+    @property
+    def signature(self):
+        signature = "{name}({arg_types})".format(
+            name=self.name,
+            arg_types=','.join(self.input_types),
+        )
+        return signature
+
+    @property
+    def input_types(self):
+        """
+        Iterable of the types this function takes.
+        """
+        if self.inputs:
+            return [i['type'] for i in self.inputs]
+        return []
+
+    @property
+    def outputs(self):
+        return [input for input in self.inputs if not input['indexed']]
+
+    @property
+    def output_types(self):
+        """
+        Iterable of the types this function takes.
+        """
+        if self.outputs:
+            return [i['type'] for i in self.outputs]
+
+        return []
+
+    def cast_return_data(self, outputs, raw=False):
+        if raw or len(self.output_types) != 1:
+            try:
+                return decode_multi(self.output_types, outputs)
+            except AssertionError:
+                raise EmptyDataError("call to {0} unexpectedly returned no data".format(self))
+        output_type = self.output_types[0]
+
+        try:
+            return decode_single(output_type, outputs)
+        except AssertionError:
+            raise EmptyDataError("call to {0} unexpectedly returned no data".format(self))
+
+    def get_log_data(self, log_entry, indexed=False):
+        values = self.cast_return_data(log_entry['data'], raw=True)
+        event_data = {
+            output['name']: value for output, value in zip(self.outputs, values)
+        }
+        if indexed:
+            for idx, _input in enumerate(self.inputs):
+                if _input['indexed']:
+                    event_data[_input['name']] = decode_single(
+                        _input['type'],
+                        log_entry['topics'][idx + 1],
+                    )
+        return event_data

@@ -3,7 +3,7 @@ from typing import List, Tuple, Iterable
 
 from eth_rpc_client import Client
 from web3 import Web3
-from web3.contract import _Contract
+from web3.contract import Contract
 
 
 def find_abi(contract: type, signature: bytes) -> object:

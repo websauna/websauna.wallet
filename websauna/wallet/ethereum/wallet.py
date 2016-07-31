@@ -8,7 +8,7 @@ from typing import Tuple, Optional
 
 from decimal import Decimal
 
-from web3.contract import call_contract_function, transact_with_contract_function, estimate_gas_for_function, _Contract
+from web3.contract import call_contract_function, transact_with_contract_function, estimate_gas_for_function, Contract
 
 from websauna.wallet.ethereum.contract import Contract
 from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
@@ -59,7 +59,7 @@ class HostedWallet(ContractWrapper):
         txid = self.contract.transact(tx_info).withdraw(to_address, wei)
         return txid
 
-    def execute(self, to_contract: _Contract,
+    def execute(self, to_contract: Contract,
             func: str,
             args=None,
             amount_in_eth: Optional[Decimal]=None,
@@ -77,7 +77,7 @@ class HostedWallet(ContractWrapper):
         :return: txid of the execution as hex string
         """
 
-        assert isinstance(to_contract, _Contract)
+        assert isinstance(to_contract, Contract)
 
         if amount_in_eth:
             assert isinstance(amount_in_eth, Decimal)  # Don't let floats slip through

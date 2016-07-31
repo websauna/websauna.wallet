@@ -2,12 +2,12 @@ from typing import Optional, Tuple
 
 from gevent import Timeout
 from web3 import Web3
-from web3.contract import _Contract, construct_contract_class
+from web3.contract import Contract, construct_contract_class
 
 from populus.utils.transactions import get_contract_address_from_txn, wait_for_transaction_receipt
 
 
-class Contract(_Contract):
+class Contract(Contract):
     """Statically typing helper for contract class.
 
     May contain methods in the future.
@@ -22,7 +22,7 @@ def deploy_contract(
         gas=1500000,
         timeout=60.0,
         constructor_arguments: Optional[list]=None,
-        from_account=None) -> Tuple[_Contract, str]:
+        from_account=None) -> Tuple[Contract, str]:
     """Deploys a single contract using Web3 client.
 
     :param web3: Web3 client instance

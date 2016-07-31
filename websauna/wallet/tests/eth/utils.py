@@ -9,10 +9,9 @@ import transaction
 from eth_rpc_client import Client
 
 from web3 import Web3
-from web3.contract import _Contract
+from web3.contract import Contract
 
 from populus.utils.transactions import wait_for_transaction_receipt
-from websauna.wallet.ethereum.contract import Contract
 from websauna.wallet.ethereum.contractlistener import ContractListener
 from websauna.wallet.ethereum.populuslistener import create_populus_listener
 from websauna.wallet.ethereum.service import EthereumService
@@ -46,7 +45,7 @@ def wait_tx(web3: Web3, txid: str):
 def create_contract_listener(contract: Contract) -> Tuple[ContractListener, list]:
     """Get a listener which pushes incoming events of one contract to a list object."""
 
-    assert isinstance(contract, _Contract)
+    assert isinstance(contract, Contract)
     contract_events = []
 
     web3 = contract.web3
