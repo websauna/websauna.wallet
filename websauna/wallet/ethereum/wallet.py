@@ -87,14 +87,13 @@ class HostedWallet(ContractWrapper):
         # Encode function arguments
         data = to_contract.encodeABI(func, arguments=args)
 
-        # Convert data to raw bytes
-        data = bytes(bytearray.fromhex(data[2:]))
-
         tx_info = {
             # The Ethereum account that pays the gas for this operation
             "from": self.contract.web3.eth.coinbase,
             "gas": max_gas,
         }
+
+        import pdb ; pdb.set_trace()
 
         txid = self.contract.transact(tx_info).execute(to_contract.address, value, max_gas, data)
         return txid
