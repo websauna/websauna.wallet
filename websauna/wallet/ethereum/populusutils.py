@@ -1,6 +1,7 @@
 """Populus-related helper functions."""
 from typing import List, Tuple, Iterable
 
+from eth_rpc_client import Client
 from web3 import Web3
 from web3.contract import _Contract
 
@@ -22,16 +23,12 @@ def find_abi(contract: type, signature: bytes) -> object:
     return None
 
 
-def get_contract_events(contract: type) -> Iterable[Tuple[bytes, object]]:
-    """Get list of events provided by Populus contract.
+def get_rpc_client(web3: Web3) -> Client:
+    """Get a raw Ethereum RPC client for an underyling web3 client."""
 
-    :yield: events in (event topic signature, Event object) tuples
-    """
-    for attr_name in dir(contract):
-        attr = getattr(contract, attr_name)
-        import pdb ; pdb.set_trace()
-        if isinstance(attr, Event):
-            yield (attr.event_topic, attr)
+    c = Client(web3.currentProvider.host, web3.currentProvider.port)
+    c.session = web3.currentProvider.session
+    return c
 
 
 

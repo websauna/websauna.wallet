@@ -6,10 +6,11 @@ from decimal import Decimal
 
 from eth_rpc_client import Client
 
+from websauna.wallet.ethereum.contract import confirm_transaction
 from websauna.wallet.ethereum.utils import to_wei, txid_to_bin
 
 # How many ETH we move for test transactiosn
-from websauna.wallet.tests.eth.utils import wait_tx, create_contract_listener
+from websauna.wallet.tests.eth.utils import wait_tx, create_contract_listener, send_balance_to_contract
 
 TEST_VALUE = Decimal("0.0001")
 
@@ -22,14 +23,14 @@ WITHDRAWAL_FEE = GAS_PRICE * GAS_USED_BY_TRANSACTION
 
 
 @pytest.mark.slow
-def test_event_fund_wallet(client, hosted_wallet):
+def test_event_fund_wallet(web3, hosted_wallet):
     """Send some funds int the wallet and see that we get the event of the deposit."""
 
-    listener, events = create_contract_listener(hosted_wallet.wallet_contract)
+    listener, events = create_contract_listener(hosted_wallet.contract)
 
     # value = get_wallet_balance(testnet_wallet_contract_address)
-    txid = send_coinbase_eth(client, TEST_VALUE, hosted_wallet.address)
-    wait_tx(client, txid)
+    txid = send_balance_to_contract(hosted_wallet, TEST_VALUE)
+    confirm_transaction(web3, txid)
 
     update_count = listener.poll()
 

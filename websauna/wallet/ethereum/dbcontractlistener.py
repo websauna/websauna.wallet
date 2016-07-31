@@ -8,7 +8,7 @@ from eth_ipc_client import Client
 from sqlalchemy.orm import Session
 
 from websauna.wallet.ethereum.asset import get_ether_asset
-from websauna.wallet.ethereum.populusutils import get_contract_events
+from websauna.wallet.ethereum.populuslistener import get_contract_events
 from websauna.wallet.ethereum.utils import bin_to_eth_address, txid_to_bin, wei_to_eth, eth_address_to_bin
 from websauna.wallet.models import CryptoAddress
 from websauna.wallet.models import CryptoOperation

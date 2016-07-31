@@ -9,12 +9,12 @@ import logging
 from typing import Callable, Iterable, List, Optional
 import datetime
 
+from web3 import Web3
 
-from .ethjsonrpc import EthJsonRpc
-
-from .utils import sha3
 
 #: Default logger
+from websauna.wallet.ethereum.populusutils import get_rpc_client
+
 _logger = logging.getLogger(__name__)
 
 
@@ -30,10 +30,6 @@ class ContractStatus:
         self.last_updated_at = last_updated_at
 
 
-class BlockchainNotUpdating(Exception):
-    pass
-
-
 def now() -> datetime.datetime:
     """Get the current time as timezone-aware UTC timestamp."""
     return datetime.datetime.now(datetime.timezone.utc)
@@ -47,7 +43,7 @@ class ContractListener:
     The poller is stateful and allows you to add and remove contracts in fly.
     """
 
-    def __init__(self, client: EthJsonRpc, callback: callback_type, from_block=0, logger=_logger):
+    def __init__(self, web3: Web3, callback: callback_type, from_block=0, logger=_logger):
         """Create a contract listener.
 
         Callbacks look like:
@@ -62,8 +58,13 @@ class ContractListener:
         :param from_block: When to start iterating
         :param logger: Optional
         """
+
+        assert isinstance(web3, Web3)
+
         self.logger = _logger
-        self.client = client
+        self.web3 = web3
+        # web3 doesn't support filters yet
+        self.client = get_rpc_client(web3)
         self.callback = callback
         self.from_block = from_block
 
@@ -71,18 +72,6 @@ class ContractListener:
 
         #: Mapping contract address -> ContractStatus
         self.currently_monitored_contracts = {}
-
-    def check_up_to_date(self):
-        """Make sure that the node is connected to the blockchain."""
-
-        # last_block = self.client.eth_blockNumber()["result"]
-        block_info = self.client.eth_getBlockByNumber()
-        assert block_info["number"]
-        timestamp = int(block_info["timestamp"], 16)
-        lag = time.time() - timestamp
-        if lag > self.blockchain_timeout_seconds:
-            raise BlockchainNotUpdating("Too long since the last block, {} seconds".format(lag))
-        return block_info["number"]
 
     def install_filter(self, contract_address: str):
         """Set up event filtering for a single contract using eth_newFilter.
@@ -172,7 +161,6 @@ class ContractListener:
 
         if contract_address in self.currently_monitored_contracts:
             return 0
-
         self.install_filter(contract_address)
 
         return self.fetch_all(contract_address)

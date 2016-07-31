@@ -7,7 +7,9 @@ import pytest
 import time
 import transaction
 from eth_rpc_client import Client
+
 from web3 import Web3
+from web3.contract import _Contract
 
 from populus.utils.transactions import wait_for_transaction_receipt
 from websauna.wallet.ethereum.contract import Contract
@@ -42,19 +44,21 @@ def wait_tx(web3: Web3, txid: str):
 
 
 def create_contract_listener(contract: Contract) -> Tuple[ContractListener, list]:
-    """Get a listener which pushes incoming events to a list object."""
+    """Get a listener which pushes incoming events of one contract to a list object."""
+
+    assert isinstance(contract, _Contract)
     contract_events = []
 
-    client = contract._meta.blockchain_client
+    web3 = contract.web3
 
     def cb(wallet_contract_address, event_name, event_data, log_entry):
         contract_events.append((event_name, event_data))
         return True  # increase updates with 1
 
-    current_block = client.get_block_number()
+    current_block = web3.eth.blockNumber
 
-    listener = create_populus_listener(client, cb, contract.__class__, from_block=current_block)
-    listener.monitor_contract(contract._meta.address)
+    listener = create_populus_listener(web3, cb, contract.__class__, from_block=current_block)
+    listener.monitor_contract(contract.address)
 
     # There might be previously run tests that wrote events in the current block
     # Let's flush them out
