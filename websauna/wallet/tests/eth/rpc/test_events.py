@@ -176,22 +176,23 @@ def test_event_execute(web3: Web3, topped_up_hosted_wallet: HostedWallet, simple
     assert event_name == "Received"
 
 
-def test_event_claim_fees(client, topped_up_hosted_wallet, coinbase):
+def test_event_claim_fees(web3, topped_up_hosted_wallet, coinbase):
     """We correctly can claim transaction fees from the hosted wallet contract."""
 
     hosted_wallet = topped_up_hosted_wallet
     coinbase_address = coinbase
 
-    listener, events = create_contract_listener(hosted_wallet.wallet_contract)
-
+    # Do a withdraw to cause some fees
+    listener, events = create_contract_listener(hosted_wallet.contract)
     assert hosted_wallet.get_balance() > TEST_VALUE
-
     txid = hosted_wallet.withdraw(coinbase_address, TEST_VALUE)
-    wait_tx(client, txid)
+    confirm_transaction(web3, txid)
 
+    # Claim fees for the withdraw operation
     claim_txid, price = hosted_wallet.claim_fees(txid)
-    wait_tx(client, claim_txid)
+    confirm_transaction(web3, claim_txid)
 
+    # We should have event for withdraw + claims
     update_count = listener.poll()
     assert update_count == 2
     assert len(events) == 2

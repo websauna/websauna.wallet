@@ -38,7 +38,7 @@ class ContractWrapper:
         return ContractWrapper(instance, web3)
 
     @classmethod
-    def create(cls, web3: Web3, wait_for_tx_seconds=90, gas=1500000) -> "ContractWrapper":
+    def create(cls, web3: Web3, wait_for_tx_seconds=90, gas=1500000, args=None) -> "ContractWrapper":
         """Creates a new hosted wallet.
 
         The cost of deployment is paid from coinbase account.
@@ -49,7 +49,7 @@ class ContractWrapper:
         """
         contract_class = cls.abi_factory()
 
-        contract, txid = deploy_contract(web3, contract_class, gas=gas, timeout=wait_for_tx_seconds)
+        contract, txid = deploy_contract(web3, contract_class, gas=gas, timeout=wait_for_tx_seconds, constructor_arguments=args)
 
         # Use hardcoded version for now
         return cls(contract, version=2, initial_txid=txid)

@@ -14,7 +14,6 @@ from websauna.wallet.ethereum.dbconfirmationupdater import DatabaseConfirmationU
 from websauna.wallet.ethereum.dbcontractlistener import EthWalletListener, EthTokenListener
 from websauna.wallet.ethereum.ethjsonrpc import get_eth_json_rpc_client
 from websauna.wallet.ethereum.interfaces import IOperationPerformer
-from websauna.wallet.ethereum.token import get_token_contract_class
 from websauna.wallet.models import CryptoOperation, CryptoOperationState
 
 

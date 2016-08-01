@@ -5,10 +5,11 @@ Deploy a wallet contract over JSON RPC using a Solidity source code as base. The
 Many of these functions are cherry picked from Populous project and made Python 3 compatible.
 """
 from typing import Tuple, Optional
-
 from decimal import Decimal
+import binascii
 
 from web3.contract import Contract
+from web3.utils.abi import function_abi_to_4byte_selector
 
 from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
 from websauna.wallet.ethereum.contractwrapper import ContractWrapper
@@ -85,7 +86,21 @@ class HostedWallet(ContractWrapper):
             value = 0
 
         # Encode function arguments
-        data = to_contract.encodeABI(func, arguments=args)
+        function_abi = to_contract.find_matching_abi(func, args)
+        # 4 byte function hash
+        function_selector = function_abi_to_4byte_selector(function_abi)
+
+        # data payload passed to the function
+        arg_data = to_contract.encodeABI(func, arguments=args)
+
+        call_data = function_selector + arg_data[2:]
+
+        # test_event_execute() call data should look like
+        # function selector + random int as 256-bit
+        # 0x5093dc7d000000000000000000000000000000000000000000000000000000002a3f58fe
+
+        # web3 takes bytes argument as actual bytes, not hex
+        call_data = binascii.unhexlify(call_data[2:])
 
         tx_info = {
             # The Ethereum account that pays the gas for this operation
@@ -93,9 +108,7 @@ class HostedWallet(ContractWrapper):
             "gas": max_gas,
         }
 
-        import pdb ; pdb.set_trace()
-
-        txid = self.contract.transact(tx_info).execute(to_contract.address, value, max_gas, data)
+        txid = self.contract.transact(tx_info).execute(to_contract.address, value, max_gas, call_data)
         return txid
 
     def claim_fees(self, original_txid: str) -> Tuple[str, Decimal]:
@@ -110,14 +123,12 @@ class HostedWallet(ContractWrapper):
 
         assert original_txid.startswith("0x")
 
-        raise NotImplementedError()
-
         original_txid_b = bytes(bytearray.fromhex(original_txid[2:]))
 
-        receipt = self.client.get_transaction_receipt(original_txid)
-        gas_price = self.client.get_gas_price()
+        receipt = self.web3.eth.getTransactionReceipt(original_txid)
+        gas_price = self.web3.eth.gasPrice
 
-        gas_used = int(receipt["cumulativeGasUsed"], 16)
+        gas_used = receipt["cumulativeGasUsed"]
         wei_value = gas_used * gas_price
 
         price = wei_to_eth(wei_value)
@@ -126,7 +137,7 @@ class HostedWallet(ContractWrapper):
         # and add it on the top of the original transaction gas
 
         # Transfer value back to owner, post a tx fee event
-        txid = self.contract.claimFees(original_txid_b, wei_value)
+        txid = self.contract.transact().claimFees(original_txid_b, wei_value)
         return txid, price
 
 

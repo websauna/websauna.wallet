@@ -128,9 +128,9 @@ def simple_test_contract(web3) -> Contract:
 
 
 @pytest.fixture(scope="module")
-def token(client, coinbase) -> Contract:
+def token(web3, coinbase) -> Contract:
     """Deploy a token contract in the blockchain."""
-    return Token.create(client, name="Mootoken", supply=10000, symbol="MOO", owner=coinbase)
+    return Token.create_token(web3, name="Mootoken", supply=10000, symbol="MOO", owner=coinbase)
 
 
 @pytest.fixture
