@@ -1,5 +1,6 @@
 from decimal import Decimal
 from web3 import Web3
+from web3.contract import construct_contract_class
 
 from websauna.wallet.ethereum.contract import deploy_contract, Contract
 from websauna.wallet.ethereum.utils import wei_to_eth
@@ -24,9 +25,22 @@ class ContractWrapper:
         self.initial_txid = initial_txid
 
     @classmethod
-    def abi_factory(cls):
+    def abi_factory(cls) -> dict:
         """A method to give us ABI descriptino for the contract."""
         raise NotImplementedError()
+
+    @classmethod
+    def contract_class(cls, web3: Web3) -> type:
+        """Get web3 bound instance of a Contract proxy class."""
+        contract_definition = cls.abi_factory()
+        contract_class = construct_contract_class(
+            web3=web3,
+            abi=contract_definition["abi"],
+            code=contract_definition["code"],
+            code_runtime=contract_definition["code_runtime"],
+            source=contract_definition["source"],
+        )
+        return contract_class
 
     @classmethod
     def get(cls, web3: Web3, address: str) -> "ContractWrapper":

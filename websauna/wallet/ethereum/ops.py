@@ -2,6 +2,8 @@
 from decimal import Decimal
 from pyramid.registry import Registry
 
+from web3 import Web3
+
 from websauna.wallet.ethereum.asset import get_ether_asset
 from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.ethereum.token import Token
@@ -12,7 +14,7 @@ from websauna.wallet.models import CryptoAddressCreation, CryptoAddressDeposit, 
 from .interfaces import IOperationPerformer
 
 
-def create_address(service: EthereumService, op: CryptoAddressCreation):
+def create_address(web3: Web3, op: CryptoAddressCreation):
     """User requests new hosted address.
 
     We create a hosted wallet contract. The contract id is associated with the user in the database. We hold the the only owner address of the wallet.
@@ -20,13 +22,12 @@ def create_address(service: EthereumService, op: CryptoAddressCreation):
     The wallet code is based on https://github.com/ethereum/meteor-dapp-wallet/blob/master/Wallet.sol
     """
 
-    client = service.client
-    wallet = HostedWallet.create(client)
+    wallet = HostedWallet.create(web3)
     txid = wallet.initial_txid
-    receipt = client.get_transaction_receipt(txid)
+    receipt = web3.eth.getTransactionReceipt(txid)
 
     op.txid = txid_to_bin(txid)
-    op.block = int(receipt["blockNumber"], 16)
+    op.block = receipt["blockNumber"]
     op.address.address = eth_address_to_bin(wallet.address)
     op.external_address = op.address.address
 

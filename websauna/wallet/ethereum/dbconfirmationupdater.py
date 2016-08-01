@@ -1,11 +1,12 @@
 import logging
 
-from typing import Iterable, Optional, List, Tuple, Union
+from typing import Iterable, Tuple, Union
 
 import transaction
-from eth_ipc_client import Client
 from sqlalchemy.orm import Session
+from web3 import Web3
 
+from websauna.wallet.ethereum.populusutils import get_rpc_client
 from websauna.wallet.ethereum.utils import txid_to_bin, bin_to_txid
 from websauna.wallet.models import CryptoOperation
 
@@ -16,8 +17,14 @@ logger = logging.getLogger(__name__)
 class DatabaseConfirmationUpdater:
     """Update confirmation counts for crypto operations requiring them."""
 
-    def __init__(self, client: Client, dbsession: Session, network_id, logger=logger):
-        self.client = client
+    def __init__(self, web3: Web3, dbsession: Session, network_id, logger=logger):
+
+        assert isinstance(web3, Web3)
+        self.web = web3
+
+        # web3 doesn't support filters yet
+        self.client = get_rpc_client(web3)
+
         self.network_id = network_id
         self.dbsession = dbsession
         self.logger = logger

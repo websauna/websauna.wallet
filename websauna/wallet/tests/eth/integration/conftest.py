@@ -21,8 +21,8 @@ TEST_VALUE = Decimal("0.01")
 
 
 @pytest.fixture
-def eth_service(client, eth_network_id, dbsession, registry):
-    s = EthereumService(client, eth_network_id, dbsession, registry)
+def eth_service(web3, eth_network_id, dbsession, registry):
+    s = EthereumService(web3, eth_network_id, dbsession, registry)
     register_eth_operations(registry)
     return s
 

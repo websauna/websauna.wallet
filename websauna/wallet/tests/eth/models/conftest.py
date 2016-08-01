@@ -18,17 +18,17 @@ def eth_json_rpc(registry):
 
 
 @pytest.fixture
-def eth_service(eth_json_rpc, eth_network_id, dbsession, registry):
+def eth_service(web3, eth_network_id, dbsession, registry):
     """Create Ethereum Service to run ops or mock ups."""
-    s = EthereumService(eth_json_rpc, eth_network_id, dbsession, registry)
+    s = EthereumService(web3, eth_network_id, dbsession, registry)
     register_eth_operations(registry)
     return s
 
 
 @pytest.fixture
-def testnet_service(eth_json_rpc, testnet_network_id, dbsession, registry):
+def testnet_service(web3, testnet_network_id, dbsession, registry):
     """Create Ethereum Service for testnet to run ops or mock ups."""
-    s = EthereumService(eth_json_rpc, testnet_network_id, dbsession, registry)
+    s = EthereumService(web3, testnet_network_id, dbsession, registry)
     register_eth_operations(registry)
     return s
 

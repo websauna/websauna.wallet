@@ -6,9 +6,11 @@ import transaction
 from decimal import Decimal
 from eth_ipc_client import Client
 from sqlalchemy.orm import Session
+from web3 import Web3
 
 from websauna.wallet.ethereum.asset import get_ether_asset
 from websauna.wallet.ethereum.populuslistener import get_contract_events
+from websauna.wallet.ethereum.populusutils import get_rpc_client
 from websauna.wallet.ethereum.utils import bin_to_eth_address, txid_to_bin, wei_to_eth, eth_address_to_bin
 from websauna.wallet.models import CryptoAddress
 from websauna.wallet.models import CryptoOperation
@@ -24,8 +26,14 @@ logger = logging.getLogger(__name__)
 class DatabaseContractListener:
     """Contract listener that gets the monitored contracts from database."""
 
-    def __init__(self, client: Client, contract: type, dbsession: Session, network_id, from_block=0, confirmation_count=1, logger=logger):
-        self.client = client
+    def __init__(self, web3: Web3, contract: type, dbsession: Session, network_id, from_block=0, confirmation_count=1, logger=logger):
+
+        assert isinstance(web3, Web3)
+
+        self.web3 = web3
+
+        self.client = get_rpc_client(web3)
+
         self.last_block = from_block
         self.network_id = network_id
         self.event_map = self.build_event_map(contract)
@@ -40,7 +48,7 @@ class DatabaseContractListener:
 
         # Parsed hex string -> event mappings.
         # We parse to avoid padding zero issues.
-        event_map = {int(signature, 16): event for signature, event in events}
+        event_map = {signature: event for signature, event in events}
         return event_map
 
     def scan_logs(self, from_block, to_block) -> Tuple[int, int]:

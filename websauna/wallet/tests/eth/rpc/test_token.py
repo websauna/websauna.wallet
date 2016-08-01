@@ -10,13 +10,12 @@ from websauna.wallet.tests.eth.utils import wait_tx, create_contract_listener
 def test_deploy_token_contract(web3, token):
     """See that we get token contract to blockchain and can read back its public values."""
 
-    # BBB
-    token = token.contract
+    contract= token.contract
 
-    assert token.call().version().decode("utf-8") == "2"
-    assert token.call().totalSupply() == 10000
-    assert token.call().name().decode("utf-8") == "Mootoken"
-    assert token.call().symbol().decode("utf-8") == "MOO"
+    assert contract.call().version().decode("utf-8") == "2"
+    assert contract.call().totalSupply() == 10000
+    assert contract.call().name().decode("utf-8") == "Mootoken"
+    assert contract.call().symbol().decode("utf-8") == "MOO"
 
 
 @pytest.mark.slow
