@@ -46,10 +46,11 @@ class ContractWrapper:
     def get(cls, web3: Web3, address: str) -> "ContractWrapper":
         """Get a proxy object to existing hosted wallet contrac.t"""
 
-        contract = cls.abi_factory()
+        contract = cls.contract_class(web3)
         assert address.startswith("0x")
-        instance = contract(address, web3)
-        return ContractWrapper(instance, web3)
+        instance = contract(address=address)
+        # Create new ContractWrapper around the contract
+        return cls(instance)
 
     @classmethod
     def create(cls, web3: Web3, wait_for_tx_seconds=90, gas=1500000, args=None) -> "ContractWrapper":

@@ -67,9 +67,12 @@ def create_contract_listener(contract: Contract) -> Tuple[ContractListener, list
     return listener, contract_events
 
 
-def get_withdrawal_fee(client: Client) -> Decimal:
+def get_withdrawal_fee(web3: Web3) -> Decimal:
     """How much gas HostedWallet withdraw() operation should cost."""
-    mode = client.mode
+
+    # Some broken abstraction here - assume test web3 instance
+    # tells us more about the network implicitly
+    mode = getattr(web3, "mode", "local_geth")
     return NETWORK_PARAMETERS[mode]["withdrawal_fee"]
 
 
@@ -116,6 +119,16 @@ def send_balance_to_contract(contract: Contract, value: Decimal) -> str:
     tx = {
         "from": web3.eth.coinbase,
         "to": contract.address,
+        "value": to_wei(value)
+    }
+    return web3.eth.sendTransaction(tx)
+
+
+def send_balance_to_address(web3: Web3, address: str, value: Decimal) -> str:
+    assert address.startswith("0x")
+    tx = {
+        "from": web3.eth.coinbase,
+        "to": address,
         "value": to_wei(value)
     }
     return web3.eth.sendTransaction(tx)

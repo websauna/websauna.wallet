@@ -27,7 +27,7 @@ class HostedWallet(ContractWrapper):
         contract_meta = get_compiled_contract_cached("Wallet")
         return contract_meta
 
-    def withdraw(self, to_address: str, amount_in_eth: Decimal, from_account=None, max_gas=50000) -> str:
+    def withdraw(self, to_address: str, amount_in_eth: Decimal, from_account=None, max_gas=100000) -> str:
         """Withdraw funds from a wallet contract.
 
         :param amount_in_eth: How much as ETH

@@ -68,7 +68,7 @@ class OperationQueueManager:
                     logger.info("Running op: %s", op)
 
                     # Do the actual operation
-                    performer(self.web3, op)
+                    performer(self.web3, self.dbsession, op)
                     success_count += 1
 
                 except Exception as e:

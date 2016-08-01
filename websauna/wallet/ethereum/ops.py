@@ -1,6 +1,7 @@
 """Interaction between geth and database."""
 from decimal import Decimal
 from pyramid.registry import Registry
+from sqlalchemy.orm import Session
 
 from web3 import Web3
 
@@ -14,7 +15,7 @@ from websauna.wallet.models import CryptoAddressCreation, CryptoAddressDeposit, 
 from .interfaces import IOperationPerformer
 
 
-def create_address(web3: Web3, op: CryptoAddressCreation):
+def create_address(web3: Web3, dbsession: Session, op: CryptoAddressCreation):
     """User requests new hosted address.
 
     We create a hosted wallet contract. The contract id is associated with the user in the database. We hold the the only owner address of the wallet.
@@ -42,7 +43,7 @@ def deposit_eth(service: EthereumService, op: CryptoAddressDeposit):
     op.mark_complete()
 
 
-def withdraw_eth(service: EthereumService, op: CryptoAddressWithdraw):
+def withdraw_eth(web3: Web3, dbsession: Session, op: CryptoAddressWithdraw):
     """Perform ETH withdraw operation from the wallet."""
 
     # Check everyting looks sane
@@ -58,8 +59,7 @@ def withdraw_eth(service: EthereumService, op: CryptoAddressWithdraw):
     # How much we are withdrawing
     amount = op.holding_account.transactions.one().amount
 
-    client = service.client
-    wallet = HostedWallet.get(client, address)
+    wallet = HostedWallet.get(web3, address)
 
     # Call geth RPC API over Populus contract proxy
     txid = wallet.withdraw(bin_to_eth_address(op.external_address), amount)
@@ -73,7 +73,7 @@ def withdraw_eth(service: EthereumService, op: CryptoAddressWithdraw):
     op.mark_complete()  # This cannot be cancelled
 
 
-def withdraw_token(service: EthereumService, op: CryptoAddressWithdraw):
+def withdraw_token(web3: Web3, dbsession: Session, op: CryptoAddressWithdraw):
     """Perform token withdraw operation from the wallet."""
 
     # Check everyting looks sane
@@ -93,9 +93,8 @@ def withdraw_token(service: EthereumService, op: CryptoAddressWithdraw):
     # How much we are withdrawing
     amount = op.holding_account.transactions.one().amount
 
-    client = service.client
-    wallet = HostedWallet.get(client, from_address)
-    token = Token.get(client, asset_address)
+    wallet = HostedWallet.get(web3, from_address)
+    token = Token.get(web3, asset_address)
 
     amount = token.validate_transfer_amount(amount)
 
@@ -110,14 +109,14 @@ def withdraw_token(service: EthereumService, op: CryptoAddressWithdraw):
     op.mark_complete()  # This cannot be cancelled
 
 
-def withdraw(service: EthereumService, op: CryptoAddressWithdraw):
+def withdraw(web3: Web3, dbsession: Session, op: CryptoAddressWithdraw):
     """Backend has different contract types for different assets."""
-    eth = get_ether_asset(service.dbsession)
+    eth = get_ether_asset(dbsession)
 
     if op.holding_account.asset == eth:
-        return withdraw_eth(service, op)
+        return withdraw_eth(web3, dbsession, op)
     elif op.holding_account.asset.asset_class == AssetClass.token:
-        return withdraw_token(service, op)
+        return withdraw_token(web3, dbsession, op)
     else:
         raise RuntimeError("Unknown asset {}".format(op.holding_account.asset))
 
@@ -182,7 +181,6 @@ def import_token(service: EthereumService, op: CryptoTokenCreation):
         try:
             amount = token.contract.balanceOf(bin_to_eth_address(caddress.address))
         except ValueError as e:
-            import pdb ; pdb.set_trace()
             # Bad contract doesn't define balanceOf()
             # This leaves badly imported asset
             op.mark_failed()

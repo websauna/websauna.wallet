@@ -5,11 +5,14 @@ from uuid import UUID
 import pytest
 import transaction
 from decimal import Decimal
+from web3 import Web3
 
 from eth_ipc_client import Client
 from sqlalchemy.orm import Session
 
+from populus.utils.transactions import wait_for_block_number
 from websauna.wallet.ethereum.asset import get_ether_asset
+from websauna.wallet.ethereum.contract import confirm_transaction
 from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.ethereum.token import Token
 from websauna.wallet.ethereum.utils import eth_address_to_bin, txid_to_bin, bin_to_txid, to_wei, wei_to_eth, bin_to_eth_address
@@ -18,7 +21,8 @@ from websauna.wallet.models.account import AssetClass
 from websauna.wallet.models.blockchain import CryptoAddressDeposit, import_token
 
 # How many ETH we move for test transactiosn
-from websauna.wallet.tests.eth.utils import wait_tx, get_withdrawal_fee, wait_for_op_confirmations
+from websauna.wallet.tests.eth.utils import wait_tx, get_withdrawal_fee, wait_for_op_confirmations, send_balance_to_address
+
 
 TEST_VALUE = Decimal("0.01")
 
@@ -58,12 +62,13 @@ def test_create_eth_account(dbsession, eth_service, eth_network_id, client):
         assert address.address
 
 
-def test_deposit_eth(dbsession, eth_network_id, client, eth_service, coinbase, deposit_address):
+def test_deposit_eth(dbsession, eth_network_id, web3, eth_service, coinbase, deposit_address):
     """Accept incoming deposit."""
 
     # Do a transaction over ETH network
-    txid = client.send_transaction(_from=coinbase, to=deposit_address, value=to_wei(TEST_VALUE,))
-    wait_tx(client, txid)
+
+    txid = send_balance_to_address(web3, deposit_address, TEST_VALUE)
+    confirm_transaction(web3, txid)
 
     success_op_count, failed_op_count = eth_service.run_listener_operations()
     assert success_op_count == 1
@@ -114,18 +119,18 @@ def test_deposit_eth(dbsession, eth_network_id, client, eth_service, coinbase, d
         assert caccount.account.get_balance() == TEST_VALUE
 
 
-def test_double_scan_deposit(dbsession, eth_network_id, client, eth_service, coinbase, deposit_address):
+def test_double_scan_deposit(dbsession, eth_network_id, web3, eth_service, coinbase, deposit_address):
     """Make sure that scanning the same transaction twice doesn't get duplicated in the database."""
 
     # Do a transaction over ETH network
-    txid = client.send_transaction(_from=coinbase, to=deposit_address, value=to_wei(TEST_VALUE, ))
-    wait_tx(client, txid)
+    txid = send_balance_to_address(web3, deposit_address, TEST_VALUE)
+    confirm_transaction(web3, txid)
 
     success_op_count, failed_op_count = eth_service.run_listener_operations()
     assert success_op_count == 1
 
     # Now force run over the same blocks again
-    success_op_count, failed_op_count = eth_service.eth_wallet_listener.force_scan(0, client.get_block_number())
+    success_op_count, failed_op_count = eth_service.eth_wallet_listener.force_scan(0, web3.eth.blockNumber)
     assert success_op_count == 0
     assert failed_op_count == 0
 
@@ -136,15 +141,15 @@ def test_double_scan_deposit(dbsession, eth_network_id, client, eth_service, coi
         assert len(ops) == 2  # Create + deposit
 
 
-def test_withdraw_eth(dbsession: Session, eth_network_id: UUID, client: Client, eth_service: EthereumService, withdraw_address: str, target_account: str):
+def test_withdraw_eth(dbsession: Session, eth_network_id: UUID, web3: Web3, eth_service: EthereumService, withdraw_address: str, target_account: str):
     """Perform a withdraw operation.
 
     Create a database address with balance.
     """
 
     # First check what's our balance before sending coins back
-    current_balance = wei_to_eth(client.get_balance(target_account))
-    assert client.get_balance(withdraw_address) > 0
+    current_balance = wei_to_eth(web3.eth.getBalance(target_account))
+    assert current_balance == 0
 
     with transaction.manager:
 
@@ -179,17 +184,17 @@ def test_withdraw_eth(dbsession: Session, eth_network_id: UUID, client: Client, 
         txid = bin_to_txid(op.txid)
 
     # This should make the tx to included in a block
-    client.wait_for_transaction(txid)
+    confirm_transaction(web3, txid)
 
     # Now we should get block number for the withdraw
     eth_service.run_confirmation_updates()
 
     # Geth reflects the deposit instantly internally, doesn't wait for blocks
-    fee = get_withdrawal_fee(client)
-    new_balance = wei_to_eth(client.get_balance(target_account))
+    fee = get_withdrawal_fee(web3)
+    new_balance = wei_to_eth(web3.eth.getBalance(target_account))
     assert new_balance == current_balance + TEST_VALUE - fee
 
-    current_block = client.get_block_number()
+    current_block = web3.eth.blockNumber
     with transaction.manager:
         # Check we get block and txid
 
@@ -205,7 +210,7 @@ def test_withdraw_eth(dbsession: Session, eth_network_id: UUID, client: Client, 
         required_conf = op.required_confirmation_count
 
     # Wait block to make the confirmation happen
-    client.wait_for_block(block_num + required_conf + 1)
+    wait_for_block_number(web3, block_num + required_conf + 1, timeout=60)
 
     # Now we should have enough blocks to mark the transaction as confirmed
     eth_service.run_confirmation_updates()

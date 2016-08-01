@@ -36,7 +36,7 @@ def test_create_eth_account(dbsession, eth_network_id, eth_service):
 
         op_id = op.id
 
-    def _create_address(service, op):
+    def _create_address(service, dbsession, op):
         assert isinstance(op.address, CryptoAddress)
         op.address.address = eth_address_to_bin(TEST_ADDRESS)
         op.mark_performed()
@@ -215,7 +215,7 @@ def test_withdraw_eth_account(dbsession, eth_service, eth_network_id, eth_asset_
         assert ca_account.account.transactions.all()[1].message == "Bailing out"
         assert ca_account.account.get_balance() == 0
 
-    def _withdraw_eth(service, op):
+    def _withdraw_eth(service, dbsession, op):
         # Mocked withdraw op that always success
         op.txid = txid_to_bin(TEST_TXID)
         op.mark_complete()

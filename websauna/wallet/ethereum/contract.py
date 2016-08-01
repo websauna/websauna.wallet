@@ -103,6 +103,6 @@ def confirm_transaction(web3: Web3, txid: str, timeout=60) -> dict:
     tx = web3.eth.getTransaction(txid)
 
     if tx["gas"] == receipt["gasUsed"]:
-        raise TransactionConfirmationError("Transaction failed (out of gas, thrown): {}".format(txid))
+        raise TransactionConfirmationError("Transaction failed (out of gas, thrown): {} - given gas {}".format(txid, tx["gas"]))
 
     return receipt

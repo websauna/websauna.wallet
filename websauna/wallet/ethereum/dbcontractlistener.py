@@ -222,7 +222,7 @@ class EthWalletListener(DatabaseContractListener):
         self.dbsession.flush()
 
         value = wei_to_eth(log_data["value"])
-        acc.do_withdraw_or_deposit(value, "ETH deposit from {} in tx {}".format(log_data["from"].decode("utf-8"), log_entry["transactionHash"]))
+        acc.do_withdraw_or_deposit(value, "ETH deposit from {} in tx {}".format(log_data["from"], log_entry["transactionHash"]))
 
         op.holding_account = acc
         return op
