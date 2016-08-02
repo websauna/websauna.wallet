@@ -29,7 +29,7 @@ class Token(ContractWrapper):
         :return: Transaction id
         """
         amount = self.validate_transfer_amount(amount)
-        return self.contract.call().transfer(to_address, amount)
+        return self.contract.transact().transfer(to_address, amount)
 
     @classmethod
     def validate_transfer_amount(cls, amount):

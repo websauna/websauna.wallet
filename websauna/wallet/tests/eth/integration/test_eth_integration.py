@@ -7,7 +7,6 @@ import transaction
 from decimal import Decimal
 from web3 import Web3
 
-from eth_ipc_client import Client
 from sqlalchemy.orm import Session
 
 from populus.utils.transactions import wait_for_block_number
@@ -27,7 +26,7 @@ from websauna.wallet.tests.eth.utils import wait_tx, get_withdrawal_fee, wait_fo
 TEST_VALUE = Decimal("0.01")
 
 
-def test_create_eth_account(dbsession, eth_service, eth_network_id, client):
+def test_create_eth_account(dbsession, eth_service, eth_network_id):
     """Create Ethereum user deposit address by deploying a hosted wallet contract through geth."""
 
     # Create CryptoAddressCreation operation
@@ -224,7 +223,7 @@ def test_withdraw_eth(dbsession: Session, eth_network_id: UUID, web3: Web3, eth_
         assert op.confirmed_at is not None
 
 
-def test_create_token(dbsession, eth_network_id, client, eth_service, coinbase, deposit_address):
+def test_create_token(dbsession, eth_network_id, eth_service, coinbase, deposit_address):
     """Test user initiated token creation."""
 
     # Initiate token creation operation
@@ -280,12 +279,12 @@ def test_create_token(dbsession, eth_network_id, client, eth_service, coinbase, 
         assert address.get_account(asset).account.get_balance() == 10000
 
 
-def test_import_token(dbsession, eth_network_id, client: Client, eth_service: EthereumService, coinbase: str, deposit_address: str, token: Token):
+def test_import_token(dbsession, eth_network_id, web3: Web3, eth_service: EthereumService, coinbase: str, deposit_address: str, token: Token):
     """Import an existing smart contract token to system."""
 
     # Make sure we have an address that holds some of the tokens so it is cleared up during import
     txid = token.transfer(deposit_address, Decimal(4000))
-    wait_tx(client, txid)
+    confirm_transaction(web3, txid)
 
     with transaction.manager:
 
@@ -321,12 +320,12 @@ def test_import_token(dbsession, eth_network_id, client: Client, eth_service: Et
         assert caccount.account.get_balance() == 4000
 
 
-def test_import_no_address_token(dbsession: Session, eth_network_id, client: Client, eth_service: EthereumService):
+def test_import_no_address_token(dbsession: Session, eth_network_id, web3: Web3, eth_service: EthereumService):
     """Import should fail for address that doesn't exist."""
 
     with transaction.manager:
         network = dbsession.query(AssetNetwork).get(eth_network_id)
-        # Should be random address
+        # A random address
         op = import_token(network, eth_address_to_bin("0x2f70d3d26829e412a602e83fe8eebf80255aeea5"))
         opid = op.id
 
@@ -338,10 +337,10 @@ def test_import_no_address_token(dbsession: Session, eth_network_id, client: Cli
     with transaction.manager:
         op = dbsession.query(CryptoOperation).get(opid)
         assert op.failed_at
-        assert op.other_data["failure_reason"] == "call to name() unexpectedly returned no data"
+        assert op.other_data["error"].startswith("Address did not provide EIP-20 token API:")
 
 
-def test_deposit_token(dbsession, eth_network_id, client: Client, eth_service: EthereumService, coinbase: str, deposit_address: str, token: Token):
+def test_deposit_token(dbsession, eth_network_id, web3: Web3, eth_service: EthereumService, coinbase: str, deposit_address: str, token: Token):
     """"See that we can deposit tokens to accounts."""
 
     # Import a contract where coinbase has all balance
@@ -356,7 +355,7 @@ def test_deposit_token(dbsession, eth_network_id, client: Client, eth_service: E
 
     # Coinbase transfers token balance to deposit address
     txid = token.transfer(deposit_address, Decimal(4000))
-    wait_tx(client, txid)
+    confirm_transaction(web3, txid)
 
     # We should pick up incoming deposit
     success_count, failure_count = eth_service.run_listener_operations()
@@ -389,7 +388,7 @@ def test_deposit_token(dbsession, eth_network_id, client: Client, eth_service: E
         assert address.get_account(asset).account.get_balance() == 4000
 
 
-def test_withdraw_token(dbsession, eth_network_id, client: Client, eth_service: EthereumService, deposit_address: str, token_asset: str, target_account: str):
+def test_withdraw_token(dbsession, eth_network_id, web3: Web3, eth_service: EthereumService, deposit_address: str, token_asset: str, target_account: str):
     """"See that we can withdraw token outside to an account."""
 
     with transaction.manager:
@@ -424,15 +423,15 @@ def test_withdraw_token(dbsession, eth_network_id, client: Client, eth_service: 
         asset = dbsession.query(Asset).get(token_asset)
 
         # Tokens have been removed on from account
-        token = Token.get(client, bin_to_eth_address(asset.external_id))
-        assert token.contract.balanceOf(deposit_address) == 8000
+        token = Token.get(web3, bin_to_eth_address(asset.external_id))
+        assert token.contract.call().balanceOf(deposit_address) == 8000
 
         # Tokens have been credited on to account
-        token = Token.get(client, bin_to_eth_address(asset.external_id))
-        assert token.contract.balanceOf(target_account) == 2000
+        token = Token.get(web3, bin_to_eth_address(asset.external_id))
+        assert token.contract.call().balanceOf(target_account) == 2000
 
 
-def test_transfer_tokens_between_accounts(dbsession, eth_network_id, client: Client, eth_service: EthereumService, deposit_address: str, token_asset: str, coinbase: str):
+def test_transfer_tokens_between_accounts(dbsession, eth_network_id, web3: Web3, eth_service: EthereumService, deposit_address: str, token_asset: str, coinbase: str):
     """Transfer tokens between two internal accounts.
 
     Do transfers in two batches to make sure subsequent events top up correctly.
@@ -499,8 +498,8 @@ def test_transfer_tokens_between_accounts(dbsession, eth_network_id, client: Cli
         assert target.get_account(asset).account.get_balance() == 2000
 
     # Add some ETH on deposit_address
-    txid = client.send_transaction(_from=coinbase, to=deposit_address, value=to_wei(TEST_VALUE,))
-    wait_tx(client, txid)
+    txid = send_balance_to_address(web3, deposit_address, TEST_VALUE)
+    confirm_transaction(web3, txid)
     eth_service.run_event_cycle()
 
     # Wait for confirmations to have ETH deposit credired

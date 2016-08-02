@@ -1,24 +1,16 @@
-import threading
-from typing import Iterable, List, Tuple
+from typing import Tuple
 from uuid import UUID
 import logging
 
-import transaction
-from eth_ipc_client import Client
 from web3 import Web3
 from pyramid.registry import Registry
 
 from sqlalchemy.orm import Session
-from websauna.utils.time import now
-from websauna.wallet.ethereum.asset import get_eth_network
 from websauna.wallet.ethereum.dbconfirmationupdater import DatabaseConfirmationUpdater
 from websauna.wallet.ethereum.dbcontractlistener import EthWalletListener, EthTokenListener
 from websauna.wallet.ethereum.dboperationqueue import OperationQueueManager
-from websauna.wallet.ethereum.ethjsonrpc import get_eth_json_rpc_client
-from websauna.wallet.ethereum.interfaces import IOperationPerformer
 from websauna.wallet.ethereum.token import Token
 from websauna.wallet.ethereum.wallet import HostedWallet
-from websauna.wallet.models import CryptoOperation, CryptoOperationState
 
 
 logger = logging.getLogger(__name__)
@@ -87,5 +79,3 @@ class EthereumService:
             total_failure += failure
 
         return total_success, total_failure
-
-

@@ -5,8 +5,12 @@ from io import BytesIO
 import pexpect
 
 
-def test_start_service(test_config_path, dbsession, geth_node):
+def test_start_service(test_config_path, dbsession, web3):
     """We can spawn a standalone Ethereum service."""
+
+    # web3 creates geth
+    # dbsession creates database
+
     log = BytesIO()
     child = pexpect.spawn('ethereum-service {}'.format(test_config_path), logfile=log)
     try:

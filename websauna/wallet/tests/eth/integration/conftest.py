@@ -7,7 +7,6 @@ from decimal import Decimal
 
 from geth.wrapper import DEFAULT_PASSWORD_PATH
 from web3 import Web3
-from eth_rpc_client import Client
 
 from geth.accounts import create_new_account
 
@@ -104,7 +103,7 @@ def target_account(web3: Web3) -> str:
 
 
 @pytest.fixture
-def token_asset(client, dbsession, eth_network_id, deposit_address, eth_service: EthereumService) -> UUID:
+def token_asset(dbsession, eth_network_id, deposit_address, eth_service: EthereumService) -> UUID:
     """Database asset referring to the token contract.
 
     deposit_address will hold 10000 tokens

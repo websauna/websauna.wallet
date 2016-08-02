@@ -49,11 +49,6 @@ def client_credentials(registry) -> tuple:
     return password, unlock_seconds
 
 
-@pytest.fixture(scope="session")
-def client(request, client_mode, client_credentials) -> Web3:
-    pass
-
-
 @pytest.yield_fixture(scope="session")
 def web3(request, client_mode, client_credentials) -> Web3:
     """A py.test fixture to get a Web3 interface to locally launched geth.

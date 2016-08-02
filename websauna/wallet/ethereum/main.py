@@ -12,7 +12,7 @@ import transaction
 
 from websauna.system.devop.cmdline import init_websauna
 from websauna.wallet.ethereum.asset import get_eth_network
-from websauna.wallet.ethereum.ethjsonrpc import get_eth_json_rpc_client
+from websauna.wallet.ethereum.ethjsonrpc import get_eth_json_rpc_client, get_web3
 from websauna.wallet.ethereum.service import EthereumService
 
 
@@ -36,14 +36,14 @@ def main(argv=sys.argv):
     # console_app sets up colored log output
     request = init_websauna(config_uri, sanity_check=True)
 
-    client = get_eth_json_rpc_client(request.registry)
+    web3 = get_web3(request.registry)
     with transaction.manager:
         network = get_eth_network(request.dbsession)
         network_id = network.id
 
     sleepy = int(request.registry.settings.get("ethereum.daemon_poll_seconds", 2))
 
-    service = EthereumService(client, network_id, request.dbsession, request.registry)
+    service = EthereumService(web3, network_id, request.dbsession, request.registry)
     logger.info("Ethereum service started")
     while True:
         service.run_event_cycle()

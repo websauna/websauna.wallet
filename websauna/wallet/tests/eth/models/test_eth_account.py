@@ -241,7 +241,7 @@ def test_setup_user_account(dbsession, registry, eth_service, testnet_service, e
         assert user.owned_crypto_addresses.count() == 2  # 2 addresses
         assert user.owned_crypto_operations.count() == 2  # 2 account creations
 
-    def _create_address(service, op):
+    def _create_address(web3, dbsession, op):
         assert isinstance(op.address, CryptoAddress)
         op.address.address = eth_address_to_bin(TEST_ADDRESS)
         op.mark_performed()
@@ -262,5 +262,3 @@ def test_setup_user_account(dbsession, registry, eth_service, testnet_service, e
         setup_user_account(user)
         assert user.owned_crypto_addresses.count() == 2  # 2 addresses
         assert user.owned_crypto_operations.count() == 2  # 2 account creations
-
-

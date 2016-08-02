@@ -1,5 +1,8 @@
 """Interaction between geth and database."""
 from decimal import Decimal
+import logging
+
+import eth_abi
 from pyramid.registry import Registry
 from sqlalchemy.orm import Session
 
@@ -13,6 +16,9 @@ from websauna.wallet.ethereum.wallet import HostedWallet
 from websauna.wallet.models import CryptoAddressCreation, CryptoAddressDeposit, CryptoAddressWithdraw, CryptoTokenCreation, CryptoTokenImport, AssetClass, CryptoAddress
 
 from .interfaces import IOperationPerformer
+
+
+logger = logging.getLogger(__name__)
 
 
 def create_address(web3: Web3, dbsession: Session, op: CryptoAddressCreation):
@@ -36,7 +42,7 @@ def create_address(web3: Web3, dbsession: Session, op: CryptoAddressCreation):
     op.mark_complete()
 
 
-def deposit_eth(service: EthereumService, op: CryptoAddressDeposit):
+def deposit_eth(web3: Web3, dbsession: Session, op: CryptoAddressDeposit):
     """This can be settled internally, as we do not have any external communications in this point."""
     op.resolve()
     op.mark_performed()
@@ -121,7 +127,7 @@ def withdraw(web3: Web3, dbsession: Session, op: CryptoAddressWithdraw):
         raise RuntimeError("Unknown asset {}".format(op.holding_account.asset))
 
 
-def create_token(service: EthereumService, op: CryptoTokenCreation):
+def create_token(web3: Web3, dbsession: Session, op: CryptoTokenCreation):
     """Creates a new token and assigns it ownership to user.
 
     """
@@ -139,8 +145,7 @@ def create_token(service: EthereumService, op: CryptoTokenCreation):
     address = bin_to_eth_address(op.crypto_account.address.address)
 
     # Create Tonex proxy object
-    client = service.client
-    token = Token.create(client, name=asset.name, symbol=asset.symbol, supply=asset.supply, owner=address)
+    token = Token.create_token(web3, name=asset.name, symbol=asset.symbol, supply=asset.supply, owner=address)
 
     # Call geth RPC API over Populus contract proxy
     op.txid = txid_to_bin(token.initial_txid)
@@ -152,22 +157,28 @@ def create_token(service: EthereumService, op: CryptoTokenCreation):
     op.mark_performed()
 
 
-def import_token(service: EthereumService, op: CryptoTokenCreation):
+def import_token(web3: Web3, dbsession: Session,op: CryptoTokenCreation):
     """Import existing token smart contract as asset."""
     address = bin_to_eth_address(op.external_address)
-    token = Token.get(service.client, address)
+    token = Token.get(web3, address)
 
     network = op.network
-    dbsession = service.dbsession
-    try:
-        name = token.contract.name().decode("utf-8")
-        symbol = token.contract.symbol().decode("utf-8")
-        supply = Decimal(token.contract.totalSupply())
-    except ValueError as e:
-        # When we try to access a contract attrib which is not supported by underlying code
-        import pdb ; pdb.set_trace()
+
+    def gen_error(e: Exception):
+        # Set operation as impossible to complete
+        # Set user readable and technical error explanation
         op.mark_failed()
-        op.other_data["failure_reason"] = str(e)
+        op.other_data["error"] = "Address did not provide EIP-20 token API:" + address
+        op.other_data["exception"] = str(e)
+        logger.exception(e)
+
+    try:
+        name = token.contract.call().name().decode("utf-8")
+        symbol = token.contract.call().symbol().decode("utf-8")
+        supply = Decimal(token.contract.call().totalSupply())
+    except eth_abi.exceptions.DecodingError as e:
+        # When we try to access a contract attrib which is not supported by underlying code
+        gen_error(e)
         return
 
     asset = network.create_asset(name=name, symbol=symbol, supply=supply, asset_class=AssetClass.token)
@@ -179,12 +190,11 @@ def import_token(service: EthereumService, op: CryptoTokenCreation):
 
         # Returns 0 for unknown addresses
         try:
-            amount = token.contract.balanceOf(bin_to_eth_address(caddress.address))
-        except ValueError as e:
+            amount = token.contract.call().balanceOf(bin_to_eth_address(caddress.address))
+        except eth_abi.exceptions.DecodingError as e:
             # Bad contract doesn't define balanceOf()
             # This leaves badly imported asset
-            op.mark_failed()
-            op.other_data["failure_reason"] = str(e)
+            gen_error(e)
             return
 
         if amount > 0:

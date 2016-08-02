@@ -4,7 +4,6 @@ import random
 import pytest
 from decimal import Decimal
 
-from eth_rpc_client import Client
 from web3 import Web3
 
 from websauna.wallet.ethereum.contract import confirm_transaction, Contract
@@ -111,13 +110,6 @@ def test_event_withdraw_wallet_too_much(web3: Web3, topped_up_hosted_wallet, coi
     event_name, input_data = events[0]
     assert event_name == "ExceededWithdraw"
     assert input_data["value"] == to_wei(too_much)
-
-
-@pytest.mark.fail
-@pytest.mark.slow
-def test_event_withdraw_wallet_no_gas(client: Client, coinbase):
-    """We don't have enough balance to pay the gas."""
-    pass
 
 
 def test_contract_abi(web3, simple_test_contract: Contract):
