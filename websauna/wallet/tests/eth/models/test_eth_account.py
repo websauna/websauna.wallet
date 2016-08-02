@@ -12,7 +12,7 @@ from websauna.tests.utils import create_user
 from websauna.wallet.ethereum.asset import setup_user_account
 from websauna.wallet.ethereum.utils import eth_address_to_bin, txid_to_bin, bin_to_txid
 from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw, CryptoOperationState
-from websauna.wallet.models.blockchain import MultipleAssetAccountsPerAddress
+from websauna.wallet.models.blockchain import MultipleAssetAccountsPerAddress, UserCryptoOperation
 
 TEST_ADDRESS = "0x2f70d3d26829e412a602e83fe8eebf80255aeea5"
 
@@ -262,3 +262,25 @@ def test_setup_user_account(dbsession, registry, eth_service, testnet_service, e
         setup_user_account(user)
         assert user.owned_crypto_addresses.count() == 2  # 2 addresses
         assert user.owned_crypto_operations.count() == 2  # 2 account creations
+
+
+def test_get_user_account_operations(dbsession, registry, eth_network_id):
+    """get_active_operations() gives sane results."""
+
+    with transaction.manager:
+        user = create_user(dbsession, registry)
+        setup_user_account(user)
+        operations = UserCryptoOperation.get_active_operations(user)
+        assert operations.count() == 2
+
+        # Ticking operation off shortens the lsit
+        op = operations.first()
+        op.mark_complete()
+
+        operations = UserCryptoOperation.get_active_operations(user)
+        assert operations.count() == 1
+
+        op = operations.first()
+        op.mark_complete()
+        assert operations.count() == 0
+

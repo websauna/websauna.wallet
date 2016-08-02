@@ -1,0 +1,42 @@
+<table class="table table-listing table-operations">
+
+  <thead>
+    <tr>
+      <th>Started (UTC)</th>
+      <th>Type</th>
+      <th>Assets</th>
+      <th>Amount</th>
+      <th>Address</th>
+      <th>Confirmations</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for op in operations %}
+      <tr>
+        <td>
+          <a href="#">
+            {{ op.created_at|friendly_timestamp }}
+          </a>
+        </td>
+
+        <td>
+          {{ op.human_friendly_type }}
+        </td>
+
+        <td>
+          {{ op.asset_symbol }}
+        </td>
+
+        <td>
+          {{ op.amount }}
+        </td>
+
+        <td>
+
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>

@@ -13,6 +13,7 @@ from websauna.system.user.models import User
 from websauna.utils.slug import slug_to_uuid, uuid_to_slug
 from websauna.wallet.ethereum.asset import setup_user_account
 from websauna.wallet.models import UserCryptoAddress
+from websauna.wallet.models.blockchain import UserCryptoOperation
 
 
 class UserAddress(Resource):
@@ -95,7 +96,7 @@ def wallet(wallet: UserWallet, request: Request):
     # Set up initial addresses if user doesn't have any yet
     setup_user_account(wallet.user)
 
-
+    active_operations = UserCryptoOperation.get_active_operations(wallet.user)
 
     return locals()
 

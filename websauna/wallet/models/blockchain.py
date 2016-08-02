@@ -3,7 +3,7 @@
 from decimal import Decimal
 
 import binascii
-from typing import Optional
+from typing import Optional, Iterable, List
 
 import enum
 
@@ -84,6 +84,15 @@ class CryptoAddress(Base):
 
      #: Only one address object per network
     __table_args__ = (UniqueConstraint('network_id', 'address', name='address_per_network'), )
+
+    def __str__(self):
+        if self.address:
+            return bin_to_eth_address(self.address)
+        else:
+            return "<no address assigned yet>"
+
+    def __repr__(self):
+        return self.__str__()
 
     def create_account(self, asset: Asset) -> "CryptoAddressAccount":
         """Create an account holding certain asset under this address."""
@@ -224,6 +233,13 @@ class CryptoAddress(Base):
         dbsession.flush()
 
         return op
+
+    def list_accounts(self) -> List["CryptoAddressAccount"]:
+        """Get all accounts registered for this address.
+
+        :return: List of assets registered on this account or empty list if None
+        """
+        return list(self.crypto_address_accounts)
 
 
 class CryptoAddressAccount(Base):
@@ -390,6 +406,9 @@ class CryptoOperation(Base):
     #: Any other (subclass specific) data we associate with this transaction. Contains ``failure_reason`` when ``mark_failed()``
     other_data = Column(NestedMutationDict.as_mutable(psql.JSONB), default=dict)
 
+    #: Label used in UI
+    human_friendly_type = "<unknown operation>"
+
     __mapper_args__ = {
         'polymorphic_on': operation_type,
         "order_by": created_at
@@ -407,6 +426,20 @@ class CryptoOperation(Base):
 
     def __repr__(self):
         return self.__str__()
+
+    @property
+    def asset_symbol(self) -> Optional[str]:
+        """Run human readable asset symbol or None if this operation does not have asset assigned."""
+        if self.holding_account:
+            return self.holding_account.asset.symbol
+        return None
+
+    @property
+    def amount(self) -> Optional[Decimal]:
+        """Return human readable value of this operation in asset or None if no asset assigned."""
+        if self.holding_account:
+            return self.holding_account.get_balance()
+        return None
 
     def mark_performed(self):
         """This operation has been broadcasted to network. It's completion and confirmation might require further network confirmations.."""
@@ -461,6 +494,9 @@ class CryptoAddressCreation(CryptoAddressOperation):
 
     Start with null address and store the created address on this SQL row when the node creates a receiving address and has private keys stored within nodes internal storage.
     """
+
+    #: Label used in UI
+    human_friendly_type = "Address creation"
 
     __mapper_args__ = {
         'polymorphic_identity': CryptoOperationType.create_address,
@@ -527,6 +563,9 @@ class CryptoAddressDeposit(DepositResolver, CryptoOperation):
     Start with null address and store the created address on this SQL row when the node creates a receiving address and has private keys stored within nodes internal storage.
     """
 
+    #: Label used in UI
+    human_friendly_type = "Deposit"
+
     __mapper_args__ = {
         'polymorphic_identity': CryptoOperationType.deposit,
     }
@@ -540,6 +579,8 @@ class CryptoAddressWithdraw(CryptoOperation):
     - Try broadcast the tx to the network on the next network tick
     """
 
+    #: Label used in UI
+    human_friendly_type = "Withdraw"
 
     __mapper_args__ = {
         'polymorphic_identity': CryptoOperationType.withdraw,
@@ -570,6 +611,9 @@ class CryptoTokenCreation(DepositResolver, CryptoOperation):
     See :meth:`CryptoAddress.create_token`.
     """
 
+    #: Label used in UI
+    human_friendly_type = "Token creation"
+
     __mapper_args__ = {
         'polymorphic_identity': CryptoOperationType.create_token,
     }
@@ -577,6 +621,9 @@ class CryptoTokenCreation(DepositResolver, CryptoOperation):
 
 class CryptoTokenImport(CryptoOperation):
     """Import an existing smart contract token to the system."""
+
+    #: Label used in UI
+    human_friendly_type = "Token import"
 
     __mapper_args__ = {
         'polymorphic_identity': CryptoOperationType.import_token,
@@ -640,6 +687,16 @@ class UserCryptoOperation(Base):
                                         cascade="all, delete-orphan",
                                         single_parent=True,),)
 
+    @classmethod
+    def get_operations(cls, user: User, states: Iterable) -> Iterable[CryptoOperation]:
+        dbsession = Session.object_session(user)
+        return dbsession.query(CryptoOperation).filter(CryptoOperation.state.in_(states)).join(UserCryptoOperation).filter_by(user=user)
+
+    @classmethod
+    def get_active_operations(cls, user: User) -> Iterable[CryptoOperation]:
+        """Get all operations assigned to a user account."""
+        states = (CryptoOperationState.waiting, CryptoOperationState.pending)
+        return cls.get_operations(user, states)
 
 def import_token(network: AssetNetwork, address: bytes) -> CryptoOperation:
     """Create operation to import existing token smart contract to system as asset.
@@ -655,3 +712,5 @@ def import_token(network: AssetNetwork, address: bytes) -> CryptoOperation:
     dbsession.add(op)
     dbsession.flush()
     return op
+
+
