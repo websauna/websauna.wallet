@@ -11,12 +11,26 @@ from websauna.system.user.models import User
 from websauna.tests.utils import create_user
 from websauna.wallet.ethereum.asset import setup_user_account
 from websauna.wallet.ethereum.utils import eth_address_to_bin, txid_to_bin, bin_to_txid
-from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw, CryptoOperationState
-from websauna.wallet.models.blockchain import MultipleAssetAccountsPerAddress, UserCryptoOperation
+from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw, CryptoOperationState, AssetClass
+from websauna.wallet.models.blockchain import MultipleAssetAccountsPerAddress, UserCryptoOperation, UserCryptoAddress
 
 TEST_ADDRESS = "0x2f70d3d26829e412a602e83fe8eebf80255aeea5"
 
 TEST_TXID = "0x00df829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcf"
+
+
+def mock_create_addresses(eth_service, dbsession):
+    """Create fake addresses instead of going to geth to ask for new address."""
+
+    def _create_address(service, dbsession, op):
+        assert isinstance(op.address, CryptoAddress)
+        op.address.address = eth_address_to_bin(TEST_ADDRESS)
+        op.mark_performed()
+        op.mark_complete()
+
+    with mock.patch("websauna.wallet.ethereum.ops.create_address", new=_create_address):
+        success_op_count, failed_op_count = eth_service.run_waiting_operations()
+        return success_op_count, failed_op_count
 
 
 def test_create_eth_account(dbsession, eth_network_id, eth_service):
@@ -36,15 +50,7 @@ def test_create_eth_account(dbsession, eth_network_id, eth_service):
 
         op_id = op.id
 
-    def _create_address(service, dbsession, op):
-        assert isinstance(op.address, CryptoAddress)
-        op.address.address = eth_address_to_bin(TEST_ADDRESS)
-        op.mark_performed()
-        op.mark_complete()
-
-
-    with mock.patch("websauna.wallet.ethereum.ops.create_address", new=_create_address):
-        success_op_count, failed_op_count = eth_service.run_waiting_operations()
+    success_op_count, failed_op_count = mock_create_addresses(eth_service, dbsession)
 
     assert success_op_count == 1
     assert failed_op_count == 0
@@ -283,4 +289,28 @@ def test_get_user_account_operations(dbsession, registry, eth_network_id):
         op = operations.first()
         op.mark_complete()
         assert operations.count() == 0
+
+
+def test_get_user_account_assets(dbsession, registry, mock_eth_service, eth_network_id, eth_asset_id):
+    """get_user_assets() gives sane results."""
+
+    with transaction.manager:
+        user = create_user(dbsession, registry)
+        setup_user_account(user)
+
+    mock_create_addresses(mock_eth_service, dbsession)
+
+    # Play around with user accounts
+    with transaction.manager:
+        assert UserCryptoAddress.get_user_asset_accounts(user) == []
+
+        user = dbsession.query(User).first()
+        network = dbsession.query(AssetNetwork).get(eth_network_id)
+        asset = dbsession.query(Asset).get(eth_asset_id)
+        address = UserCryptoAddress.get_default(user, network)
+        account = address.address.get_or_create_account(asset)
+        account.account.do_withdraw_or_deposit(Decimal("+10"), "Top up")
+
+        assert UserCryptoAddress.get_user_asset_accounts(user) == [account]
+
 

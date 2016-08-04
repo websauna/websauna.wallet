@@ -12,6 +12,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from populus.utils.transactions import wait_for_transaction_receipt
+from websauna.wallet.ethereum.asset import get_house_address
 from websauna.wallet.ethereum.contractlistener import ContractListener
 from websauna.wallet.ethereum.populuslistener import create_populus_listener
 from websauna.wallet.ethereum.service import EthereumService
@@ -20,6 +21,10 @@ from websauna.wallet.ethereum.service import EthereumService
 # http://testnet.etherscan.io/tx/0xe9f35838f45958f1f2ddcc24247d81ed28c4aecff3f1d431b1fe81d92db6c608
 from websauna.wallet.ethereum.utils import to_wei
 from websauna.wallet.models import CryptoOperation
+from websauna.wallet.models import AssetNetwork
+from websauna.wallet.models import Asset
+from websauna.wallet.models import AssetClass
+from websauna.wallet.models import CryptoAddress
 
 GAS_PRICE = Decimal("0.00000002")
 GAS_USED_BY_TRANSACTION = Decimal("32996")
@@ -132,3 +137,22 @@ def send_balance_to_address(web3: Web3, address: str, value: Decimal) -> str:
         "value": to_wei(value)
     }
     return web3.eth.sendTransaction(tx)
+
+
+def create_token_asset(dbsession, eth_service, eth_network_id, name, symbol, supply) -> UUID:
+    """Create a token in the network and assigns it to coinbase address."""
+
+    with transaction.manager:
+        network = dbsession.query(AssetNetwork).get(eth_network_id)
+        asset = network.create_asset(name=name, symbol=symbol, supply=Decimal(10000), asset_class=AssetClass.token)
+        address = get_house_address(network)
+        op = address.create_token(asset)
+        opid = op.id
+        aid = asset.id
+
+    # This gives op a txid
+    success, fails = eth_service.run_waiting_operations()
+    assert success == 1
+
+    wait_for_op_confirmations(eth_service, opid)
+    return aid

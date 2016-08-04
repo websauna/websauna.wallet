@@ -10,6 +10,7 @@ from web3 import Web3
 
 from geth.accounts import create_new_account
 
+from websauna.wallet.ethereum.asset import create_house_address
 from websauna.wallet.ethereum.contract import confirm_transaction
 from websauna.wallet.ethereum.ops import register_eth_operations
 from websauna.wallet.ethereum.service import EthereumService
@@ -17,7 +18,7 @@ from websauna.wallet.ethereum.utils import bin_to_eth_address, to_wei, eth_addre
 from websauna.wallet.models import CryptoAddress
 from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw, CryptoOperationState, CryptoAddressDeposit
 from websauna.wallet.models.account import AssetClass
-from websauna.wallet.tests.eth.utils import wait_tx, wait_for_op_confirmations, send_balance_to_address
+from websauna.wallet.tests.eth.utils import wait_tx, wait_for_op_confirmations, send_balance_to_address, create_token_asset
 
 TEST_VALUE = Decimal("0.01")
 
@@ -133,5 +134,65 @@ def token_asset(dbsession, eth_network_id, deposit_address, eth_service: Ethereu
         assert account.account.get_balance() > 0
         return aid
 
+
+@pytest.fixture
+def house_account(web3, dbsession):
+    """Setup a house ethereum account on a private Geth node."""
+
+    account = web3.personal.newAccount("this-is-not-a-secure-password")
+
+    success = web3.personal.unlockAccount(
+        account,
+        passphrase="this-is-not-a-secure-password",
+        duration=9999)
+
+    assert success, "Could not unlock test geth house account"
+
+    return account
+
+
+@pytest.fixture
+def house_address(dbsession, house_account, eth_network_id):
+    with transaction.manager:
+        network = dbsession.query(AssetNetwork).get(eth_network_id)
+        address = create_house_address(network, house_account)
+        return address.id
+
+
+@pytest.fixture
+def toybox(dbsession, eth_service, eth_network_id, house_address) -> UUID:
+    """Set up toybox assets for a network.
+
+    :return: Asset id
+    """
+    aid = create_token_asset(dbsession, eth_service, eth_network_id, "Toybox", "TOY", Decimal(10000))
+
+    with transaction.manager:
+
+        toybox = dbsession.query(Asset).get(aid)
+        assert toybox.external_id
+
+        # setup toybox give away data for primary network
+        network = dbsession.query(AssetNetwork).get(eth_network_id)
+        network.other_data["initial_assets"] = {}
+        network.other_data["initial_assets"]["toybox"] = str(aid)
+        network.other_data["initial_assets"]["toybox_amount"] = 10
+
+    return aid
+
+
+@pytest.fixture
+def starter_eth(dbsession, eth_service, eth_network_id, house_address):
+    """Set up starter eth give away.
+
+    :return: Asset id
+    """
+
+    with transaction.manager:
+
+        # setup toybox give away data for primary network
+        network = dbsession.query(AssetNetwork).get(eth_network_id)
+        network.other_data["initial_assets"] = {}
+        network.other_data["initial_assets"]["eth_amount"] = "0.1"
 
 

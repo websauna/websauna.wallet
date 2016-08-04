@@ -91,13 +91,11 @@ def wallet_root(wallet_root, request):
 
 @view_config(context=UserWallet, route_name="wallet", name="", renderer="wallet/wallet.html")
 def wallet(wallet: UserWallet, request: Request):
-    """Wallet main page."""
+    """Wallet Overview page."""
 
     # Set up initial addresses if user doesn't have any yet
     setup_user_account(wallet.user)
-
-    active_operations = UserCryptoOperation.get_active_operations(wallet.user)
-
+    accounts = User.get_user_asset_accounts(wallet.user)
     return locals()
 
 

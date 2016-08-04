@@ -1,17 +1,21 @@
 """Core accounting primitivtes."""
 from decimal import Decimal
+from typing import Tuple, List
+
 import enum
 
 import sqlalchemy
 from sqlalchemy import func
 from sqlalchemy import Enum
 from sqlalchemy import LargeBinary
+from sqlalchemy import UniqueConstraint
 from sqlalchemy import Column, Integer, Numeric, ForeignKey, func, String
 from sqlalchemy import CheckConstraint
 import sqlalchemy.dialects.postgresql as psql
 from sqlalchemy.orm import relationship, backref, Session
 from sqlalchemy.dialects.postgresql import UUID
 from websauna.system.model.columns import UTCDateTime
+from websauna.system.model.json import NestedMutationDict
 from websauna.system.user.models import User
 from websauna.utils.time import now
 from websauna.system.model.meta import Base
@@ -23,7 +27,10 @@ class AssetNetwork(Base):
     name = Column(String(256), nullable=False)
     assets = relationship("Asset", lazy="dynamic", back_populates="network")
 
-    other_data = Column(psql.JSONB, default=dict)
+    #: Bag of random things one can assign to this network
+    #: * house_address
+    #: * initial_assets.toybox
+    other_data = Column(NestedMutationDict.as_mutable(psql.JSONB), default=dict)
     
     def create_asset(self, name: str, symbol: str, supply: Decimal, asset_class: "AssetClass"):
         assert isinstance(supply, Decimal)
@@ -36,6 +43,10 @@ class AssetNetwork(Base):
     def get_asset(self, id) -> "Asset":
         """Get asset by id within this network."""
         return self.assets.filter_by(id=id).one_or_none()
+
+    def get_asset_by_symbol(self, symbol) -> "Asset":
+        """Get asset by id within this network."""
+        return self.assets.filter_by(symbol=symbol).one_or_none()
 
 
 class AssetClass(enum.Enum):
@@ -86,7 +97,13 @@ class Asset(Base):
     asset_class = Column(Enum(AssetClass), nullable=False)
 
     #: Misc parameters we can set
-    other_data = Column(psql.JSONB, default=dict)
+    other_data = Column(NestedMutationDict.as_mutable(psql.JSONB), default=dict)
+
+    __table_args__ = (
+        UniqueConstraint('network_id', 'symbol', name='symbol_per_network'),
+        UniqueConstraint('network_id', 'name', name='name_per_network'),
+        UniqueConstraint('network_id', 'external_id', name='contract_per_network'),
+    )
 
     def __str__(self):
         return "Asset:{} in network:{}".format(self.symbol, self.network.name)
@@ -252,7 +269,7 @@ class UserOwnedAccount(Base):
         return uoa
 
     @classmethod
-    def get_or_create_user_default_account(cls, user, asset: Asset):
+    def get_or_create_user_default_account(cls, user, asset: Asset) -> Tuple["UserOwnedAccount", bool]:
         dbsession = Session.object_session(user)
         account = user.owned_accounts.join(Account).filter(Account.asset == asset).first()
 
@@ -268,3 +285,4 @@ class UserOwnedAccount(Base):
         uoa = UserOwnedAccount(user=user, account=account)  # Assign it to a user
         dbsession.flush()  # Give id to UserOwnedAccount
         return uoa, True
+

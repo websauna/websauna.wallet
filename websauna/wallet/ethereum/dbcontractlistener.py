@@ -12,13 +12,14 @@ from websauna.wallet.ethereum.asset import get_ether_asset
 from websauna.wallet.ethereum.populuslistener import get_contract_events
 from websauna.wallet.ethereum.populusutils import get_rpc_client
 from websauna.wallet.ethereum.utils import bin_to_eth_address, txid_to_bin, wei_to_eth, eth_address_to_bin
+from websauna.wallet.events import IncomingCryptoDeposit
 from websauna.wallet.models import CryptoAddress
 from websauna.wallet.models import CryptoOperation
 from websauna.wallet.models import CryptoAddressDeposit
 from websauna.wallet.models import Account
 from websauna.wallet.models import AssetNetwork
 from websauna.wallet.models import Asset
-
+from websauna.wallet.models.blockchain import CryptoOperationType
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 class DatabaseContractListener:
     """Contract listener that gets the monitored contracts from database."""
 
-    def __init__(self, web3: Web3, contract: type, dbsession: Session, network_id, from_block=0, confirmation_count=1, logger=logger):
+    def __init__(self, web3: Web3, contract: type, dbsession: Session, network_id, from_block=0, confirmation_count=1, logger=logger, registry=None):
 
         assert isinstance(web3, Web3)
 
@@ -41,6 +42,9 @@ class DatabaseContractListener:
         self.dbsession = dbsession
         self.logger = logger
         self.confirmation_count = confirmation_count
+
+        # For event notifications
+        self.registry = registry
 
     def build_event_map(self, contract: type) -> dict:
         """Map log hashes to Populus contract event objects."""
@@ -132,8 +136,10 @@ class DatabaseContractListener:
         assert len(data) < 34
         return data
 
-    def get_existing_op(self, opid: bytes) -> CryptoOperation:
+    def get_existing_op(self, opid: bytes, op_type: CryptoOperationType) -> CryptoOperation:
         """Check if we have already crypto operation in process for this event identified by transaction hash + log index"""
+
+        #: TODO: Ignore_op_type as one log entry should not be able to generate two operations
         return self.dbsession.query(CryptoOperation).filter_by(opid=opid).one_or_none()
 
     def handle_event(self, event_name: str, contract_address: str, log_data: dict, log_entry: dict) -> bool:
@@ -148,6 +154,11 @@ class DatabaseContractListener:
 
     def get_monitored_addresses(self):
         raise NotImplementedError()
+
+    def notify_deposit(self, op):
+        """Notify new deposits incoming."""
+        if self.registry is not None:
+            self.registry.notify(IncomingCryptoDeposit(op, self.registry, self.web3))
 
 
 class EthWalletListener(DatabaseContractListener):
@@ -168,7 +179,7 @@ class EthWalletListener(DatabaseContractListener):
         with transaction.manager:
             opid = self.get_unique_transaction_id(log_entry)
 
-            existing_op = self.get_existing_op(opid)
+            existing_op = self.get_existing_op(opid, CryptoOperationType.deposit)
             if existing_op:
                 # Already in the database, all we need to do is to call blocknumber updater now
                 return False
@@ -187,6 +198,9 @@ class EthWalletListener(DatabaseContractListener):
             op.block = int(log_entry["blockNumber"], 16)
             op.required_confirmation_count = self.confirmation_count
             self.dbsession.add(op)
+
+            self.notify_deposit(op)
+
             return True
 
     def create_op(self, event_name: str, address: CryptoAddress, opid: bytes, log_data: dict, log_entry: dict) -> Optional[CryptoOperation]:
@@ -227,6 +241,11 @@ class EthWalletListener(DatabaseContractListener):
         op.holding_account = acc
         return op
 
+    def on_failedeexcute(self, address: CryptoAddress, opid, log_data, log_entry) -> CryptoAddressDeposit:
+        """Calling a contract from hosted wallet failed."""
+        # TODO
+        self.logger.error("failedexecute")
+
 
 class EthTokenListener(DatabaseContractListener):
     """Listen token transfers."""
@@ -239,11 +258,12 @@ class EthTokenListener(DatabaseContractListener):
 
     def handle_event(self, event_name: str, contract_address: str, log_data: dict, log_entry: dict):
         """Map incoming EVM log to database entry."""
+
         with transaction.manager:
 
             opid = self.get_unique_transaction_id(log_entry)
 
-            existing_op = self.get_existing_op(opid)
+            existing_op = self.get_existing_op(opid, CryptoOperationType.deposit)
             if existing_op:
                 # Already in the database, all we need to do is to call blocknumber updater now
                 return False
@@ -280,6 +300,9 @@ class EthTokenListener(DatabaseContractListener):
                 acc.do_withdraw_or_deposit(value, "Token {} deposit from {} in tx {}".format(asset.symbol, log_data["from"], log_entry["transactionHash"]))
                 op.holding_account = acc
                 self.dbsession.add(op)
+
+                self.notify_deposit(op)
+
                 return True
             else:
                 # Unmonitored event

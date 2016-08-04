@@ -105,6 +105,7 @@ def withdraw_token(web3: Web3, dbsession: Session, op: CryptoAddressWithdraw):
     amount = token.validate_transfer_amount(amount)
 
     # Call geth RPC API over Populus contract proxy
+    import pdb ; pdb.set_trace()
     txid = wallet.execute(token.contract, "transfer", [to_address, amount])
     # Fill in details.
     # Block number will be filled in later, when confirmation updater picks a transaction receipt for this operation.

@@ -27,6 +27,7 @@ class EthereumService:
     def __init__(self, web3: Web3, asset_network_id: UUID, dbsession: Session, registry: Registry):
 
         assert isinstance(web3, Web3)
+        assert isinstance(registry, Registry)
         self.web3 = web3
 
         self.asset_network_id = asset_network_id
@@ -43,8 +44,8 @@ class EthereumService:
         """Setup subsystems that scan for incoming events from geth."""
         wallet_contract = HostedWallet.contract_class(self.web3)
         token_contract = Token.contract_class(self.web3)
-        self.eth_wallet_listener = EthWalletListener(self.web3, wallet_contract, self.dbsession, self.asset_network_id)
-        self.eth_token_listener = EthTokenListener(self.web3, token_contract, self.dbsession, self.asset_network_id)
+        self.eth_wallet_listener = EthWalletListener(self.web3, wallet_contract, self.dbsession, self.asset_network_id, registry=self.registry)
+        self.eth_token_listener = EthTokenListener(self.web3, token_contract, self.dbsession, self.asset_network_id, registry=self.registry)
         self.confirmation_updater = DatabaseConfirmationUpdater(self.web3, self.dbsession, self.asset_network_id)
         self.op_queue_manager = OperationQueueManager(self.web3, self.dbsession, self.asset_network_id, self.registry)
 

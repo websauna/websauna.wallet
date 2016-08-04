@@ -26,6 +26,16 @@ def eth_service(web3, eth_network_id, dbsession, registry):
 
 
 @pytest.fixture
+def mock_eth_service(eth_network_id, dbsession, registry):
+    """Non-functional Ethereum Service without a connection to geth."""
+
+    from web3 import RPCProvider, Web3
+    web3 = Web3(RPCProvider("127.0.0.1", 666))
+    s = EthereumService(web3, eth_network_id, dbsession, registry)
+    register_eth_operations(registry)
+    return s
+
+@pytest.fixture
 def testnet_service(web3, testnet_network_id, dbsession, registry):
     """Create Ethereum Service for testnet to run ops or mock ups."""
     s = EthereumService(web3, testnet_network_id, dbsession, registry)

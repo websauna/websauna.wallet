@@ -217,6 +217,9 @@ class CryptoAddress(Base):
         asset = self.network.assets.filter_by(external_id=address).one()
         return self.get_account(asset)
 
+    def get_account_by_symbol(self, symbol: str) -> "CryptoAddressAccount":
+        return self.crypto_address_accounts.join(Account).join(Asset).filter_by(symbol=symbol).first()
+
     @classmethod
     def create_address(self, network: AssetNetwork) -> "CryptoAddressCreation":
         """Initiate operation to create a new address.
@@ -666,6 +669,28 @@ class UserCryptoAddress(Base):
         op = CryptoAddressCreation(address=uca.address)
         dbsession.add(op)
 
+    @classmethod
+    def get_user_asset_accounts(cls, user: User) -> List[Account]:
+        accounts = []
+        for address in user.owned_crypto_addresses:
+            for account in address.address.list_accounts():
+                accounts.append(account)
+        return accounts
+
+    @classmethod
+    def get_user_asset_accounts_by_network(cls, user: User, network: AssetNetwork) -> List[Account]:
+        accounts = []
+        for address in user.owned_crypto_addresses.join(CryptoAddress).filter_by(network=network):
+            for account in address.address.list_accounts():
+                accounts.append(account)
+        return accounts
+
+    @classmethod
+    def get_default(cls, user: User, network: AssetNetwork, name="Default") -> "UserCryptoAddress":
+        address = user.owned_crypto_addresses.filter_by(name=name).join(CryptoAddress).filter_by(network=network).first()
+        return address
+
+
 
 class UserCryptoOperation(Base):
     """Operation initiated by a user.."""
@@ -674,7 +699,7 @@ class UserCryptoOperation(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=sqlalchemy.text("uuid_generate_v4()"),)
 
-    crypto_operation_id = Column(ForeignKey("crypto_operation.id"), nullable=False)
+    crypto_operation_id = Column(ForeignKey("crypto_operation.id"), nullable=False, unique=True)
     crypto_operation = relationship(CryptoOperation,
                            single_parent=True,
                            cascade="all, delete-orphan",
@@ -687,6 +712,12 @@ class UserCryptoOperation(Base):
                                         cascade="all, delete-orphan",
                                         single_parent=True,),)
 
+    def __str__(self):
+        return "<{} {}>".format(self.user, self.crypto_operation)
+
+    def __repr__(self):
+        return self.__str__()
+
     @classmethod
     def get_operations(cls, user: User, states: Iterable) -> Iterable[CryptoOperation]:
         dbsession = Session.object_session(user)
@@ -697,6 +728,12 @@ class UserCryptoOperation(Base):
         """Get all operations assigned to a user account."""
         states = (CryptoOperationState.waiting, CryptoOperationState.pending)
         return cls.get_operations(user, states)
+
+    @classmethod
+    def get_from_op(self, op: CryptoOperation):
+        dbsession = Session.object_session(op)
+        return dbsession.query(UserCryptoOperation).filter_by(crypto_operation=op).one_or_none()
+
 
 def import_token(network: AssetNetwork, address: bytes) -> CryptoOperation:
     """Create operation to import existing token smart contract to system as asset.
@@ -712,5 +749,7 @@ def import_token(network: AssetNetwork, address: bytes) -> CryptoOperation:
     dbsession.add(op)
     dbsession.flush()
     return op
+
+
 
 

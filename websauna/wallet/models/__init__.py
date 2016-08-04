@@ -14,3 +14,4 @@ from .blockchain import CryptoAddressCreation
 from .blockchain import CryptoTokenCreation
 from .blockchain import CryptoTokenImport
 from .blockchain import UserCryptoAddress
+from .blockchain import UserCryptoOperation

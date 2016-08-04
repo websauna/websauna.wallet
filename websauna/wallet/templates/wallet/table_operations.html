@@ -16,7 +16,7 @@
       <tr>
         <td>
           <a href="#">
-            {{ op.created_at|friendly_timestamp }}
+            {{ op.created_at|friendly_time(timezone='UTC')}}
           </a>
         </td>
 

@@ -46,9 +46,17 @@ class AddonInitializer:
         from . import views
         self.config.scan(views)
 
+    def configure_events(self):
+        from . import subscribers
+        from . import starterassets
+        self.config.scan(subscribers)
+        self.config.scan(starterassets)
+
     def run(self):
         # We override this method, so that we route home to our home screen, not Websauna default one
         bind_events(self.config.registry.initializer, self)
+
+        self.configure_events()
 
 
 def includeme(config: Configurator):

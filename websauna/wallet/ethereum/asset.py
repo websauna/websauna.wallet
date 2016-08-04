@@ -2,8 +2,8 @@
 from sqlalchemy.orm import Session
 
 from websauna.system.user.models import User
-from websauna.wallet.models import AssetNetwork, Asset, AssetClass, UserCryptoAddress, CryptoAddressCreation
-from websauna.wallet.models.blockchain import UserCryptoOperation, CryptoAddress
+from websauna.wallet.ethereum.utils import eth_address_to_bin
+from websauna.wallet.models import AssetNetwork, Asset, AssetClass, UserCryptoAddress, CryptoAddressCreation, UserCryptoOperation, CryptoAddress, CryptoAddressAccount
 
 
 def get_eth_network(dbsession: Session, asset_network_name="ethereum") -> AssetNetwork:
@@ -63,7 +63,54 @@ def setup_user_account(user: User):
             create_default_user_address(user, ethereum)
 
 
+def get_toy_box(network: AssetNetwork) -> Asset:
+    """Get the toybox asset."""
+
+    if "initial_assets" not in network.other_data:
+        return None
+
+    toybox_id = network.other_data["initial_assets"].get("toybox")
+    if not toybox_id:
+        return
+
+    dbsession = Session.object_session(network)
+
+    return dbsession.query(Asset).get(toybox_id)
+
+def get_house_holdings(asset: Asset) -> CryptoAddressAccount:
+    """Get a asset holded by a house."""
+    network = asset.network
+    house_address = get_house_address(network)
+    return house_address.get_account(asset)
 
 
+def get_house_holdings_by_symbol(network: AssetNetwork, symbol: str) -> CryptoAddressAccount:
+    """Get a asset holded by a house."""
+    asset = network.get_asset_by_symbol(symbol)
+    return get_house_holdings(network, asset)
 
+
+def get_house_address(network: AssetNetwork) -> CryptoAddress:
+    """Gets a house crypto address which is used to fund user accounts, create initial tokens, etc."""
+    dbsession = Session.object_session(network)
+    address_id = network.other_data["house_address"]
+    return dbsession.query(CryptoAddress).get(address_id)
+
+
+def create_house_address(network: AssetNetwork, address: str):
+    """Sets up house Ethereum account.
+
+    Store CryptoAddress UUID under "house_address" key.
+    """
+
+    assert not network.other_data.get("house_address")
+    assert address.startswith("0x")
+
+    dbsession = Session.object_session(network)
+    c = CryptoAddress(network=network)
+    c.address = eth_address_to_bin(address)
+    dbsession.add(c)
+    dbsession.flush()
+    network.other_data["house_address"] = str(c.id)
+    return c
 

@@ -6,6 +6,8 @@ from decimal import Decimal
 
 import transaction
 from eth_rpc_client import Client
+from geth.accounts import create_new_account
+from geth.wrapper import DEFAULT_PASSWORD_PATH
 from web3 import Web3, RPCProvider
 from populus.chain import testing_geth_process
 
@@ -30,6 +32,9 @@ pytest_plugins = "populus.plugin",
 TOP_UP_VALUE = Decimal("0.03")
 
 
+TOYBOX_ADDRESS = "0x2f70d3d26829e412a602e83fe8eebf80255aeea5"
+
+
 @pytest.fixture(scope="session")
 def client_mode():
     """We run either against public testnet or our internal geth node."""
@@ -47,6 +52,7 @@ def client_credentials(registry) -> tuple:
     password = registry.settings.get("ethereum.ethjsonrpc.unlock_password", "")
     unlock_seconds = int(registry.settings.get("ethereum.ethjsonrpc.unlock_seconds", 24 * 3600))
     return password, unlock_seconds
+
 
 
 @pytest.yield_fixture(scope="session")

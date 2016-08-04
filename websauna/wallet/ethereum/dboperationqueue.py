@@ -3,11 +3,14 @@ from typing import List, Tuple
 from uuid import UUID
 
 import transaction
+from pyramid import registry
+from pyramid.registry import Registry
 from sqlalchemy.orm import Session
 from web3 import Web3
 
 from websauna.utils.time import now
 from websauna.wallet.ethereum.interfaces import IOperationPerformer
+from websauna.wallet.events import CryptoOperationComplete
 from websauna.wallet.models import CryptoOperation
 from websauna.wallet.models import CryptoOperationState
 
@@ -18,7 +21,8 @@ logger = logging.getLogger(__name__)
 class OperationQueueManager:
     """Run waiting operatins created in a web interface in a separate proces."""
 
-    def __init__(self, web3: Web3, dbsession: Session, asset_network_id, registry):
+    def __init__(self, web3: Web3, dbsession: Session, asset_network_id, registry: Registry):
+        assert isinstance(registry, Registry)
         self.web3 = web3
         self.dbsession = dbsession
         self.asset_network_id = asset_network_id
@@ -69,6 +73,10 @@ class OperationQueueManager:
 
                     # Do the actual operation
                     performer(self.web3, self.dbsession, op)
+
+                    # Post the event completion info
+                    self.registry.notify(CryptoOperationComplete(op, self.registry, self.web3))
+
                     success_count += 1
 
                 except Exception as e:

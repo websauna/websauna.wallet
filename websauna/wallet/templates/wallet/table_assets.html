@@ -1,0 +1,46 @@
+
+<table class="table table-listing table-assets">
+
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Amount</th>
+      <th>Address</th>
+      <th>Network</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for asset in assets %}
+      <tr>
+        <td>
+          <a href="{{ address|model_url }}">
+            {{ address.address.name }}
+          </a>
+        </td>
+
+      <td>
+        {{ address.address.address }}
+      </td>
+
+      <td>
+        {{ address.address.address.network.name }}
+      </td>
+
+      <td>
+        {% with accounts=address.address.address.list_accounts() %}
+          {% if accounts %}
+            {% for account in accounts %}
+              <p>
+                {{ account.asset.symbol }}: {{ account.asset.get_balance() }}
+              </p>
+            {% endfor %}
+          {% else %}
+            <p>No assets</p>
+          {% endif %}
+        {% endwith %}
+      </td>
+    </tr>
+  {% endfor %}
+</tbody>
+</table>
