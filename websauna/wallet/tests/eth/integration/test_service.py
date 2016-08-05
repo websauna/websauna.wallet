@@ -5,10 +5,9 @@ from io import BytesIO
 import pexpect
 
 
-def test_start_service(test_config_path, dbsession, web3):
+def test_start_service(test_config_path, dbsession):
     """We can spawn a standalone Ethereum service."""
 
-    # web3 creates geth
     # dbsession creates database
 
     log = BytesIO()
@@ -18,4 +17,8 @@ def test_start_service(test_config_path, dbsession, web3):
     except pexpect.exceptions.ExceptionPexpect:
         print(log.getvalue().decode("utf-8"))
         raise
+    finally:
+        child.terminate()
+
+
 

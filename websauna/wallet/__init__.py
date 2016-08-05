@@ -5,6 +5,7 @@ from websauna.utils.autoevent import before
 from websauna.utils.autoevent import bind_events
 
 from websauna.system.model.utils import attach_models_to_base_from_module
+from websauna.wallet.ethereum.ops import register_eth_operations
 
 
 class AddonInitializer:
@@ -52,11 +53,15 @@ class AddonInitializer:
         self.config.scan(subscribers)
         self.config.scan(starterassets)
 
+    def configure_assets(self):
+        register_eth_operations(self.config.registry)
+
     def run(self):
         # We override this method, so that we route home to our home screen, not Websauna default one
         bind_events(self.config.registry.initializer, self)
 
         self.configure_events()
+        self.configure_assets()
 
 
 def includeme(config: Configurator):

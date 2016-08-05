@@ -17,9 +17,6 @@ class Initializer(websauna.system.Initializer):
         self.config.add_jinja2_search_path('websauna.wallet:demotemplates', name='.html', prepend=True)
 
 
-
-
-
 def main(global_config, **settings):
     init = Initializer(global_config)
     init.run()

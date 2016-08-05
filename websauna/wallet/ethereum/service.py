@@ -18,7 +18,7 @@ from websauna.wallet.ethereum.asset import get_eth_network
 from websauna.wallet.ethereum.dbconfirmationupdater import DatabaseConfirmationUpdater
 from websauna.wallet.ethereum.dbcontractlistener import EthWalletListener, EthTokenListener
 from websauna.wallet.ethereum.dboperationqueue import OperationQueueManager
-from websauna.wallet.ethereum.ethjsonrpc import get_web3
+
 from websauna.wallet.ethereum.geth import start_private_geth
 from websauna.wallet.ethereum.token import Token
 from websauna.wallet.ethereum.wallet import HostedWallet
@@ -104,6 +104,22 @@ class ServiceThread(threading.Thread):
         self.name = name
         self.config = config
         self.killed = False
+
+    def unlock(self, web3, password=):
+        """Unlock coinbase account."""
+
+        # Allow access to sendTransaction() to use coinbase balance
+        # to deploy contracts. Password is from py-geth
+        # default_blockchain_password file. Assume we don't
+        # run tests for more than 9999 seconds
+        coinbase = web3.eth.coinbase
+        success = web3.personal.unlockAccount(
+            coinbase,
+            passphrase=password,
+            duration=24*3600)
+
+        if not success:
+            raise RuntimeError("Cannot unlock coinbase account: {}".format())
         
     def run(self):
         # Configure dbsession per thread
@@ -145,7 +161,7 @@ class ServiceThread(threading.Thread):
 def run_services(request):
     """Start a network service.
 
-    Because we are running multiple networks, start one thread per service.
+    We are connecting to multiple networks. Start one thread per network.
     """
 
     # Load network configuration to which networks we should connect to
@@ -175,8 +191,8 @@ def run_services(request):
 
                 sys.exit("One of service threads had died, quitting")
 
-        # If everybody is alive after 10 seconds consider we managed to start
-        if time.time() > started + 10 and shown_start_message:
+        # If everybody is alive after 5 seconds consider it a succesful start
+        if time.time() > started + 5 and not shown_start_message:
             # Mainly picked up by tests, other similar things
             logger.info("Ethereum service started")
             shown_start_message = True

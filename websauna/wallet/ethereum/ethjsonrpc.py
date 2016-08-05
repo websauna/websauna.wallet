@@ -33,7 +33,10 @@ def get_eth_json_rpc_client(registry: Registry) -> Client:
 
 
 def get_web3(registry: Registry) -> Web3:
-    """Create a new Ethereum RPC client based on INI configuration."""
+    """Create a new Ethereum RPC client based on INI configuration.
+
+    NOTE: This is only used for test runs. Production mode uses per-network RPC configuration.
+    """
     assert isinstance(registry, Registry)
     host = registry.settings.get("ethereum.ethjsonrpc.host")
     port = registry.settings.get("ethereum.ethjsonrpc.port")
