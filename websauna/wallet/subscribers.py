@@ -43,8 +43,8 @@ def mark_deposit_for_user(event: IncomingCryptoDeposit):
         return
 
     # Check if we are depositing to user address
-    address = op.address.address
-    ua = dbsession.query(UserCryptoAddress).join(CryptoAddress).filter_by(address=address).one_or_none()
+    address = op.crypto_account.address
+    ua = dbsession.query(UserCryptoAddress).filter_by(address=address).one_or_none()
 
     # Yes thisop is to some specific user address
     if ua:

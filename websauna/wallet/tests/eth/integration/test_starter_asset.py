@@ -1,9 +1,4 @@
 """Start/stop Ethereum service."""
-import sys
-import pytest
-from io import BytesIO
-
-import pexpect
 import transaction
 from decimal import Decimal
 from web3 import Web3
@@ -11,16 +6,18 @@ from web3 import Web3
 from shareregistry.utils import bin_to_eth_address
 from websauna.system.user.models import User
 from websauna.tests.utils import create_user
-from websauna.wallet.ethereum.asset import setup_user_account, get_eth_network, get_ether_asset
+from websauna.wallet.ethereum.asset import setup_user_account, get_ether_asset
 from websauna.wallet.ethereum.contract import confirm_transaction
 from websauna.wallet.ethereum.populusutils import get_rpc_client
 from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.ethereum.token import Token
+from websauna.wallet.models.blockchain import CryptoOperationType, UserCryptoAddress
 from websauna.wallet.tests.eth.utils import wait_for_op_confirmations
 from websauna.wallet.models import CryptoOperation
 from websauna.wallet.models import Asset
 from websauna.wallet.models import CryptoAddress
 from websauna.wallet.models import CryptoAddressDeposit
+from websauna.wallet.models import AssetNetwork
 
 
 def test_starter_eth(dbsession, registry, eth_network_id, web3: Web3, eth_service: EthereumService, house_address, starter_eth):
@@ -32,7 +29,7 @@ def test_starter_eth(dbsession, registry, eth_network_id, web3: Web3, eth_servic
 
     # Let all the events completed
     success, fail = eth_service.run_event_cycle()
-    assert success == 1
+    assert success >= 1
     assert fail == 0
 
     # We need another event cycle to process the initial asset transfers
@@ -99,6 +96,14 @@ def test_starter_token(dbsession, registry, eth_network_id, web3: Web3, eth_serv
     # Let the transfer come through
     eth_service.run_event_cycle()
 
+    # Make sure we confirm the deposit
+    with transaction.manager:
+        user = dbsession.query(User).first()
+        user_depo = user.owned_crypto_operations.join(CryptoOperation).filter_by(operation_type=CryptoOperationType.deposit).first()
+        opid = user_depo.crypto_operation.id
+
+    wait_for_op_confirmations(eth_service, opid)
+
     with transaction.manager:
 
         # Sanity check our token contract posts us logs
@@ -106,22 +111,22 @@ def test_starter_token(dbsession, registry, eth_network_id, web3: Web3, eth_serv
         client = get_rpc_client(web3)
         asset = dbsession.query(Asset).get(toybox)
         address = bin_to_eth_address(asset.external_id)
-        logs = client.get_logs(from_block=0, address=[address])
+        network = dbsession.query(AssetNetwork).get(eth_network_id)
+        user_address = UserCryptoAddress.get_default(user, network).address
         house_address = dbsession.query(CryptoAddress).get(house_address)
         house = bin_to_eth_address(house_address.address)
         token = Token.get(web3, address)
 
-        all_ops = dbsession.query(CryptoOperation)
-        ops = user.owned_crypto_operations
-        import pdb ; pdb.set_trace()
+        # Check we correctly resolved low level logs
+        token_logs = client.get_logs(from_block=0, address=[address])
+        wallet_logs = client.get_logs(from_block=0, address=[house])
+        assert len(token_logs) > 0
+        assert len(wallet_logs) > 0
 
-        # House has given tokens to the user hosted wallet
+        # Check contract state matches
         assert token.contract.call().balanceOf(house) == 9990
-        assert token.contract.call().balanceOf(address) == 10
-        assert len(logs) > 0
+        assert token.contract.call().balanceOf(bin_to_eth_address(user_address.address)) == 10
 
-
-
-
-
-
+        # Check our internal book keeping matches
+        assert house_address.get_account(asset).account.get_balance() == 9990
+        assert user_address.get_account(asset).account.get_balance() == 10

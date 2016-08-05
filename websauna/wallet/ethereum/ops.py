@@ -105,7 +105,6 @@ def withdraw_token(web3: Web3, dbsession: Session, op: CryptoAddressWithdraw):
     amount = token.validate_transfer_amount(amount)
 
     # Call geth RPC API over Populus contract proxy
-    import pdb ; pdb.set_trace()
     txid = wallet.execute(token.contract, "transfer", [to_address, amount])
     # Fill in details.
     # Block number will be filled in later, when confirmation updater picks a transaction receipt for this operation.
@@ -217,3 +216,5 @@ def register_eth_operations(registry: Registry):
     registry.registerAdapter(factory=lambda op: deposit_eth, required=(CryptoAddressDeposit,), provided=IOperationPerformer)
     registry.registerAdapter(factory=lambda op: create_token, required=(CryptoTokenCreation,), provided=IOperationPerformer)
     registry.registerAdapter(factory=lambda op: import_token, required=(CryptoTokenImport,), provided=IOperationPerformer)
+
+

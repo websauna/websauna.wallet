@@ -18,6 +18,7 @@ contract Wallet {
     event Execute(address to, uint value);
     event ExceededExecuteWithValue(address to, uint value);
     event FailedExecute(address to, uint value);
+    event NoMatchingFunction();
 
     // Transaction fee settlement log keeping
     event ClaimFee(bytes32 txid, uint value);
@@ -37,7 +38,6 @@ contract Wallet {
      * Simple withdrawal operation.
      */
     function withdraw(address _to, uint _value) external {
-
         bool success;
 
         if(msg.sender != owner) {
@@ -66,7 +66,6 @@ contract Wallet {
      * We call a function in another smart contract and for the gas use value stored on this contract.
      */
     function execute(address _to, uint _value, uint _gas, bytes _data) external {
-
         bool success;
 
         if(msg.sender != owner) {
@@ -123,6 +122,8 @@ contract Wallet {
         // just being sent some cash?
         if (msg.value > 0) {
             Deposit(msg.sender, msg.value);
+        } else {
+            NoMatchingFunction();
         }
     }
 

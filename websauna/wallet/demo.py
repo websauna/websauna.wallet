@@ -1,6 +1,8 @@
 """This contains app entry point for running a demo site for this addon or running functional tests for this addon."""
+import transaction
 
 import websauna.system
+from websauna.wallet.ethereum.ethjsonrpc import get_web3
 
 
 class Initializer(websauna.system.Initializer):
@@ -13,6 +15,9 @@ class Initializer(websauna.system.Initializer):
     def run(self):
         super(Initializer, self).run()
         self.config.add_jinja2_search_path('websauna.wallet:demotemplates', name='.html', prepend=True)
+
+
+
 
 
 def main(global_config, **settings):

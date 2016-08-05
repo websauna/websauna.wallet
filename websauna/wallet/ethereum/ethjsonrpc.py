@@ -1,5 +1,6 @@
 import json
 
+import transaction
 from eth_rpc_client import Client
 from web3 import Web3, RPCProvider
 
@@ -63,3 +64,5 @@ def get_unlocked_json_rpc_client(registry: Registry) -> EthJsonRpc:
     client.make_request("personal_unlockAccount", [coinbase, password, unlock_seconds])
 
     return client
+
+

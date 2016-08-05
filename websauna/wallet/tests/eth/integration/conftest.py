@@ -136,27 +136,30 @@ def token_asset(dbsession, eth_network_id, deposit_address, eth_service: Ethereu
 
 
 @pytest.fixture
-def house_account(web3, dbsession):
-    """Setup a house ethereum account on a private Geth node."""
+def house_address(dbsession, eth_service, web3, eth_network_id) -> UUID:
+    """Create a network specific house address.
 
-    account = web3.personal.newAccount("this-is-not-a-secure-password")
-
-    success = web3.personal.unlockAccount(
-        account,
-        passphrase="this-is-not-a-secure-password",
-        duration=9999)
-
-    assert success, "Could not unlock test geth house account"
-
-    return account
-
-
-@pytest.fixture
-def house_address(dbsession, house_account, eth_network_id):
+    :return: Address UUID
+    """
     with transaction.manager:
         network = dbsession.query(AssetNetwork).get(eth_network_id)
-        address = create_house_address(network, house_account)
-        return address.id
+        op = create_house_address(network)
+        opid = op.id
+        address_id = op.address.id
+        assert address_id
+
+    # this runs op
+    eth_service.run_waiting_operations()
+
+    with transaction.manager:
+        address = dbsession.query(CryptoAddress).get(address_id)
+        addr = bin_to_eth_address(address.address)
+
+    # Send some funds to the house from coinbase
+    txid = send_balance_to_address(web3, addr, Decimal("0.1"))
+    wait_tx(web3, txid)
+
+    return address_id
 
 
 @pytest.fixture

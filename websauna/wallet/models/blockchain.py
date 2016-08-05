@@ -425,7 +425,9 @@ class CryptoOperation(Base):
     def __str__(self):
         address = self.external_address and bin_to_eth_address(self.external_address) or "-"
         account = self.crypto_account and self.crypto_account.account or "-"
-        return "{} externaladdress:{} completed:{} confirmed:{} failed:{} acc:{} holding: {}".format(self.operation_type, address, self.completed_at, self.confirmed_at, self.failed_at, account, self.holding_account)
+        failure_reason = self.other_data.get("error") or ""
+
+        return "{} externaladdress:{} completed:{} confirmed:{} failed:{} acc:{} holding: {}".format(self.operation_type, address, self.completed_at, self.confirmed_at, failure_reason, account, self.holding_account)
 
     def __repr__(self):
         return self.__str__()

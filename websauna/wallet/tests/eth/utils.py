@@ -26,6 +26,8 @@ from websauna.wallet.models import Asset
 from websauna.wallet.models import AssetClass
 from websauna.wallet.models import CryptoAddress
 
+from websauna.wallet.ethereum.confirm import wait_for_op_confirmations
+
 GAS_PRICE = Decimal("0.00000002")
 GAS_USED_BY_TRANSACTION = Decimal("32996")
 
@@ -79,36 +81,6 @@ def get_withdrawal_fee(web3: Web3) -> Decimal:
     # tells us more about the network implicitly
     mode = getattr(web3, "mode", "local_geth")
     return NETWORK_PARAMETERS[mode]["withdrawal_fee"]
-
-
-def wait_for_op_confirmations(eth_service: EthereumService, opid: UUID):
-    """Wait that an op reaches required level of confirmations."""
-
-    with transaction.manager:
-        op = eth_service.dbsession.query(CryptoOperation).get(opid)
-        if op.confirmed_at:
-            pytest.fail("Already confirmed")
-
-        assert op.required_confirmation_count
-
-    # Wait until the transaction confirms (1 confirmations)
-    deadline = time.time() + 47
-    while time.time() < deadline:
-        success_op_count, failed_op_count = eth_service.run_event_cycle()
-        if success_op_count > 0:
-
-            # Check our op went through
-            with transaction.manager:
-                op = eth_service.dbsession.query(CryptoOperation).get(opid)
-                if op.confirmed_at:
-                    break
-
-        if failed_op_count > 0:
-            pytest.fail("Faiures within confirmation wait should not happen")
-        time.sleep(1)
-
-    if time.time() > deadline:
-        pytest.fail("Did not receive confirmation updates")
 
 
 def send_balance_to_contract(contract: Contract, value: Decimal) -> str:

@@ -21,7 +21,7 @@ def give_toybox(event):
     if not toybox:
         return
 
-    amount = event.network["initial_assets"].get("toybox_amount")
+    amount = event.network.other_data["initial_assets"].get("toybox_amount")
     if not amount:
         return
 

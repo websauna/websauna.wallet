@@ -1,4 +1,5 @@
 """Ethereum asset modelling."""
+import transaction
 from sqlalchemy.orm import Session
 
 from websauna.system.user.models import User
@@ -97,20 +98,19 @@ def get_house_address(network: AssetNetwork) -> CryptoAddress:
     return dbsession.query(CryptoAddress).get(address_id)
 
 
-def create_house_address(network: AssetNetwork, address: str):
+def create_house_address(network: AssetNetwork) -> CryptoAddressCreation:
     """Sets up house Ethereum account.
 
-    Store CryptoAddress UUID under "house_address" key.
+    Store CryptoAddress UUID under "house_address" key in network.other_data JSON bag.
     """
 
     assert not network.other_data.get("house_address")
-    assert address.startswith("0x")
 
-    dbsession = Session.object_session(network)
-    c = CryptoAddress(network=network)
-    c.address = eth_address_to_bin(address)
-    dbsession.add(c)
-    dbsession.flush()
-    network.other_data["house_address"] = str(c.id)
-    return c
+    op = CryptoAddress.create_address(network)
+    addr_id = op.address.id
+    assert addr_id
+    network.other_data["house_address"] = str(addr_id)
+    return op
+
+
 
