@@ -1,4 +1,5 @@
 import logging
+import threading
 from typing import List, Tuple
 from uuid import UUID
 
@@ -6,6 +7,7 @@ import transaction
 from pyramid import registry
 from pyramid.registry import Registry
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.instrumentation import instance_state
 from web3 import Web3
 
 from websauna.utils.time import now
@@ -35,6 +37,7 @@ class OperationQueueManager:
         """
 
         with transaction.manager:
+
             wait_list = self.dbsession.query(CryptoOperation, CryptoOperation.id, CryptoOperation.state).filter_by(network_id=self.asset_network_id, state=CryptoOperationState.waiting)
 
             # Flatten
@@ -69,10 +72,13 @@ class OperationQueueManager:
                     if not performer:
                         raise RuntimeError("Doesn't have a performer for operation {}".format(op))
 
-                    logger.info("Running op: %s", op)
+                    from sqlalchemy.orm.session import _sessions
 
+                    logger.info("Running op: %s op session: %s our session: %s sessions: %s", op, Session.object_session(op), self.dbsession, list(_sessions.items()))
                     # Do the actual operation
                     performer(self.web3, self.dbsession, op)
+
+                    state = instance_state(op)
 
                     # Post the event completion info
                     self.registry.notify(CryptoOperationComplete(op, self.registry, self.web3))

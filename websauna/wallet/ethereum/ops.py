@@ -29,6 +29,9 @@ def create_address(web3: Web3, dbsession: Session, op: CryptoAddressCreation):
     The wallet code is based on https://github.com/ethereum/meteor-dapp-wallet/blob/master/Wallet.sol
     """
 
+    print("Session 1", Session.object_session(op))
+    print("Session 2", Session.object_session(op.address))
+
     wallet = HostedWallet.create(web3)
     txid = wallet.initial_txid
     receipt = web3.eth.getTransactionReceipt(txid)

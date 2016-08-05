@@ -1,4 +1,6 @@
 """Ethereum asset modelling."""
+from typing import Optional
+
 import transaction
 from sqlalchemy.orm import Session
 
@@ -91,10 +93,12 @@ def get_house_holdings_by_symbol(network: AssetNetwork, symbol: str) -> CryptoAd
     return get_house_holdings(network, asset)
 
 
-def get_house_address(network: AssetNetwork) -> CryptoAddress:
+def get_house_address(network: AssetNetwork) -> Optional[CryptoAddress]:
     """Gets a house crypto address which is used to fund user accounts, create initial tokens, etc."""
     dbsession = Session.object_session(network)
-    address_id = network.other_data["house_address"]
+    address_id = network.other_data.get("house_address")
+    if not address_id:
+        return None
     return dbsession.query(CryptoAddress).get(address_id)
 
 

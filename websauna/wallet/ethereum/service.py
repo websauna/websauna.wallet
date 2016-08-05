@@ -1,5 +1,6 @@
 import os
 import threading
+
 from typing import Tuple
 from uuid import UUID
 import logging
@@ -90,22 +91,23 @@ class EthereumService:
             total_success += success
             total_failure += failure
 
+        # Tell web interface we are still alive
         update_heart_beat(self.dbsession, self.asset_network_id)
 
         return total_success, total_failure
 
 
+class ServiceCore:
+    """Provide core functionality for inline, threaded or processed services."""
 
-class ServiceThread(threading.Thread):
-    
     def __init__(self, request, name, config: dict):
-        super(ServiceThread, self).__init__(name=name)
         self.request = request
         self.name = name
         self.config = config
-        self.killed = False
+        self.service = None
+        self.geth = None  # Running private geth testnet process
 
-    def unlock(self, web3, password=):
+    def unlock(self, web3, password):
         """Unlock coinbase account."""
 
         # Allow access to sendTransaction() to use coinbase balance
@@ -116,46 +118,128 @@ class ServiceThread(threading.Thread):
         success = web3.personal.unlockAccount(
             coinbase,
             passphrase=password,
-            duration=24*3600)
+            duration=24 * 3600)
 
         if not success:
-            raise RuntimeError("Cannot unlock coinbase account: {}".format())
-        
-    def run(self):
-        # Configure dbsession per thread
+            raise RuntimeError("Cannot unlock coinbase account: {}".format(self.config))
+
+    def start_geth(self):
+        chains_dir = self.request.registry.settings["ethereum.chains_dir"]
+
+        if self.config["private_geth"]:
+
+            host = self.config["host"]
+            port = int(self.config["port"])
+            p2p_port = int(self.config.get("p2p_port", 30303))
+
+            # Start private geth instance to connect to
+            chain_dir = os.path.join(chains_dir, self.name.replace(" ", "-"))
+            geth = start_private_geth(self.name.replace(" ", "-"), chain_dir, host, port, p2p_port=p2p_port)
+            time.sleep(2)  # Give geth time to wake up
+        else:
+            geth = None
+        return geth
+
+    def setup(self):
         request = self.request
         dbsession = create_dbsession(request.registry)
 
+        logger.info("Got dbsession %s %s", self, dbsession)
+
         host = self.config["host"]
-        port = self.config["port"]
+        port = int(self.config["port"])
         web3 = Web3(RPCProvider(host, port))
 
         with transaction.manager:
             network = get_eth_network(dbsession, self.name)
             network_id = network.id
 
-        chains_dir = request.registry.settings["ethereum.chains_dir"]
+        self.geth = self.start_geth()
 
-        if self.config["private_geth"]:
-            # Start private geth instance to connect to
-            chain_dir = os.path.join(chains_dir, self.name.replace(" ", "-"))
-            start_private_geth(self.name.replace(" ", "-"), chain_dir, host, port)
-            time.sleep(2)  # Give geth time to wake up
+        self.service = EthereumService(web3, network_id, dbsession, request.registry)
 
-        service = EthereumService(web3, network_id, dbsession, request.registry)
+        # Optionally unlock the geth instance
+        passwd = self.config.get("coinbase_password")
+        self.unlock(web3, passwd)
 
-        sleepy = int(request.registry.settings.get("ethereum.daemon_poll_seconds", 2))
+    def run_cycle(self):
+        """Run one event cycle."""
 
-        while not self.killed:
-            try:
-                service.run_event_cycle()
-            except Exception as e:
-                logger.error("Dying, because of %s", e)
-                logger.exception(e)
-                return
+        geth = self.geth
+        service = self.service
 
-            logger.info("Service event cycled")
-            time.sleep(sleepy)
+        if geth:
+            if not geth.is_alive:
+                raise RuntimeError("Geth died upon us")
+
+        try:
+            service.run_event_cycle()
+        except Exception as e:
+            logger.error("Dying, because of %s", e)
+            logger.exception(e)
+            raise(e)
+
+    @classmethod
+    def parse_network_config(cls, request):
+        # Load network configuration to which networks we should connect to
+        services = request.registry.settings.get("ethereum.network_configuration")
+
+        try:
+            services = json.loads(services)
+        except json.decoder.JSONDecodeError as e:
+            raise RuntimeError("Could not decode: {}".format(services)) from e
+
+        return services
+
+
+class ServiceThread(ServiceCore, threading.Thread):
+    
+    def __init__(self, request, name, config: dict):
+        threading.Thread.__init__(self, name=name)
+        ServiceCore.__init__(self, request, name, config)
+        self.killed = False
+
+    def run(self):
+        # Configure dbsession per thread
+
+        self.setup()
+
+        sleepy = int(self.request.registry.settings.get("ethereum.daemon_poll_seconds", 2))
+        cycle = 1
+        geth = self.geth
+
+        try:
+            while not self.killed:
+                logger.info("Ethereum service %s event cycle %d", self.name, cycle)
+                self.run_cycle()
+                time.sleep(sleepy)
+                cycle += 1
+        finally:
+            if geth:
+                geth.stop()
+
+
+class OneShot(ServiceCore):
+    """Run service cycle only once.
+
+    Useful for debugging.
+    """
+
+    def run_shot(self):
+        self.setup()
+        try:
+            self.run_cycle()
+        finally:
+            self.geth.stop()
+
+
+def one_shot(request, network_name):
+    """Single threaded one debug shot agaist the db state."""
+
+    # Load network configuration to which networks we should connect to
+    services = ServiceCore.parse_network_config(request)
+    one_shot = OneShot(request, network_name, services[network_name])
+    one_shot.run_shot()
 
 
 def run_services(request):
@@ -164,13 +248,7 @@ def run_services(request):
     We are connecting to multiple networks. Start one thread per network.
     """
 
-    # Load network configuration to which networks we should connect to
-    services = request.registry.settings.get("ethereum.network_configuration")
-
-    try:
-        services = json.loads(services)
-    except json.decoder.JSONDecodeError as e:
-        raise RuntimeError("Could not decode: {}".format(services)) from e
+    services = ServiceCore.parse_network_config(request)
 
     threads = []
     for name, config in services.items():
@@ -181,6 +259,9 @@ def run_services(request):
     # Main loop
     started = time.time()
     shown_start_message = False
+
+    logger.info("Running threads %s", threads)
+
     while True:
 
         for t in threads:

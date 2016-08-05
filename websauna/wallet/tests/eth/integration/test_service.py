@@ -21,4 +21,18 @@ def test_start_service(test_config_path, dbsession):
         child.terminate()
 
 
+def test_bootstrap(test_config_path, dbsession):
+    """See that our boostrap script completes."""
 
+    service = pexpect.spawn('ethereum-service {}'.format(test_config_path))
+
+    log = BytesIO()
+    bootstrap = pexpect.spawn('wallet-bootstrap {}'.format(test_config_path), logfile=log)
+
+    try:
+        bootstrap.expect("Bootstrap complete", timeout=30)
+    except pexpect.exceptions.ExceptionPexpect:
+        print(log.getvalue().decode("utf-8"))
+        raise
+
+    service.terminate()

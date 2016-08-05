@@ -54,7 +54,7 @@ def finalize_pending_crypto_ops(dbsession, timeout=90):
 
     # Get list of ops we need to clear
     with transaction.manager:
-        ops = dbsession.query(CryptoOperation).filter(CryptoOperation.state.in_(CryptoOperationState.waiting, CryptoOperationState.pending, ))
+        ops = dbsession.query(CryptoOperation).filter(CryptoOperation.state.in_([CryptoOperationState.waiting, CryptoOperationState.pending,]))
         ids = [op.id for op in ops]
 
     # Wait until all ops clear correctly

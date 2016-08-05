@@ -427,7 +427,7 @@ class CryptoOperation(Base):
         account = self.crypto_account and self.crypto_account.account or "-"
         failure_reason = self.other_data.get("error") or ""
 
-        return "{} externaladdress:{} completed:{} confirmed:{} failed:{} acc:{} holding: {}".format(self.operation_type, address, self.completed_at, self.confirmed_at, failure_reason, account, self.holding_account)
+        return "{} externaladdress:{} completed:{} confirmed:{} failed:{} acc:{} holding: {} network: {}".format(self.operation_type, address, self.completed_at, self.confirmed_at, failure_reason, account, self.holding_account, self.network.name)
 
     def __repr__(self):
         return self.__str__()
@@ -520,6 +520,11 @@ class CryptoAddressCreation(CryptoAddressOperation):
 
         super(CryptoAddressCreation, self).__init__(address=address)
 
+    def __str__(self):
+        return "<Creating address on network {}>".format(self.network.name)
+
+    def __repr__(self):
+        return self.__str__()
 
 class DepositResolver:
     """A confirmation resolver that deposits the user account after certain number of confirmation has passed."""

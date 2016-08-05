@@ -1,6 +1,6 @@
-"""
-Setup initial parameters for running the demo.
-"""
+"""Setup initial assets and network parameters for running the demo. """
+import os
+import sys
 import transaction
 from decimal import Decimal
 from sqlalchemy.orm import Session
@@ -24,6 +24,8 @@ def create_token(network: AssetNetwork, name: str, symbol: str, supply: int, ini
 def setup_networks(request):
     """Setup different networks supported by the instance.
 
+    Setup house wallets on each network.
+
     Setup ETH giveaway on testnet and private testnet.
     """
 
@@ -32,9 +34,12 @@ def setup_networks(request):
 
         with transaction.manager:
             network = get_eth_network(dbsession, network)
+            dbsession.flush()
             house_address = get_house_address(network)
+            dbsession.flush()
             if not house_address:
                 create_house_address(network)
+            dbsession.flush()
 
             # Setup ETH give away
             if network in ("testnet", "private testnet"):
@@ -68,3 +73,28 @@ def bootstrap(request: Request):
     """Setup environment for demo."""
     setup_networks(request)
     setup_toybox(request)
+
+
+def main(argv=sys.argv):
+
+    def usage(argv):
+        cmd = os.path.basename(argv[0])
+        print('usage: %s <config_uri>\n'
+              '(example: "%s conf/production.ini")' % (cmd, cmd))
+        sys.exit(1)
+
+    if len(argv) < 2:
+        usage(argv)
+
+    config_uri = argv[1]
+
+    # console_app sets up colored log output
+    from websauna.system.devop.cmdline import init_websauna
+    request = init_websauna(config_uri, sanity_check=True)
+
+    bootstrap(request)
+    print("Bootstrap complete")
+    sys.exit(0)
+
+
+

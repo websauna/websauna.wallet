@@ -7,7 +7,7 @@ from populus.utils.chain import get_geth_logfile_path
 from populus.utils.filesystem import get_blockchains_dir
 
 
-def start_private_geth(chain_name, project_dir, host, port, verbosity=2) -> TestingGethProcess:
+def start_private_geth(chain_name, project_dir, host, port, verbosity=2, p2p_port=30303) -> TestingGethProcess:
     """Start a local geth process that mines isolated private testnet."""
     blockchains_dir = get_blockchains_dir(project_dir)
 
@@ -18,6 +18,7 @@ def start_private_geth(chain_name, project_dir, host, port, verbosity=2) -> Test
         "rpc_addr": host,
         "ipc_disable": "true",
         "verbosity": str(verbosity),  # https://github.com/ethereum/go-ethereum/wiki/Command-Line-Options
+        "port": str(p2p_port)
     }
 
     geth = TestingGethProcess(
@@ -35,6 +36,6 @@ def start_private_geth(chain_name, project_dir, host, port, verbosity=2) -> Test
     if geth.ipc_enabled:
         geth.wait_for_ipc(30)
     if geth.rpc_enabled:
-        geth.wait_for_rpc(30)
+        geth.wait_for_rpc(4)
 
     return geth

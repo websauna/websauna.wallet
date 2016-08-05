@@ -7,25 +7,21 @@ import os
 import sys
 import time
 import logging
-import transaction
 
 
 from websauna.system.devop.cmdline import init_websauna
-from websauna.wallet.ethereum.asset import get_eth_network
-from websauna.wallet.ethereum.ethjsonrpc import get_eth_json_rpc_client, get_web3
-from websauna.wallet.ethereum.service import EthereumService, run_services
+from websauna.wallet.ethereum.service import run_services, one_shot
 
 logger = logging.getLogger(__name__)
 
 
-def usage(argv):
-    cmd = os.path.basename(argv[0])
-    print('usage: %s <config_uri>\n'
-          '(example: "%s conf/production.ini")' % (cmd, cmd))
-    sys.exit(1)
-
-
 def main(argv=sys.argv):
+
+    def usage(argv):
+        cmd = os.path.basename(argv[0])
+        print('usage: %s <config_uri>\n'
+              '(example: "%s conf/production.ini")' % (cmd, cmd))
+        sys.exit(1)
 
     if len(argv) < 2:
         usage(argv)
@@ -41,3 +37,24 @@ def main(argv=sys.argv):
 
     sys.exit(0)
 
+
+def one_shot_main(argv=sys.argv):
+    """Run one debug cycle"""
+
+    def usage(argv):
+        cmd = os.path.basename(argv[0])
+        print('usage: %s <config_uri> <network name>\n'
+              '(example: "%s conf/production.ini") ethereum' % (cmd, cmd))
+        sys.exit(1)
+
+    if len(argv) < 3:
+        usage(argv)
+
+    config_uri = argv[1]
+    network_name = argv[2]
+
+    # console_app sets up colored log output
+    request = init_websauna(config_uri, sanity_check=True)
+    one_shot(request, network_name)
+
+    sys.exit(0)
