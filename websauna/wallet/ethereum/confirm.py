@@ -6,6 +6,8 @@ import transaction
 
 from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.models import CryptoOperation
+from websauna.wallet.models import CryptoOperationState
+from websauna.wallet.models.heartbeat import is_network_alive
 
 
 class OpConfirmationFailed(Exception):
@@ -42,3 +44,43 @@ def wait_for_op_confirmations(eth_service: EthereumService, opid: UUID):
 
     if time.time() > deadline:
         raise OpConfirmationFailed("Did not receive confirmation updates")
+
+
+def finalize_pending_crypto_ops(dbsession, timeout=90):
+    """Wait all pending operations to complete.
+
+    This assumes you have an Ethereum service running on a background.
+    """
+
+    # Get list of ops we need to clear
+    with transaction.manager:
+        ops = dbsession.query(CryptoOperation).filter(CryptoOperation.state.in_(CryptoOperationState.waiting, CryptoOperationState.pending, ))
+        ids = [op.id for op in ops]
+
+    # Wait until all ops clear correctly
+    deadline = time.time() + timeout
+
+    while time.time() < deadline:
+
+        if not ids:
+            # All ops cleared
+            return
+
+        for id in ids:
+            with transaction.manager:
+                op = dbsession.query(CryptoOperation).get(id)
+
+                network = op.network
+                if not is_network_alive(network):
+                    raise RuntimeError("Tried to complete against dead network: {}, op {}".format(network, op))
+
+                #  Cleared this item
+                if op.completed_at:
+                    ids.remove(id)
+
+                if op.failed_at:
+                    raise RuntimeError("Op failed while waiting: {}".format(op))
+        time.sleep(1)
+
+    raise RuntimeError("Could not confirm all operations")
+

@@ -32,7 +32,8 @@ class AssetNetwork(Base):
     #: * initial_assets.toybox
     other_data = Column(NestedMutationDict.as_mutable(psql.JSONB), default=dict)
     
-    def create_asset(self, name: str, symbol: str, supply: Decimal, asset_class: "AssetClass"):
+    def create_asset(self, name: str, symbol: str, supply: Decimal, asset_class: "AssetClass") -> "Asset":
+        """Instiate the asset."""
         assert isinstance(supply, Decimal)
         dbsession = Session.object_session(self)
         asset = Asset(name=name, symbol=symbol, asset_class=asset_class, supply=supply)
