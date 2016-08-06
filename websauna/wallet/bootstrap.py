@@ -6,6 +6,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from websauna.system.http import Request
+from websauna.system.model.retry import retryable
 from websauna.wallet.ethereum.asset import get_eth_network, create_house_address, get_house_address, get_toy_box
 from websauna.wallet.ethereum.confirm import finalize_pending_crypto_ops
 from websauna.wallet.ethereum.ethjsonrpc import get_web3
@@ -21,6 +22,7 @@ def create_token(network: AssetNetwork, name: str, symbol: str, supply: int, ini
     return asset
 
 
+@retryable
 def setup_networks(request):
     """Setup different networks supported by the instance.
 
@@ -32,47 +34,45 @@ def setup_networks(request):
     dbsession = request.dbsession
     for network in ["ethereum", "testnet", "private testnet"]:
 
-        with transaction.manager:
-            network = get_eth_network(dbsession, network)
-            dbsession.flush()
-            house_address = get_house_address(network)
-            dbsession.flush()
-            if not house_address:
-                create_house_address(network)
-            dbsession.flush()
+        network = get_eth_network(dbsession, network)
+        dbsession.flush()
+        house_address = get_house_address(network)
 
-            # Setup ETH give away
-            if network in ("testnet", "private testnet"):
-                network.other_data["initial_assets"] = {}
-                network.other_data["initial_assets"]["eth_amount"] = "0.1"
+        if not house_address:
+            create_house_address(network)
 
-    finalize_pending_crypto_ops(dbsession)
+        if not "initial_assets" in network.other_data:
+            network.other_data["initial_assets"] = {}
+
+        # Setup ETH give away
+        if network in ("testnet", "private testnet"):
+            network.other_data["initial_assets"]["eth_amount"] = "0.1"
 
 
+
+@retryable
 def setup_toybox(request):
     """Setup TOYBOX asset for testing."""
-    dbsession = request.dbsessoin
+    dbsession = request.dbsession
+    network = get_eth_network(dbsession, "testnet")
+    toybox = get_toy_box(network)
+    if toybox:
+        return
 
-    with transaction.manager:
-        network = get_eth_network(dbsession, "testnet")
-        toybox = get_toy_box(network)
-        if toybox:
-            return
+    # Roll out toybox contract
+    asset = create_token(network, "Toybox", "TOYBOX", 10222333, get_house_address(network))
 
-        # Roll out toybox contract
-        asset = create_token(network, "Toybox", "TOYBOX", 10222333, get_house_address(network))
-
-        # setup toybox give away data for primary network
-        network.other_data["initial_assets"]["toybox"] = str(asset.id)
-        network.other_data["initial_assets"]["toybox_amount"] = 50
-
-    finalize_pending_crypto_ops(dbsession)
+    # setup toybox give away data for primary network
+    network.other_data["initial_assets"]["toybox"] = str(asset.id)
+    network.other_data["initial_assets"]["toybox_amount"] = 50
 
 
 def bootstrap(request: Request):
     """Setup environment for demo."""
     setup_networks(request)
+    finalize_pending_crypto_ops(request.dbsession)
     setup_toybox(request)
+    finalize_pending_crypto_ops(request.dbsession)
 
 
 def main(argv=sys.argv):

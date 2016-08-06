@@ -82,6 +82,12 @@ class EthereumService:
         """
         return self.op_queue_manager.run_waiting_operations()
 
+    def update_stats(self):
+
+        # Tell web interface we are still alive
+        block_number = self.web3.eth.blockNumber
+        update_heart_beat(self.dbsession, self.asset_network_id, block_number)
+
     def run_event_cycle(self) -> Tuple[int, int]:
         """Run full event cycle for all operations."""
         total_success = total_failure = 0
@@ -91,8 +97,7 @@ class EthereumService:
             total_success += success
             total_failure += failure
 
-        # Tell web interface we are still alive
-        update_heart_beat(self.dbsession, self.asset_network_id)
+        self.update_stats()
 
         return total_success, total_failure
 
@@ -210,7 +215,7 @@ class ServiceThread(ServiceCore, threading.Thread):
 
         try:
             while not self.killed:
-                logger.info("Ethereum service %s event cycle %d", self.name, cycle)
+                logger.info("Ethereum service %s event cycle %d, last block is %d", self.name, cycle, self.service.web3.eth.blockNumber)
                 self.run_cycle()
                 time.sleep(sleepy)
                 cycle += 1

@@ -6,6 +6,7 @@ import binascii
 from typing import Optional, Iterable, List
 
 import enum
+import uuid
 
 import sqlalchemy
 from sqlalchemy import func
@@ -756,6 +757,33 @@ def import_token(network: AssetNetwork, address: bytes) -> CryptoOperation:
     dbsession.add(op)
     dbsession.flush()
     return op
+
+
+class CryptoNetworkStatus(Base):
+    """Hold uptime/stats about a network."""
+
+    __tablename__ = "crypto_network_status"
+
+    # Network where this operation happens
+    network_id = Column(ForeignKey("asset_network.id"), nullable=False, primary_key=True)
+    network = relationship("AssetNetwork", uselist=False, backref="crypto_network_status")
+
+    #: Contains keys
+    #: * timestamp
+    #: * block_number
+    data = Column(NestedMutationDict.as_mutable(psql.JSONB), default=dict)
+
+    @classmethod
+    def get_network_status(cls, dbsession, network_id: uuid.UUID):
+        assert isinstance(network_id, uuid.UUID)
+        obj = dbsession.query(CryptoNetworkStatus).get(network_id)
+        if not obj:
+            obj = CryptoNetworkStatus(network_id=network_id)
+            dbsession.add(obj)
+            dbsession.flush()
+        return obj
+
+
 
 
 

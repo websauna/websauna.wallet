@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.instrumentation import instance_state
 from web3 import Web3
 
+from websauna.system.model.retry import retryable
 from websauna.utils.time import now
 from websauna.wallet.ethereum.interfaces import IOperationPerformer
 from websauna.wallet.events import CryptoOperationComplete
@@ -30,20 +31,39 @@ class OperationQueueManager:
         self.asset_network_id = asset_network_id
         self.registry = registry
 
+    @retryable
     def get_waiting_operation_ids(self) -> List[UUID]:
         """Get list of operations we need to attempt to perform.
 
         Perform as one transaction.
         """
 
-        with transaction.manager:
+        wait_list = self.dbsession.query(CryptoOperation, CryptoOperation.id, CryptoOperation.state).filter_by(network_id=self.asset_network_id, state=CryptoOperationState.waiting)
 
-            wait_list = self.dbsession.query(CryptoOperation, CryptoOperation.id, CryptoOperation.state).filter_by(network_id=self.asset_network_id, state=CryptoOperationState.waiting)
-
-            # Flatten
-            wait_list = [o.id for o in wait_list]
+        # Flatten
+        wait_list = [o.id for o in wait_list]
 
         return wait_list
+
+    @retryable
+    def run_op(self, o_id):
+        op = self.dbsession.query(CryptoOperation).get(o_id)
+
+        # Get a function to perform the op using adapters
+        performer = self.registry.queryAdapter(op, IOperationPerformer)
+        if not performer:
+            raise RuntimeError("Doesn't have a performer for operation {}".format(op))
+
+        from sqlalchemy.orm.session import _sessions
+
+        logger.info("Running op: %s", op)
+        # Do the actual operation
+        performer(self.web3, self.dbsession, op)
+
+        # Post the event completion info
+        self.registry.notify(CryptoOperationComplete(op, self.registry, self.web3))
+
+        logger.info("Operationg success: %s", op)
 
     def run_waiting_operations(self) -> Tuple[int, int]:
         """Run all operations that are waiting to be executed.
@@ -56,39 +76,17 @@ class OperationQueueManager:
 
         ops = self.get_waiting_operation_ids()
 
+        if ops:
+            logger.info("%s operations in the queue", len(ops))
         for o_id in ops:
-            with transaction.manager:
-                op = self.dbsession.query(CryptoOperation).get(o_id)
-                op.attempted_at = now()
-                op.attempts += 1
-                logger.debug("Attempting to perform operation %s, attempt %d", op, op.attempts)
 
-            with transaction.manager:
-                try:
-                    op = self.dbsession.query(CryptoOperation).get(o_id)
-
-                    # Get a function to perform the op using adapters
-                    performer = self.registry.queryAdapter(op, IOperationPerformer)
-                    if not performer:
-                        raise RuntimeError("Doesn't have a performer for operation {}".format(op))
-
-                    from sqlalchemy.orm.session import _sessions
-
-                    logger.info("Running op: %s op session: %s our session: %s sessions: %s", op, Session.object_session(op), self.dbsession, list(_sessions.items()))
-                    # Do the actual operation
-                    performer(self.web3, self.dbsession, op)
-
-                    state = instance_state(op)
-
-                    # Post the event completion info
-                    self.registry.notify(CryptoOperationComplete(op, self.registry, self.web3))
-
-                    success_count += 1
-
-                except Exception as e:
-                    failure_count += 1
-                    logger.error("Crypto operation failure %s", e)
-                    logger.exception(e)
-                    raise
+            try:
+                self.run_op(o_id)
+                success_count += 1
+            except Exception as e:
+                failure_count += 1
+                logger.error("Crypto operation failure %s", e)
+                logger.exception(e)
+                raise
 
         return success_count, failure_count

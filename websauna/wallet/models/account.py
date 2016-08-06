@@ -31,7 +31,13 @@ class AssetNetwork(Base):
     #: * house_address
     #: * initial_assets.toybox
     other_data = Column(NestedMutationDict.as_mutable(psql.JSONB), default=dict)
-    
+
+    def __str__(self):
+        return "<Network {} {}>".format(self.name, self.id)
+
+    def __repr__(self):
+        return self.__str__()
+
     def create_asset(self, name: str, symbol: str, supply: Decimal, asset_class: "AssetClass") -> "Asset":
         """Instiate the asset."""
         assert isinstance(supply, Decimal)
