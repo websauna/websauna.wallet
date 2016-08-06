@@ -2,7 +2,6 @@ import logging
 
 from typing import Iterable, Tuple, Union
 
-import transaction
 from sqlalchemy.orm import Session
 from web3 import Web3
 from websauna.system.model.retry import retryable

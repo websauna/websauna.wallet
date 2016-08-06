@@ -46,8 +46,9 @@ class OperationQueueManager:
         return wait_list
 
     @retryable
-    def notify_op_complete(self):
+    def notify_op_complete(self, opid):
         # Post the event completion info
+        op = self.dbsession.query(CryptoOperation).get(opid)
         self.registry.notify(CryptoOperationComplete(op, self.registry, self.web3))
         logger.info("Operationg success: %s", op)
 
@@ -62,6 +63,8 @@ class OperationQueueManager:
         logger.info("Running op: %s %s", op_type, opid)
         # Do the actual operation
         performer(self.web3, self.dbsession, opid)
+
+        self.notify_op_complete(opid)
 
     def run_waiting_operations(self) -> Tuple[int, int]:
         """Run all operations that are waiting to be executed.

@@ -31,10 +31,7 @@ def main(argv=sys.argv):
     # console_app sets up colored log output
     request = init_websauna(config_uri, sanity_check=True)
 
-    while True:
-        run_services(request)
-        time.sleep(1)
-
+    run_services(request)
     sys.exit(0)
 
 

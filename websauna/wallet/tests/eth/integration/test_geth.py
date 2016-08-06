@@ -12,7 +12,9 @@ def test_start_private_geth(test_config_path, dbsession):
     """We can spawn a standalone private geth instance for private testnet."""
 
     project_dir = os.getcwd() # Goes under "chains"
-    geth = start_private_geth("foobar", project_dir, "127.0.0.1", 10010)
+    # Use non-default port, so that we don't conflict with existing
+    # test geth daemon
+    geth = start_private_geth("foobar", project_dir, "127.0.0.1", 10010, p2p_port=40000)
 
     web3 = Web3(RPCProvider("127.0.0.1", 10010))
 

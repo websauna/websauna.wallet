@@ -1,4 +1,5 @@
 import os
+import signal
 import threading
 
 from typing import Tuple
@@ -247,11 +248,27 @@ def one_shot(request, network_name):
     one_shot.run_shot()
 
 
+#: Active threads
+threads = []
+
+#: We have been signalled to quit
+interrupted = False
+
+
+def exit_gracefully(signum, frame):
+    global interrupted
+    logger.error("Signalled to quit")
+    for t in threads:
+        t.killed = True
+    interrupted = True
+
+
 def run_services(request):
     """Start a network service.
 
     We are connecting to multiple networks. Start one thread per network.
     """
+    global threads
 
     services = ServiceCore.parse_network_config(request)
 
@@ -267,7 +284,10 @@ def run_services(request):
 
     logger.info("Running threads %s", threads)
 
-    while True:
+    signal.signal(signal.SIGINT, exit_gracefully)
+    signal.signal(signal.SIGTERM, exit_gracefully)
+
+    while not interrupted:
 
         for t in threads:
             if not t.is_alive():
@@ -284,3 +304,4 @@ def run_services(request):
             shown_start_message = True
 
         time.sleep(1)
+

@@ -1,4 +1,5 @@
 """Start/stop Ethereum service."""
+import os
 import subprocess
 import sys
 from io import BytesIO
@@ -38,9 +39,16 @@ def test_bootstrap(test_config_path, dbsession):
     bootstrap = pexpect.spawn('wallet-bootstrap {}'.format(test_config_path), logfile=log)
 
     try:
-        bootstrap.expect("Bootstrap complete", timeout=30)
+        # It will need to mine several blocks
+        bootstrap.expect("Bootstrap complete", timeout=120)
     except Exception:
         print(log.getvalue().decode("utf-8"))
         raise
     finally:
-        service.kill()
+        service.terminate()
+        # Let it die gracefully before we tear down database
+        time.sleep(10)
+        try:
+            service.kill()
+        except:
+            pass
