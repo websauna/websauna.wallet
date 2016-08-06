@@ -55,7 +55,7 @@ def test_create_eth_account(dbsession, eth_service, eth_network_id):
         assert op.completed_at
         assert op.block
         assert op.performed_at
-        assert not op.confirmed_at  # Not relevant
+        assert op.completed_at
 
         address = dbsession.query(CryptoAddress).first()
         assert address.address
@@ -176,8 +176,8 @@ def test_withdraw_eth(dbsession: Session, eth_network_id: UUID, web3: Web3, eth_
         assert len(ops) == 3  # Create + deposit + withdraw
         op = ops[-1]
         assert isinstance(op, CryptoAddressWithdraw)
-        assert op.completed_at is not None  # This completes instantly, cannot be cancelled
-        assert op.confirmed_at is None  # We need at least one confirmation
+        assert op.broadcasted_at is not None  # This completes instantly, cannot be cancelled
+        assert op.completed_at is None  # We need at least one confirmation
         assert op.block is None
         assert op.txid is not None
         txid = bin_to_txid(op.txid)
@@ -201,8 +201,8 @@ def test_withdraw_eth(dbsession: Session, eth_network_id: UUID, web3: Web3, eth_
         ops = list(dbsession.query(CryptoOperation).all())
         assert len(ops) == 3  # Create + deposit + withdraw
         op = ops[-1]
-        assert op.completed_at is not None  # This completes instantly, cannot be cancelled
-        assert op.confirmed_at is None, "Got confirmation for block {}, current {}, requires {}".format(op.block, current_block, op.required_confirmation_count)
+        assert op.broadcasted_at is not None  # This completes instantly, cannot be cancelled
+        assert op.completed_at is None, "Got confirmation for block {}, current {}, requires {}".format(op.block, current_block, op.required_confirmation_count)
         assert op.block is not None
         assert op.txid is not None
         block_num = op.block
@@ -220,7 +220,7 @@ def test_withdraw_eth(dbsession: Session, eth_network_id: UUID, web3: Web3, eth_
         # We have one complete operation
         ops = list(dbsession.query(CryptoOperation).all())
         op = ops[-1]
-        assert op.confirmed_at is not None
+        assert op.completed_at is not None
 
 
 def test_create_token(dbsession, eth_network_id, eth_service, coinbase, deposit_address):
@@ -255,8 +255,8 @@ def test_create_token(dbsession, eth_network_id, eth_service, coinbase, deposit_
 
         assert op.txid
         assert not op.block
+        assert op.broadcasted_at is not None
         assert op.completed_at is None
-        assert op.confirmed_at is None
 
         # Initial balance doesn't hit us until tx has been confirmed
         assert address.get_account(asset).account.get_balance() == 0
@@ -274,8 +274,8 @@ def test_create_token(dbsession, eth_network_id, eth_service, coinbase, deposit_
         address = CryptoAddress.get_network_address(network, eth_address_to_bin(deposit_address))
         asset = network.get_asset(aid)
 
+        assert op.broadcasted_at is not None
         assert op.completed_at is not None
-        assert op.confirmed_at is not None
         assert address.get_account(asset).account.get_balance() == 10000
 
 
@@ -366,7 +366,7 @@ def test_deposit_token(dbsession, eth_network_id, web3: Web3, eth_service: Ether
     with transaction.manager:
         op = dbsession.query(CryptoOperation).all()[-1]
         opid = op.id
-        assert not op.confirmed_at
+        assert not op.completed_at
         address = dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(deposit_address)).one()
         asset = op.holding_account.asset
         assert op.holding_account.get_balance() == 4000
@@ -380,7 +380,7 @@ def test_deposit_token(dbsession, eth_network_id, web3: Web3, eth_service: Ether
     # Check that the transaction is not final
     with transaction.manager:
         op = dbsession.query(CryptoOperation).get(opid)
-        assert op.confirmed_at
+        assert op.completed_at
         assert op.completed_at
         address = dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(deposit_address)).one()
         asset = op.holding_account.asset
@@ -411,15 +411,15 @@ def test_withdraw_token(dbsession, eth_network_id, web3: Web3, eth_service: Ethe
         op = dbsession.query(CryptoOperation).get(opid)
         assert isinstance(op, CryptoAddressWithdraw)
         asset = dbsession.query(Asset).get(token_asset)
-        assert op.completed_at
-        assert not op.confirmed_at
+        assert op.broadcasted_at
+        assert not op.completed_at
 
     wait_for_op_confirmations(eth_service, opid)
 
     with transaction.manager:
         op = dbsession.query(CryptoOperation).get(opid)
+        assert op.broadcasted_at
         assert op.completed_at
-        assert op.confirmed_at
         asset = dbsession.query(Asset).get(token_asset)
 
         # Tokens have been removed on from account
@@ -473,12 +473,12 @@ def test_transfer_tokens_between_accounts(dbsession, eth_network_id, web3: Web3,
         # Withdraw operation is complete
         op = dbsession.query(CryptoOperation).get(opid)
         assert op.completed_at
-        assert op.confirmed_at, "Op not confirmed {}".format(op)
+        assert op.completed_at, "Op not confirmed {}".format(op)
 
         # We should have received a Transfer operation targetting target account
         op = dbsession.query(CryptoOperation).join(CryptoAddressAccount).join(CryptoAddress).filter_by(address=addr).one()
         opid = op.id
-        confirmed = op.confirmed_at
+        confirmed = op.completed_at
 
     # Confirm incoming Transfer
     if not confirmed:
@@ -488,7 +488,7 @@ def test_transfer_tokens_between_accounts(dbsession, eth_network_id, web3: Web3,
     with transaction.manager:
         op = dbsession.query(CryptoOperation).get(opid)
         assert op.completed_at
-        assert op.confirmed_at, "Op not confirmed {}".format(op)
+        assert op.completed_at, "Op not confirmed {}".format(op)
 
         asset = dbsession.query(Asset).get(token_asset)
         source = dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(deposit_address)).one()
@@ -506,7 +506,7 @@ def test_transfer_tokens_between_accounts(dbsession, eth_network_id, web3: Web3,
     with transaction.manager:
         op = dbsession.query(CryptoOperation).filter_by(txid=txid_to_bin(txid)).one()
         opid = op.id
-        confirmed = op.confirmed_at
+        confirmed = op.completed_at
     if not confirmed:
         wait_for_op_confirmations(eth_service, opid)
 
@@ -531,7 +531,7 @@ def test_transfer_tokens_between_accounts(dbsession, eth_network_id, web3: Web3,
     with transaction.manager:
         op = dbsession.query(CryptoOperation).get(opid)
         assert op.completed_at
-        assert op.confirmed_at
+        assert op.completed_at
         asset = dbsession.query(Asset).get(token_asset)
         source = dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(deposit_address)).one()
         target = dbsession.query(CryptoAddress).filter_by(address=addr).one()
@@ -559,7 +559,7 @@ def test_transfer_tokens_between_accounts(dbsession, eth_network_id, web3: Web3,
     with transaction.manager:
         op = dbsession.query(CryptoOperation).get(opid)
         assert op.completed_at
-        assert op.confirmed_at
+        assert op.completed_at
         asset = dbsession.query(Asset).get(token_asset)
         source = dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(deposit_address)).one()
         target = dbsession.query(CryptoAddress).filter_by(address=addr).one()

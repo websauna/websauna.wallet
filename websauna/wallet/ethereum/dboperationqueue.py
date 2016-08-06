@@ -16,7 +16,7 @@ from websauna.wallet.ethereum.interfaces import IOperationPerformer
 from websauna.wallet.events import CryptoOperationComplete
 from websauna.wallet.models import CryptoOperation
 from websauna.wallet.models import CryptoOperationState
-
+from websauna.wallet.models.blockchain import CryptoOperationType
 
 logger = logging.getLogger(__name__)
 
@@ -32,38 +32,36 @@ class OperationQueueManager:
         self.registry = registry
 
     @retryable
-    def get_waiting_operation_ids(self) -> List[UUID]:
+    def get_waiting_operation_ids(self) -> List[Tuple[UUID, CryptoOperationType]]:
         """Get list of operations we need to attempt to perform.
 
         Perform as one transaction.
         """
 
-        wait_list = self.dbsession.query(CryptoOperation, CryptoOperation.id, CryptoOperation.state).filter_by(network_id=self.asset_network_id, state=CryptoOperationState.waiting)
+        wait_list = self.dbsession.query(CryptoOperation, CryptoOperation.id, CryptoOperation.state, CryptoOperation.operation_type).filter_by(network_id=self.asset_network_id, state=CryptoOperationState.waiting)
 
         # Flatten
-        wait_list = [o.id for o in wait_list]
+        wait_list = [(o.id, o.operation_type) for o in wait_list]
 
         return wait_list
 
     @retryable
-    def run_op(self, o_id):
-        op = self.dbsession.query(CryptoOperation).get(o_id)
-
-        # Get a function to perform the op using adapters
-        performer = self.registry.queryAdapter(op, IOperationPerformer)
-        if not performer:
-            raise RuntimeError("Doesn't have a performer for operation {}".format(op))
-
-        from sqlalchemy.orm.session import _sessions
-
-        logger.info("Running op: %s", op)
-        # Do the actual operation
-        performer(self.web3, self.dbsession, op)
-
+    def notify_op_complete(self):
         # Post the event completion info
         self.registry.notify(CryptoOperationComplete(op, self.registry, self.web3))
-
         logger.info("Operationg success: %s", op)
+
+    def run_op(self, op_type: CryptoOperationType, opid: UUID):
+        """Run a performer for a single operation."""
+
+        # Get a function to perform the op using adapters
+        performer = self.registry.crypto_operation_performers.get(op_type)
+        if not performer:
+            raise RuntimeError("Doesn't have a performer for operation {}".format(op_type))
+
+        logger.info("Running op: %s %s", op_type, opid)
+        # Do the actual operation
+        performer(self.web3, self.dbsession, opid)
 
     def run_waiting_operations(self) -> Tuple[int, int]:
         """Run all operations that are waiting to be executed.
@@ -78,10 +76,10 @@ class OperationQueueManager:
 
         if ops:
             logger.info("%s operations in the queue", len(ops))
-        for o_id in ops:
 
+        for opid, op_type in ops:
             try:
-                self.run_op(o_id)
+                self.run_op(op_type, opid)
                 success_count += 1
             except Exception as e:
                 failure_count += 1

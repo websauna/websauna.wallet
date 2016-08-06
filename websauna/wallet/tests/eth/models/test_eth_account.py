@@ -22,11 +22,13 @@ TEST_TXID = "0x00df829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcf"
 def mock_create_addresses(eth_service, dbsession):
     """Create fake addresses instead of going to geth to ask for new address."""
 
-    def _create_address(service, dbsession, op):
-        assert isinstance(op.address, CryptoAddress)
-        op.address.address = eth_address_to_bin(TEST_ADDRESS)
-        op.mark_performed()
-        op.mark_complete()
+    def _create_address(service, dbsession, opid):
+        with transaction.manager:
+            op = dbsession.query(CryptoOperation).get(opid)
+            assert isinstance(op.address, CryptoAddress)
+            op.address.address = eth_address_to_bin(TEST_ADDRESS)
+            op.mark_performed()
+            op.mark_complete()
 
     with mock.patch("websauna.wallet.ethereum.ops.create_address", new=_create_address):
         success_op_count, failed_op_count = eth_service.run_waiting_operations()
@@ -124,10 +126,9 @@ def test_deposit_eth_account(dbsession, eth_network_id, eth_service, eth_asset_i
         dbsession.add(op)
 
     # Resolve deposit op
-    with transaction.manager:
-        success_op_count, failed_op_count = eth_service.run_waiting_operations()
-        assert success_op_count == 1
-        assert failed_op_count == 0
+    success_op_count, failed_op_count = eth_service.run_waiting_operations()
+    assert success_op_count == 1
+    assert failed_op_count == 0
 
     # Check balances are settled
     with transaction.manager:
@@ -221,10 +222,12 @@ def test_withdraw_eth_account(dbsession, eth_service, eth_network_id, eth_asset_
         assert ca_account.account.transactions.all()[1].message == "Bailing out"
         assert ca_account.account.get_balance() == 0
 
-    def _withdraw_eth(service, dbsession, op):
+    def _withdraw_eth(service, dbsession, opid):
         # Mocked withdraw op that always success
-        op.txid = txid_to_bin(TEST_TXID)
-        op.mark_complete()
+        with transaction.manager:
+            op = dbsession.query(CryptoOperation).get(opid)
+            op.txid = txid_to_bin(TEST_TXID)
+            op.mark_complete()
 
     with mock.patch("websauna.wallet.ethereum.ops.withdraw_eth", new=_withdraw_eth):
         success_op_count, failed_op_count = eth_service.run_waiting_operations()
@@ -247,11 +250,13 @@ def test_setup_user_account(dbsession, registry, eth_service, testnet_service, e
         assert user.owned_crypto_addresses.count() == 2  # 2 addresses
         assert user.owned_crypto_operations.count() == 2  # 2 account creations
 
-    def _create_address(web3, dbsession, op):
-        assert isinstance(op.address, CryptoAddress)
-        op.address.address = eth_address_to_bin(TEST_ADDRESS)
-        op.mark_performed()
-        op.mark_complete()
+    def _create_address(web3, dbsession, opid):
+        with transaction.manager:
+            assert isinstance(op.address, CryptoAddress)
+            op = dbsession.query(CryptoOperation).get(opid)
+            op.address.address = eth_address_to_bin(TEST_ADDRESS)
+            op.mark_performed()
+            op.mark_complete()
 
     with mock.patch("websauna.wallet.ethereum.ops.create_address", new=_create_address):
         success_op_count, failed_op_count = eth_service.run_waiting_operations()

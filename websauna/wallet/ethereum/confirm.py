@@ -23,7 +23,7 @@ def wait_for_op_confirmations(eth_service: EthereumService, opid: UUID, timeout=
 
     with transaction.manager:
         op = eth_service.dbsession.query(CryptoOperation).get(opid)
-        if op.confirmed_at:
+        if op.completed_at:
             assert op.required_confirmation_count
             return
 
@@ -36,8 +36,8 @@ def wait_for_op_confirmations(eth_service: EthereumService, opid: UUID, timeout=
             # Check our op went through
             with transaction.manager:
                 op = eth_service.dbsession.query(CryptoOperation).get(opid)
-                if op.confirmed_at:
-                    continue
+                if op.completed_at:
+                    return
 
         if failed_op_count > 0:
             with transaction.manager:
@@ -46,8 +46,14 @@ def wait_for_op_confirmations(eth_service: EthereumService, opid: UUID, timeout=
 
         time.sleep(1)
 
+        with transaction.manager:
+            op = eth_service.dbsession.query(CryptoOperation).get(opid)
+            logger.info("Waiting op to complete %s", op)
+
     if time.time() > deadline:
-        raise OpConfirmationFailed("Did not receive confirmation updates")
+        with transaction.manager:
+            op = eth_service.dbsession.query(CryptoOperation).get(opid)
+            raise OpConfirmationFailed("Did not receive confirmation updates: {}".format(op))
 
 
 def finalize_pending_crypto_ops(dbsession, timeout=90):

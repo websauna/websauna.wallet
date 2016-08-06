@@ -5,10 +5,12 @@ from typing import Iterable, Tuple, Union
 import transaction
 from sqlalchemy.orm import Session
 from web3 import Web3
+from websauna.system.model.retry import retryable
 
 from websauna.wallet.ethereum.populusutils import get_rpc_client
 from websauna.wallet.ethereum.utils import txid_to_bin, bin_to_txid
 from websauna.wallet.models import CryptoOperation
+from websauna.wallet.models import CryptoOperationState
 
 
 logger = logging.getLogger(__name__)
@@ -59,38 +61,39 @@ class DatabaseConfirmationUpdater:
 
         return updates, failures
 
+    @retryable
     def update_tx(self, current_block: int, txinfo: dict, receipt: dict) -> Union[bool, str]:
         """Process logs from initial log run or filter updates."""
 
-        with transaction.manager:
+        # We may have multiple ops for one transaction
+        ops = self.dbsession.query(CryptoOperation).filter_by(txid=txid_to_bin(receipt["transactionHash"]))
 
-            # We may have multiple ops for one transaction
-            ops = self.dbsession.query(CryptoOperation).filter_by(txid=txid_to_bin(receipt["transactionHash"]))
+        for op in ops:
 
-            for op in ops:
+            # http://ethereum.stackexchange.com/q/6007/620
+            if txinfo["gas"] == receipt["gasUsed"]:
+                op.other_info["failure_reason"] = "Smart contract rejected the transaction"
+                op.mark_failure()
+                return "fail"
 
-                # http://ethereum.stackexchange.com/q/6007/620
-                if txinfo["gas"] == receipt["gasUsed"]:
-                    op.other_info["failure_reason"] = "Smart contract rejected the transaction"
-                    op.mark_failure()
-                    return "fail"
+            # Withdraw operation has not gets it block yet
+            # Block number may change because of the works
+            op.block = int(receipt["blockNumber"], 16)
 
-                # Withdraw operation has not gets it block yet
-                # Block number may change because of the works
-                op.block = int(receipt["blockNumber"], 16)
+            assert op.block <= current_block
+            confirmation_count = current_block - op.block
 
-                assert op.block <= current_block
-                confirmation_count = current_block - op.block
+            return op.update_confirmations(confirmation_count)
 
-                return op.update_confirmations(confirmation_count)
-
+    @retryable
     def get_monitored_transactions(self) -> Iterable[str]:
         """Get all transactions that are lagging behind the confirmation count."""
         result = []
-        with transaction.manager:
-            txs = self.dbsession.query(CryptoOperation).filter(CryptoOperation.required_confirmation_count != None, CryptoOperation.confirmed_at == None, CryptoOperation.failed_at == None, CryptoOperation.txid != None)
-            for tx in txs:
-                result.append(bin_to_txid(tx.txid))
+
+        # Transactions that are broadcasted
+        txs = self.dbsession.query(CryptoOperation).filter(CryptoOperation.state == CryptoOperationState.broadcasted, CryptoOperation.network_id == self.network_id)
+        for tx in txs:
+            result.append(bin_to_txid(tx.txid))
         return result
 
     def poll(self) -> Tuple[int, int]:

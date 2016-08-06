@@ -50,10 +50,13 @@ class CryptoOperationState(enum.Enum):
     #: Operation is created by web process and it's waiting to be picked up the service daemon
     waiting = "waiting"
 
-    #: Operation has been broadcasted or received from the network and is waiting for more confirmations
+    #: Operation has been prepared for broadcast, but we don't know yet if it succeeded
     pending = "pending"
 
-    #: The operation was success
+    #: Operation has been broadcasted or received from the network and is waiting for more confirmations
+    broadcasted = "broadcasted"
+
+    #: The operation was success, confirmation block count reached
     success = "success"
 
     #: The operation failed after max retry attempts
@@ -333,6 +336,17 @@ class CryptoOperation(Base):
     These operations are not run immediately, but queued to run by a service daemon asynchronously (due to async nature of blockchain). Even if operations complete they can be later shuflfled around e.g. due to blockchain fork.
 
     We use SQLAlchemy single table inheritance model here: http://docs.sqlalchemy.org/en/latest/orm/inheritance.html#single-table-inheritance
+
+    State mapping for outgoing operations
+
+    * state is waiting, time is created_at, when operation is put in the queue
+
+    * state is pending, time is performed_at, when operation is prepared for network broadcast. This state is never picked twice, so that we don't accidentally double broadcast withdraws.
+
+    * state is broadcasted, time is broadcasted_at, when operation has gone to geth mempool succesfully and
+      we got transaction
+
+    * state is completed, time is completed_at, when confirmation block nums have been reached
     """
 
     __tablename__ = "crypto_operation"
@@ -361,17 +375,17 @@ class CryptoOperation(Base):
     #: It's up to service daemon to complete the operation and update the state field.
     state = Column(Enum(CryptoOperationState, name="operation_state"), nullable=False, default='waiting')
 
-    #: The operation async speaking to network was carried out. It might not be completed or confirmed yet, as it might need network propagation to carry out. When this is set the state of the operation should be set to pending.
+    #: The operation was prepared for network broadcast
     performed_at = Column(UTCDateTime, default=None, nullable=True)
 
-    #: When this operation was completed and become final from our perspective.
-    completed_at = Column(UTCDateTime, default=None, nullable=True)
+    #: This operation was succesfully put to geth mempool
+    broadcasted_at = Column(UTCDateTime, default=None, nullable=True)
 
     #: This operation failed completely and cannot be retried
     failed_at = Column(UTCDateTime, default=None, nullable=True)
 
     #: When this operation reached wanted number of confirmations
-    confirmed_at = Column(UTCDateTime, default=None, nullable=True)
+    completed_at = Column(UTCDateTime, default=None, nullable=True)
 
     #: For withdraws we need to address where we are withdrawing to. For deposits store the address where the transfer is coming in.
     external_address = Column(LargeBinary(length=20), nullable=True)
@@ -407,7 +421,7 @@ class CryptoOperation(Base):
                                         cascade="all, delete-orphan",
                                         single_parent=True,),)
 
-    #: Any other (subclass specific) data we associate with this transaction. Contains ``failure_reason`` when ``mark_failed()``
+    #: Any other (subclass specific) data we associate with this transaction. Contains ``error`` string after ``mark_failed()``
     other_data = Column(NestedMutationDict.as_mutable(psql.JSONB), default=dict)
 
     #: Label used in UI
@@ -447,19 +461,28 @@ class CryptoOperation(Base):
             return self.holding_account.get_balance()
         return None
 
+    @property
+    def confirmed_at(self):
+        """Backwards compatibliy."""
+        return self.completed_at
+
     def mark_performed(self):
-        """This operation has been broadcasted to network. It's completion and confirmation might require further network confirmations.."""
+        """
+        Incoming: This operation has been registered to database. It may need more confirmations.
+
+        Outgoing: This operation has been broadcasted to network. It's completion and confirmation might require further network confirmations."""
         self.performed_at = now()
         self.state = CryptoOperationState.pending
 
+    def mark_broadcasted(self):
+        """We have reached wanted level of confirmations and scan stop polling this tx now."""
+        self.broadcasted_at = now()
+        self.state = CryptoOperationState.broadcasted
+
     def mark_complete(self):
-        """This operation is now finalized and there should be no further changes."""
+        """This operation is now finalized and there should be no further changes on this operation."""
         self.completed_at = now()
         self.state = CryptoOperationState.success
-
-    def mark_confirmed(self):
-        """We have reached wanted level of confirmations and scan stop polling this tx now."""
-        self.confirmed_at = now()
 
     def mark_failed(self):
         """This operation cannot be completed."""
@@ -543,7 +566,6 @@ class DepositResolver:
         Account.transfer(incoming_tx.amount, self.holding_account, self.crypto_account.account, incoming_tx.message)
 
         self.mark_complete()
-        self.mark_confirmed()
 
     def update_confirmations(self, confirmation_count) -> bool:
         """Update block since creation of this operation.
@@ -556,7 +578,7 @@ class DepositResolver:
         """
 
         # We are already done
-        if self.confirmed_at:
+        if self.completed_at:
             return False
 
         assert self.required_confirmation_count is not None, "update_confirmations() called for non-confirmation count operation"
@@ -605,7 +627,7 @@ class CryptoAddressWithdraw(CryptoOperation):
         """
 
         if confirmation_count > self.required_confirmation_count:
-            self.mark_confirmed()
+            self.mark_complete()
             return True
         return False
 
