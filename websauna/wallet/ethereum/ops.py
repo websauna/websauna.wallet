@@ -269,7 +269,7 @@ def import_token(web3: Web3, dbsession: Session, opid: UUID):
     perform_tx()
 
 
-def register_eth_operations(registry: Registry):
+def get_eth_operations(registry: Registry):
     """Register handlers for different crypto operations.
 
     This maps database rows to functions they should perform in Ethereum service daemon.
@@ -282,6 +282,6 @@ def register_eth_operations(registry: Registry):
         CryptoOperationType.create_token: create_token,
         CryptoOperationType.create_address: create_address,
     }
-    registry.crypto_operation_performers = op_map
+    return op_map
 
 

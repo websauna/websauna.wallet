@@ -12,7 +12,6 @@ from geth.accounts import create_new_account
 
 from websauna.wallet.ethereum.asset import create_house_address
 from websauna.wallet.ethereum.contract import confirm_transaction
-from websauna.wallet.ethereum.ops import register_eth_operations
 from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.ethereum.utils import bin_to_eth_address, to_wei, eth_address_to_bin, bin_to_txid
 from websauna.wallet.models import CryptoAddress
@@ -26,7 +25,6 @@ TEST_VALUE = Decimal("0.01")
 @pytest.fixture
 def eth_service(web3, eth_network_id, dbsession, registry):
     s = EthereumService(web3, eth_network_id, dbsession, registry)
-    register_eth_operations(registry)
     return s
 
 

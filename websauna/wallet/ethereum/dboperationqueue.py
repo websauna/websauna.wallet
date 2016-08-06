@@ -13,6 +13,7 @@ from web3 import Web3
 from websauna.system.model.retry import retryable
 from websauna.utils.time import now
 from websauna.wallet.ethereum.interfaces import IOperationPerformer
+from websauna.wallet.ethereum.ops import get_eth_operations
 from websauna.wallet.events import CryptoOperationComplete
 from websauna.wallet.models import CryptoOperation
 from websauna.wallet.models import CryptoOperationState
@@ -56,7 +57,8 @@ class OperationQueueManager:
         """Run a performer for a single operation."""
 
         # Get a function to perform the op using adapters
-        performer = self.registry.crypto_operation_performers.get(op_type)
+        op_map = get_eth_operations(self.registry)
+        performer = op_map.get(op_type)
         if not performer:
             raise RuntimeError("Doesn't have a performer for operation {}".format(op_type))
 
