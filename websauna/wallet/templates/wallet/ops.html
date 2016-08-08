@@ -1,0 +1,11 @@
+{%  extends "wallet/base.html" %}
+
+{% block wallet_content %}
+
+  <h1>Transactions</h1>
+
+  <div class="transactions-summary">
+    {% include "wallet/table_operations.html" %}
+  </div>
+
+{% endblock %}

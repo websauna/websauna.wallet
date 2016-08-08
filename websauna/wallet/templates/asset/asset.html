@@ -1,0 +1,26 @@
+{# Template for home view #}
+
+{% extends "site/base.html" %}
+
+{% block content %}
+  <h1>{{ asset_desc.asset.name }}</h1>
+
+  <table class="table">
+
+    <tr>
+      <th>Network</th>
+      <td>{{ asset_desc.asset.network.name }}</td>
+    </tr>
+
+    <tr>
+      <th>Symbol</th>
+      <td>{{ asset_desc.asset.symbol }}</td>
+    </tr>
+
+    <tr>
+      <th>Total distribution</th>
+      <td>{{ asset_desc.asset.supply }}</td>
+    </tr>
+
+  </table>
+{% endblock %}

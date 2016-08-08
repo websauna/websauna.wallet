@@ -14,8 +14,8 @@
     {% for detail in account_details %}
       <tr>
         <td>
-          <a href="#">
-            {{ detail.account.asset.name }} ({{ detail.account.asset.symbol }})
+          <a href="{{ detail.asset_desc|model_url }}">
+            {{ detail.asset_desc.asset.name }} ({{ detail.asset_desc.asset.symbol }})
           </a>
         </td>
 

@@ -12,24 +12,28 @@
   </thead>
 
   <tbody>
-    {% for op in operations %}
+    {% for detail in details %}
       <tr>
         <td>
           <a href="#">
-            {{ op.created_at|friendly_time(timezone='UTC')}}
+            {{ detail.op.created_at|friendly_time(timezone='UTC')}}
           </a>
         </td>
 
         <td>
-          {{ op.human_friendly_type }}
+          {{ detail.op.human_friendly_type }}
         </td>
 
         <td>
-          {{ op.asset_symbol }}
+          {% if detail.asset_desc %}
+            <a href="{{ detail.asset_desc|model_url }}">
+              {{ detail.asset_desc.asset.name }} ({{ detail.asset_desc.asset.symbol }})
+            </a>
+          {% endif %}
         </td>
 
         <td>
-          {{ op.amount }}
+          {{ detail.amount }}
         </td>
 
         <td>

@@ -15,6 +15,7 @@ from websauna.wallet.ethereum.asset import setup_user_account
 from websauna.wallet.models import UserCryptoAddress
 from websauna.wallet.models.blockchain import UserCryptoOperation
 from websauna.wallet.utils import format_asset_amount
+from websauna.wallet.views.asset import get_asset_resource
 
 
 class UserAddress(Resource):
@@ -27,6 +28,15 @@ class UserAddress(Resource):
     def __str__(self):
         return str(self.address.address)
 
+
+class UserOperation(Resource):
+
+    def __init__(self, request: Request, op: UserCryptoOperation):
+        super(UserOperation, self).__init__(request)
+        self.op = op
+
+    def __str__(self):
+        return str(self.op)
 
 class UserAddressFolder(Resource):
     """Serve all address specific views for a user."""
@@ -49,6 +59,27 @@ class UserAddressFolder(Resource):
         raise KeyError()
 
 
+class UserOperationFolder(Resource):
+    """Serve all operation specific views for a user."""
+
+    def __init__(self, request: Request, wallet: "UserWallet"):
+        super(UserOperationFolder, self).__init__(request)
+        self.wallet = wallet
+
+    def get_operations(self):
+        ops = self.wallet.user.owned_crypto_operations
+        for op in ops:
+            uo = UserOperation(self.request, op)
+            yield Resource.make_lineage(self, uo, uuid_to_slug(op.id))
+
+    def __getitem__(self, item):
+        uuid = slug_to_uuid(item)
+        for op in self.get_operations():
+            if op.id == uuid:
+                return op
+        raise KeyError()
+
+
 class UserWallet(Resource):
     """Context object for wallet views for an user."""
 
@@ -64,11 +95,17 @@ class UserWallet(Resource):
         self.user = user
 
         uaf = UserAddressFolder(request, user)
+        uof = UserOperationFolder(request, self)
         self.address_folder = Resource.make_lineage(self, uaf, "accounts")
+        self.op_folder = Resource.make_lineage(self, uof, "transactions")
 
     def __getitem__(self, item):
         if item == "accounts":
             return self.address_folder
+
+        if item == "transactions":
+            return self.op_folder
+
         raise KeyError()
 
     def get_address_resource(self, address: UserCryptoAddress) -> UserAddress:
@@ -96,6 +133,23 @@ def wallet_root(wallet_root, request):
     return httpexceptions.HTTPFound(url)
 
 
+@view_config(context=UserOperationFolder, route_name="wallet", name="", renderer="wallet/ops.html")
+def operations_root(op_root: UserOperationFolder, request):
+    """When wallet folder is accessed without path key, redirect to the users own wallet."""
+    wallet = op_root.wallet
+    operations = op_root.get_operations()
+    details = []
+    for uop in operations:
+        detail = {}
+        op = uop.op.crypto_operation
+        detail["op"] = op
+        if op.holding_account and op.holding_account.asset:
+            detail["asset_desc"] =  get_asset_resource(request, op.holding_account.asset)
+        details.append(detail)
+
+    return locals()
+
+
 @view_config(context=UserWallet, route_name="wallet", name="", renderer="wallet/wallet.html")
 def wallet(wallet: UserWallet, request: Request):
     """Wallet Overview page."""
@@ -112,6 +166,7 @@ def wallet(wallet: UserWallet, request: Request):
     for user_address, account in account_data:
         entry = {}
         entry["account"] = account.account
+        entry["asset_desc"] = get_asset_resource(request, account.account.asset)
         entry["address"] = wallet.get_address_resource(user_address)
         entry["balance"] = format_asset_amount(account.account.get_balance(), account.account.asset.asset_class)
         account_details.append(entry)

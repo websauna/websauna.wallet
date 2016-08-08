@@ -43,7 +43,7 @@ class AddonInitializer:
     @after(Initializer.configure_views)
     def configure_views(self):
         self.config.add_route('wallet', '/wallet/*traverse', factory="websauna.wallet.views.wallet.route_factory")
-
+        self.config.add_route('asset', '/asset/*traverse', factory="websauna.wallet.views.asset.route_factory")
         from . import views
         self.config.scan(views)
 
