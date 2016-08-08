@@ -1,8 +1,3 @@
-# We need to patch threading for gevent used by web3 and py-geth
-# https://github.com/zopefoundation/transaction/issues/21
-import gevent.monkey
-gevent.monkey.patch_all()
-
 from pyramid.config import Configurator
 from websauna.system import Initializer
 from websauna.utils.autoevent import after

@@ -3,6 +3,11 @@
 This daemon reads/writes ops from the database and broadcast them to the network via geth. It also listens to geth for incoming network events (smart contract logs).
 """
 
+# We need to patch threading for gevent used by web3 and py-geth
+# https://github.com/zopefoundation/transaction/issues/21
+import gevent.monkey
+gevent.monkey.patch_all()
+
 import os
 import sys
 import time
