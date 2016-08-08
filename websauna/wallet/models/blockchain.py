@@ -3,7 +3,7 @@
 from decimal import Decimal
 
 import binascii
-from typing import Optional, Iterable, List
+from typing import Optional, Iterable, List, Tuple
 
 import enum
 import uuid
@@ -700,15 +700,17 @@ class UserCryptoAddress(Base):
         dbsession.add(op)
 
     @classmethod
-    def get_user_asset_accounts(cls, user: User) -> List[Account]:
+    def get_user_asset_accounts(cls, user: User) -> List[Tuple["UserCryptoAddress", Account]]:
+        """Get user assets in all networks."""
         accounts = []
         for address in user.owned_crypto_addresses:
             for account in address.address.list_accounts():
-                accounts.append(account)
+                accounts.append((address, account))
         return accounts
 
     @classmethod
     def get_user_asset_accounts_by_network(cls, user: User, network: AssetNetwork) -> List[Account]:
+        """List users assets."""
         accounts = []
         for address in user.owned_crypto_addresses.join(CryptoAddress).filter_by(network=network):
             for account in address.address.list_accounts():
@@ -719,6 +721,7 @@ class UserCryptoAddress(Base):
     def get_default(cls, user: User, network: AssetNetwork, name="Default") -> "UserCryptoAddress":
         address = user.owned_crypto_addresses.filter_by(name=name).join(CryptoAddress).filter_by(network=network).first()
         return address
+
 
 
 

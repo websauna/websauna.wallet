@@ -33,7 +33,7 @@ def get_ether_asset(dbsession) -> Asset:
 
     # Ethereum supply is not stable
     # https://etherscan.io/stats/supply
-    asset = Asset(name="Ether", symbol="ETH", asset_class=AssetClass.cryptocurrency, supply=0)
+    asset = Asset(name="Ether", symbol="ETH", asset_class=AssetClass.ether, supply=0)
     network.assets.append(asset)
     dbsession.flush()
     return asset

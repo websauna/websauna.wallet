@@ -5,6 +5,8 @@ from websauna.wallet.models import AssetClass
 
 formats = {
     AssetClass.fiat: "{:0,.2f}",
+    AssetClass.token: "{:0,.0f}",
+    AssetClass.ether: "{:0,.18f}",
 }
 
 def get_asset_formatter(formatter: AssetClass):

@@ -32,9 +32,9 @@ def setup_networks(request):
     """
 
     dbsession = request.dbsession
-    for network in ["ethereum", "testnet", "private testnet"]:
+    for network_name in ["ethereum", "testnet", "private testnet"]:
 
-        network = get_eth_network(dbsession, network)
+        network = get_eth_network(dbsession, network_name)
         dbsession.flush()
         house_address = get_house_address(network)
 
@@ -45,7 +45,7 @@ def setup_networks(request):
             network.other_data["initial_assets"] = {}
 
         # Setup ETH give away
-        if network in ("testnet", "private testnet"):
+        if network_name in ("testnet", "private testnet"):
             network.other_data["initial_assets"]["eth_amount"] = "0.1"
 
 

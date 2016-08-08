@@ -14,6 +14,7 @@ from websauna.utils.slug import slug_to_uuid, uuid_to_slug
 from websauna.wallet.ethereum.asset import setup_user_account
 from websauna.wallet.models import UserCryptoAddress
 from websauna.wallet.models.blockchain import UserCryptoOperation
+from websauna.wallet.utils import format_asset_amount
 
 
 class UserAddress(Resource):
@@ -22,6 +23,9 @@ class UserAddress(Resource):
     def __init__(self, request: Request, address: UserCryptoAddress):
         super(UserAddress, self).__init__(request)
         self.address = address
+
+    def __str__(self):
+        return str(self.address.address)
 
 
 class UserAddressFolder(Resource):
@@ -67,6 +71,9 @@ class UserWallet(Resource):
             return self.address_folder
         raise KeyError()
 
+    def get_address_resource(self, address: UserCryptoAddress) -> UserAddress:
+        return self["accounts"][uuid_to_slug(address.id)]
+
 
 class WalletFolder(Resource):
     """Sever UserWallets from this folder.
@@ -93,9 +100,22 @@ def wallet_root(wallet_root, request):
 def wallet(wallet: UserWallet, request: Request):
     """Wallet Overview page."""
 
+    # Whose wallet we are dealing with
+    user = wallet.user
+
     # Set up initial addresses if user doesn't have any yet
-    setup_user_account(wallet.user)
-    accounts = User.get_user_asset_accounts(wallet.user)
+    setup_user_account(user)
+    account_data = UserCryptoAddress.get_user_asset_accounts(user)
+
+    # Look up asset and address specs for accounts
+    account_details = []
+    for user_address, account in account_data:
+        entry = {}
+        entry["account"] = account.account
+        entry["address"] = wallet.get_address_resource(user_address)
+        entry["balance"] = format_asset_amount(account.account.get_balance(), account.account.asset.asset_class)
+        account_details.append(entry)
+
     return locals()
 
 

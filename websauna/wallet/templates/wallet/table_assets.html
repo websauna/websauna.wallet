@@ -11,34 +11,26 @@
   </thead>
 
   <tbody>
-    {% for asset in assets %}
+    {% for detail in account_details %}
       <tr>
         <td>
-          <a href="{{ address|model_url }}">
-            {{ address.address.name }}
+          <a href="#">
+            {{ detail.account.asset.name }} ({{ detail.account.asset.symbol }})
           </a>
         </td>
 
       <td>
-        {{ address.address.address }}
+          {{ detail.balance }}
       </td>
 
       <td>
-        {{ address.address.address.network.name }}
+        <a href="{{ detail.address|model_url }}">
+          {{ detail.address }}
+        </a>
       </td>
 
       <td>
-        {% with accounts=address.address.address.list_accounts() %}
-          {% if accounts %}
-            {% for account in accounts %}
-              <p>
-                {{ account.asset.symbol }}: {{ account.asset.get_balance() }}
-              </p>
-            {% endfor %}
-          {% else %}
-            <p>No assets</p>
-          {% endif %}
-        {% endwith %}
+        {{ account.address.network.name }}
       </td>
     </tr>
   {% endfor %}

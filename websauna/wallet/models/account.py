@@ -71,6 +71,9 @@ class AssetClass(enum.Enum):
     #: 10.000
     tokenized_shares = "tokenized_shares"
 
+    #: up to 18 decimals
+    ether = "ether"
+
 
 class Asset(Base):
 
