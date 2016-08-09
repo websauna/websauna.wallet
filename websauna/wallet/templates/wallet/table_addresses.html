@@ -1,0 +1,32 @@
+<table class="table table-listing">
+
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Address</th>
+      <th>Chain</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for detail in details %}
+      <tr>
+        <td>
+          <a href="{{ detail.user_address|model_url }}">
+            {{ detail.user_address.get_title() }}
+          </a>
+        </td>
+
+        <td>
+          {{ detail.address }}
+        </td>
+
+        <td>
+          <a href="{{ detail.network|model_url }}">
+            {{ detail.network.network.name }}
+          </a>
+        </td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>

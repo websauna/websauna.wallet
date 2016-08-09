@@ -9,6 +9,7 @@
   <ul class="nav nav-tabs">
     <li role="presentation"><a href="{{ wallet|model_url }}">Overview</a></li>
     <li role="presentation"><a href="{{ wallet.transactions|model_url }}">Transactions</a></li>
+    <li role="presentation"><a href="{{ wallet.accounts|model_url }}">Accounts</a></li>
   </ul>
 
   {% block wallet_content %}

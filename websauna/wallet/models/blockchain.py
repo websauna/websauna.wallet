@@ -248,6 +248,11 @@ class CryptoAddress(Base):
         """
         return list(self.crypto_address_accounts)
 
+    def get_creation_op(self) -> "CryptoAddressCreation":
+        """Get the operation that created this address."""
+        dbsession = Session.object_session(self)
+        return dbsession.query(CryptoAddressCreation).filter_by(address=self).one()
+
 
 class CryptoAddressAccount(Base):
     """Hold balances of crypto currency, token or other asset in address.
@@ -478,6 +483,10 @@ class CryptoOperation(Base):
         return None
 
     @property
+    def address(self) -> CryptoAddress:
+        return self.crypto_account.address
+
+    @property
     def confirmed_at(self):
         """Backwards compatibliy."""
         return self.completed_at
@@ -582,7 +591,7 @@ class CryptoAddressCreation(CryptoAddressOperation):
     """
 
     #: Label used in UI
-    human_friendly_type = "Address creation"
+    human_friendly_type = "Account creation"
 
     __mapper_args__ = {
         'polymorphic_identity': CryptoOperationType.create_address,
@@ -606,6 +615,7 @@ class CryptoAddressCreation(CryptoAddressOperation):
 
     def __repr__(self):
         return self.__str__()
+
 
 class DepositResolver:
     """A confirmation resolver that deposits the user account after certain number of confirmation has passed."""
@@ -730,7 +740,7 @@ class UserCryptoAddress(Base):
     #: User given label for this address
     name = Column(String(256))
 
-    address_id = Column(ForeignKey("crypto_address.id"), nullable=False)
+    address_id = Column(ForeignKey("crypto_address.id"), nullable=False, unique=True)
     address = relationship(CryptoAddress,
                            single_parent=True,
                            cascade="all, delete-orphan",
@@ -779,7 +789,10 @@ class UserCryptoAddress(Base):
         address = user.owned_crypto_addresses.filter_by(name=name).join(CryptoAddress).filter_by(network=network).first()
         return address
 
-
+    @classmethod
+    def get_by_address(cls, address: CryptoAddress) -> "UserCryptoAddress":
+        dbsession = Session.object_session(address)
+        return dbsession.query(UserCryptoAddress).filter_by(address=address).one_or_none()
 
 
 class UserCryptoOperation(Base):

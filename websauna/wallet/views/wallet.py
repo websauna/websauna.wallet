@@ -7,7 +7,6 @@ from pyramid.view import view_config
 from websauna.system.core.breadcrumbs import get_breadcrumbs
 
 from websauna.system.core.root import Root
-from websauna.system.core.route import simple_route
 from websauna.system.core.traversal import Resource
 from websauna.system.http import Request
 from websauna.system.user.models import User
@@ -18,9 +17,10 @@ from websauna.wallet.models import UserCryptoAddress
 from websauna.wallet.models import UserCryptoOperation
 from websauna.wallet.models import CryptoOperationState
 from websauna.wallet.models import CryptoOperation
+from websauna.wallet.models import CryptoAddress
 from websauna.wallet.models.blockchain import CryptoOperationType
 from websauna.wallet.utils import format_asset_amount
-from websauna.wallet.views.asset import get_asset_resource
+from websauna.wallet.views.network import get_asset_resource
 from websauna.wallet.views.network import get_network_resource
 
 
@@ -42,6 +42,17 @@ class UserAddress(Resource):
 
     def __str__(self):
         return str(self.address.address)
+
+    def get_user(self):
+        return self.__parent__.user
+
+    def get_title(self):
+        return self.address.name
+
+    def get_latest_ops(self, limit=5):
+        dbsession = self.request.dbsession
+        for uco in dbsession.query(UserCryptoOperation).filter_by(user=self.get_user()).join(CryptoOperation).order_by(CryptoOperation.created_at.desc())[0:limit]:
+            yield get_user_crypto_operation_resource(self.request, uco)
 
 
 class UserOperation(Resource):
@@ -72,6 +83,9 @@ class UserAddressFolder(Resource):
     def __init__(self, request: Request, user: User):
         super(UserAddressFolder, self).__init__(request)
         self.user = user
+
+    def get_title(self):
+        return "Accounts"
 
     def get_addresses(self):
         addresses = self.user.owned_crypto_addresses
@@ -150,10 +164,13 @@ class UserWallet(Resource):
         raise KeyError()
 
     def get_address_resource(self, address: UserCryptoAddress) -> UserAddress:
+        assert address.user == self.user
         return self["accounts"][uuid_to_slug(address.id)]
 
     def get_uop_resource(self, uop: UserCryptoOperation) -> UserOperation:
+        assert uop.user == self.user
         return self["transactions"][uuid_to_slug(uop.id)]
+
 
 class WalletFolder(Resource):
     """Sever UserWallets from this folder.
@@ -164,12 +181,15 @@ class WalletFolder(Resource):
     def get_title(self):
         return "Wallets"
 
+    def get_user_wallet(self, user):
+        wallet = UserWallet(self.request, user)
+        return Resource.make_lineage(self, wallet, uuid_to_slug(user.uuid))
+
     def __getitem__(self, user_id: str):
         user = self.request.dbsession.query(User).filter_by(uuid=slug_to_uuid(user_id)).one_or_none()
         if not user:
             raise KeyError()
-        wallet = UserWallet(self.request, user)
-        return Resource.make_lineage(self, wallet, user_id)
+        return self.get_user_wallet(user)
 
 
 @view_config(context=WalletFolder, route_name="wallet", name="")
@@ -179,6 +199,17 @@ def wallet_root(wallet_root, request):
     return httpexceptions.HTTPFound(url)
 
 
+def describe_address(request, ua: UserAddress) -> dict:
+    """Fetch address details and link data for rendering."""
+    detail = {}
+    detail["user_address"] = ua
+    detail["address"] = ua.address.address
+    detail["network"] = get_network_resource(request, ua.address.address.network)
+    detail["name"] = ua.address.name
+    detail["op"] = ua.address.address.get_creation_op()
+    return detail
+
+
 def describe_operation(request, uop: UserOperation) -> dict:
     """Fetch operation details and link data for rendering."""
     assert isinstance(uop, UserOperation)
@@ -186,7 +217,7 @@ def describe_operation(request, uop: UserOperation) -> dict:
     op = uop.uop.crypto_operation
     detail["op"] = op
     if op.holding_account and op.holding_account.asset:
-        detail["asset_desc"] = get_asset_resource(request, op.holding_account.asset)
+        detail["asset_resource"] = get_asset_resource(request, op.holding_account.asset)
 
     confirmations = op.calculate_confirmations()
     if confirmations is not None:
@@ -214,6 +245,7 @@ def describe_operation(request, uop: UserOperation) -> dict:
     detail["resource"] = uop
     detail["tx_name"] = uop.get_title()
     detail["state"] = OP_STATES[op.state]
+    detail["address_resource"] = get_user_address_resource(request, op.address)
 
     return detail
 
@@ -234,15 +266,32 @@ def operations_root(op_root: UserOperationFolder, request):
     return locals()
 
 
-@view_config(context=UserOperation, route_name="wallet", name="", renderer="wallet/op.html")
+@view_config(context=UserOperation, route_name="wallet", name="", renderer="wallet/address.html")
 def operation(uop: UserOperation, request):
     """Single operation in a wallet."""
     detail = describe_operation(request, uop)
     op = detail["op"]
     wallet = uop.__parent__.__parent__
-
     breadcrumbs = get_breadcrumbs(uop, request)
+    return locals()
 
+
+@view_config(context=UserAddress, route_name="wallet", name="", renderer="wallet/address.html")
+def address(ua: UserAddress, request):
+    """Show single address."""
+    wallet = ua.__parent__.__parent__
+    latest_ops = [describe_operation(request, op) for op in ua.get_latest_ops()]
+    detail = describe_address(request, ua)
+    breadcrumbs = get_breadcrumbs(ua, request)
+    return locals()
+
+
+@view_config(context=UserAddressFolder, route_name="wallet", name="", renderer="wallet/addresses.html")
+def addresses(uaf: UserAddressFolder, request):
+    """List all addresses."""
+    wallet = uaf.__parent__
+    details = [describe_address(request, address) for address in uaf.get_addresses()]
+    breadcrumbs = get_breadcrumbs(uaf, request)
     return locals()
 
 
@@ -285,4 +334,14 @@ def get_user_crypto_operation_resource(request, uop: UserCryptoOperation) -> Use
     wallet_root = WalletFolder(request)
     wallet = wallet_root[uuid_to_slug(uop.user.uuid)]
     return wallet.get_uop_resource(uop)
+
+
+def get_user_address_resource(request, address: CryptoAddress):
+    uca = UserCryptoAddress.get_by_address(address)
+    if not uca:
+        return None
+    wallet_root = route_factory(request)
+    wallet = wallet_root.get_user_wallet(uca.user)
+    return wallet.get_address_resource(uca)
+
 

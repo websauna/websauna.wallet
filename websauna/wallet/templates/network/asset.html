@@ -3,6 +3,9 @@
 {% extends "site/base.html" %}
 
 {% block content %}
+
+  {% include "wallet/breadcrumbs.html" %}
+
   <h1>{{ asset_desc.asset.name }}</h1>
 
   <table class="table">
