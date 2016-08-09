@@ -60,7 +60,6 @@ def deposit_eth(web3: Web3, dbsession: Session, opid: UUID):
     @retryable
     def perform_tx():
         op = dbsession.query(CryptoOperation).get(opid)
-        op.resolve()
         op.mark_performed()
         op.mark_broadcasted()
         # Transaction confirmation count updater will make sure we have enough blocks,

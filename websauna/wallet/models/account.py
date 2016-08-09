@@ -30,6 +30,7 @@ class AssetNetwork(Base):
     #: Bag of random things one can assign to this network
     #: * house_address
     #: * initial_assets.toybox
+    #: * initial_assets.eth_amount
     other_data = Column(NestedMutationDict.as_mutable(psql.JSONB), default=dict)
 
     def __str__(self):

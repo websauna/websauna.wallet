@@ -8,7 +8,7 @@ from .models import UserOwnedAccount
 from .models import Asset
 from .models import CryptoAddress
 from .models import Account
-from .models import AssetNetwork
+from .models import     AssetNetwork
 
 
 @model_admin(traverse_id="user-accounts")

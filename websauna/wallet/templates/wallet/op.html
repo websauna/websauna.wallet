@@ -1,0 +1,101 @@
+{%  extends "wallet/base.html" %}
+
+{% block wallet_content %}
+
+  <h3>Transaction {{ detail.tx_name }}</h3>
+
+  <table class="table">
+
+    <tr>
+      <th>Network</th>
+      <td>{{ detail.op.network.name }}</td>
+    </tr>
+
+    <tr>
+      <th>Transaction hash</th>
+      <td>{{ detail.txid }}</td>
+    </tr>
+
+    <tr>
+      <th>Type</th>
+      <td>{{ detail.op.human_friendly_type }}</td>
+    </tr>
+
+    <tr>
+      <th>State</th>
+      <td>{{ detail.state }}</td>
+    </tr>
+
+
+    {% if detail.op.asset %}
+      <tr>
+        <th>Asset</th>
+        <td>
+          <a href="{{ detail.asset_desc|model_url }}">
+            {{ detail.asset_desc.asset.name }} ({{ detail.asset_desc.asset.symbol }})
+          </a>
+        </td>
+      </tr>
+
+      <tr>
+        <th>Amount</th>
+        <td>{{ detail.amount }}</td>
+      </tr>
+
+    {% endif %}
+
+    {% if detail.confirmations %}
+      <tr>
+        <th>Confirmations</th>
+        <td>
+          {{ detail.confirmations }} / {{ detail.op.required_confirmation_count }}
+        </td>
+      </tr>
+    {% endif %}
+
+    <tr>
+      <th>Created at</th>
+      <td>
+        <div>
+          {{ detail.op.created_at|arrow_format('YYYY-MM-DD HH:MM:ss') }}
+        </div>
+        <div>
+          <small>{{ detail.op.created_at|friendly_time(timezone='UTC')}}</small>
+        </div>
+      </td>
+    </tr>
+
+    {% if detail.op.has_txid() %}
+      <tr>
+        <th>Broadcasted at</th>
+        <td>
+          {% if detail.op.broadcasted_at %}
+            <div>
+              {{ detail.op.broadcasted_at|arrow_format('YYYY-MM-DD HH:MM:ss') }}
+            </div>
+            <div>
+              <small>{{ detail.op.broadcasted_at|friendly_time(timezone='UTC')}}</small>
+            </div>
+          {% endif %}
+        </td>
+      </tr>
+    {% endif %}
+
+    <tr>
+      <th>Completed at</th>
+      <td>
+        {% if detail.op.completed_at %}
+          <div>
+            {{ detail.op.completed_at|arrow_format('YYYY-MM-DD HH:MM:ss') }}
+          </div>
+          <div>
+            <small>{{ detail.op.completed_at|friendly_time(timezone='UTC')}}</small>
+          </div>
+        {% endif %}
+      </td>
+    </tr>
+
+  </table>
+
+
+{% endblock %}

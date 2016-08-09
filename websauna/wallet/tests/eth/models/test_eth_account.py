@@ -124,11 +124,16 @@ def test_deposit_eth_account(dbsession, eth_network_id, eth_service, eth_asset_i
         txid = txid_to_bin(TEST_TXID)
         op = address.deposit(Decimal(10), asset, txid, bin_to_txid(txid))
         dbsession.add(op)
+        opid = op.id
 
     # Resolve deposit op
     success_op_count, failed_op_count = eth_service.run_waiting_operations()
     assert success_op_count == 1
     assert failed_op_count == 0
+
+    with transaction.manager:
+        op = dbsession.query(CryptoOperation).get(opid)
+        op.resolve()  # Force resolution regardless on confirmation count
 
     # Check balances are settled
     with transaction.manager:

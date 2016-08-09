@@ -4,8 +4,22 @@
 
   <h1>Transactions</h1>
 
-  <div class="transactions-summary">
-    {% include "wallet/table_operations.html" %}
-  </div>
+  {% if pending_operations %}
+    <div id="transactions-pending">
+      <h2>In progress</h2>
+      {% with details=pending_operations %}
+        {% include "wallet/table_operations.html" %}
+      {% endwith %}
+    </div>
+  {% endif %}
+  
+  {% if finished_operations %}
+    <div id="transactions-finished">
+      <h2>Complete</h2>
+      {% with details=finished_operations %}
+        {% include "wallet/table_operations.html" %}
+      {% endwith %}
+    </div>
+  {% endif %}
 
 {% endblock %}

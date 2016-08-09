@@ -34,11 +34,16 @@ class DatabaseConfirmationUpdater:
         """Look for new deposits.
 
         Assume addresses are hosted wallet smart contract addresses and scan for their event logs.
+
+        :return: (performed updates, failed updates)
         """
         updates = failures = 0
         txs = list(self.get_monitored_transactions())
 
         current_block = self.client.get_block_number()
+
+        logger.debug("Block %d, updating confirmations for %d transactions", current_block, len(txs))
+
         for tx in txs:
 
             receipt = self.client.get_transaction_receipt(tx)
@@ -48,11 +53,9 @@ class DatabaseConfirmationUpdater:
                 continue
 
             try:
-                result = self.update_tx(current_block, txinfo, receipt)
-                if result is True:
-                    updates +=1
-                elif result == "fail":
-                    failures += 1
+                new_updates, new_failures = self.update_tx(current_block, txinfo, receipt)
+                updates +=  new_updates
+                failures += new_failures
             except Exception as e:
                 logger.error("Could not update transaction %s", tx)
                 logger.exception(e)
@@ -61,11 +64,15 @@ class DatabaseConfirmationUpdater:
         return updates, failures
 
     @retryable
-    def update_tx(self, current_block: int, txinfo: dict, receipt: dict) -> Union[bool, str]:
-        """Process logs from initial log run or filter updates."""
+    def update_tx(self, current_block: int, txinfo: dict, receipt: dict) -> Tuple[int, int]:
+        """Process logs from initial log run or filter updates.
+
+        :return: (performed updates, failed updates)
+        """
 
         # We may have multiple ops for one transaction
         ops = self.dbsession.query(CryptoOperation).filter_by(txid=txid_to_bin(receipt["transactionHash"]))
+        updates = failures = 0
 
         for op in ops:
 
@@ -73,7 +80,7 @@ class DatabaseConfirmationUpdater:
             if txinfo["gas"] == receipt["gasUsed"]:
                 op.other_info["failure_reason"] = "Smart contract rejected the transaction"
                 op.mark_failure()
-                return "fail"
+                failures += 1
 
             # Withdraw operation has not gets it block yet
             # Block number may change because of the works
@@ -81,18 +88,20 @@ class DatabaseConfirmationUpdater:
 
             assert op.block <= current_block
             confirmation_count = current_block - op.block
+            if op.update_confirmations(confirmation_count):
+                updates += 1
 
-            return op.update_confirmations(confirmation_count)
+        return updates, failures
 
     @retryable
     def get_monitored_transactions(self) -> Iterable[str]:
         """Get all transactions that are lagging behind the confirmation count."""
-        result = []
+        result = set()
 
         # Transactions that are broadcasted
         txs = self.dbsession.query(CryptoOperation).filter(CryptoOperation.state == CryptoOperationState.broadcasted, CryptoOperation.network_id == self.network_id)
         for tx in txs:
-            result.append(bin_to_txid(tx.txid))
+            result.add(bin_to_txid(tx.txid))
         return result
 
     def poll(self) -> Tuple[int, int]:

@@ -1,0 +1,41 @@
+{# Template for home view #}
+
+{% extends "site/base.html" %}
+
+{% block content %}
+
+  {% include "wallet/breadcrumbs.html" %}
+
+  <div class="row">
+    <div class="col-md-12">
+      <h1>{{ network.name|capitalize }} network</h1>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6">
+
+      <table class="table">
+
+        <tr>
+          <th>Last update</th>
+          <td>{{ timestamp|friendly_time(timezone='UTC') }}</td>
+        </tr>
+
+        <tr>
+          <th>Current block number</th>
+          <td>{{ status.data.heartbeat.block_number }}</td>
+        </tr>
+
+      </table>
+    </div>
+
+    {% if network_desc %}
+      <div class="col-md-6">
+        {{ network_text|safe }}
+      </div>
+    {% endif %}
+  </div>
+
+
+{% endblock %}

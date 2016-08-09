@@ -1,0 +1,11 @@
+{% if breadcrumbs %}
+  <ol class="breadcrumb">
+      {% for crumb in breadcrumbs %}
+          <li>
+              <a href={{ crumb.url }}>
+                  {{ crumb.name }}
+              </a>
+          </li>
+      {% endfor %}
+  </ol>
+{% endif %}

@@ -17,7 +17,7 @@ from websauna.wallet.ethereum.token import Token
 from websauna.wallet.ethereum.utils import eth_address_to_bin, txid_to_bin, bin_to_txid, to_wei, wei_to_eth, bin_to_eth_address
 from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw
 from websauna.wallet.models.account import AssetClass
-from websauna.wallet.models.blockchain import CryptoAddressDeposit, import_token
+from websauna.wallet.models.blockchain import CryptoAddressDeposit, import_token, CryptoOperationState
 
 # How many ETH we move for test transactiosn
 from websauna.wallet.tests.eth.utils import wait_tx, get_withdrawal_fee, wait_for_op_confirmations, send_balance_to_address
@@ -116,6 +116,7 @@ def test_deposit_eth(dbsession, eth_network_id, web3, eth_service, coinbase, dep
         eth_asset = get_ether_asset(dbsession)
         caccount = address.get_account(eth_asset)
         assert caccount.account.get_balance() == TEST_VALUE
+        assert op.state == CryptoOperationState.success
 
 
 def test_double_scan_deposit(dbsession, eth_network_id, web3, eth_service, coinbase, deposit_address):
@@ -220,6 +221,7 @@ def test_withdraw_eth(dbsession: Session, eth_network_id: UUID, web3: Web3, eth_
         # We have one complete operation
         ops = list(dbsession.query(CryptoOperation).all())
         op = ops[-1]
+        assert op.state == CryptoOperationState.success
         assert op.completed_at is not None
 
 
@@ -386,6 +388,7 @@ def test_deposit_token(dbsession, eth_network_id, web3: Web3, eth_service: Ether
         asset = op.holding_account.asset
         assert op.holding_account.get_balance() == 0
         assert address.get_account(asset).account.get_balance() == 4000
+        assert op.state == CryptoOperationState.success
 
 
 def test_withdraw_token(dbsession, eth_network_id, web3: Web3, eth_service: EthereumService, deposit_address: str, token_asset: str, target_account: str):
@@ -478,11 +481,9 @@ def test_transfer_tokens_between_accounts(dbsession, eth_network_id, web3: Web3,
         # We should have received a Transfer operation targetting target account
         op = dbsession.query(CryptoOperation).join(CryptoAddressAccount).join(CryptoAddress).filter_by(address=addr).one()
         opid = op.id
-        confirmed = op.completed_at
 
     # Confirm incoming Transfer
-    if not confirmed:
-        wait_for_op_confirmations(eth_service, opid)
+    wait_for_op_confirmations(eth_service, opid, timeout=180)
 
     # Check Transfer looks valid
     with transaction.manager:

@@ -4,6 +4,8 @@
 
 {% block content %}
 
+  {% include "wallet/breadcrumbs.html" %}
+
   <ul class="nav nav-tabs">
     <li role="presentation"><a href="{{ wallet|model_url }}">Overview</a></li>
     <li role="presentation"><a href="{{ wallet.transactions|model_url }}">Transactions</a></li>

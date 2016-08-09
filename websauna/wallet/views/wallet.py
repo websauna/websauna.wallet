@@ -1,9 +1,10 @@
-from typing import List
+from typing import List, Iterable
 
 from pyramid import httpexceptions
 from pyramid.decorator import reify
 from pyramid.security import Allow
 from pyramid.view import view_config
+from websauna.system.core.breadcrumbs import get_breadcrumbs
 
 from websauna.system.core.root import Root
 from websauna.system.core.route import simple_route
@@ -12,10 +13,24 @@ from websauna.system.http import Request
 from websauna.system.user.models import User
 from websauna.utils.slug import slug_to_uuid, uuid_to_slug
 from websauna.wallet.ethereum.asset import setup_user_account
+from websauna.wallet.ethereum.utils import bin_to_eth_address, bin_to_txid
 from websauna.wallet.models import UserCryptoAddress
-from websauna.wallet.models.blockchain import UserCryptoOperation
+from websauna.wallet.models import UserCryptoOperation
+from websauna.wallet.models import CryptoOperationState
+from websauna.wallet.models import CryptoOperation
+from websauna.wallet.models.blockchain import CryptoOperationType
 from websauna.wallet.utils import format_asset_amount
 from websauna.wallet.views.asset import get_asset_resource
+from websauna.wallet.views.network import get_network_resource
+
+
+OP_STATES = {
+    CryptoOperationState.waiting: "Scheduled for operation",
+    CryptoOperationState.pending: "Waiting for broadcasting to network",
+    CryptoOperationState.broadcasted: "Waiting for more confirmations",
+    CryptoOperationState.success: "Success",
+    CryptoOperationState.failed: "Failure",
+}
 
 
 class UserAddress(Resource):
@@ -31,12 +46,25 @@ class UserAddress(Resource):
 
 class UserOperation(Resource):
 
-    def __init__(self, request: Request, op: UserCryptoOperation):
+    def __init__(self, request: Request, uop: UserCryptoOperation):
         super(UserOperation, self).__init__(request)
-        self.op = op
+        self.uop = uop
+
+    def get_title(self):
+        op = self.uop.crypto_operation
+        if op.has_txid():
+            if op.txid:
+                tx_name = bin_to_txid(op.txid)
+            else:
+                tx_name = "<transaction hash pending>"
+        else:
+            tx_name = "{} {}".format(op.human_friendly_type, bin_to_eth_address(op.external_address))
+
+        return tx_name
 
     def __str__(self):
-        return str(self.op)
+        return str(self.uop.op)
+
 
 class UserAddressFolder(Resource):
     """Serve all address specific views for a user."""
@@ -66,18 +94,28 @@ class UserOperationFolder(Resource):
         super(UserOperationFolder, self).__init__(request)
         self.wallet = wallet
 
-    def get_operations(self):
-        ops = self.wallet.user.owned_crypto_operations
+    def get_title(self):
+        return "Transactions"
+
+    def get_operations(self, state: Iterable):
+
+        ops = self.wallet.user.owned_crypto_operations.join(CryptoOperation).filter(CryptoOperation.state.in_(state)).order_by(
+            CryptoOperation.created_at.desc())
         for op in ops:
             uo = UserOperation(self.request, op)
             yield Resource.make_lineage(self, uo, uuid_to_slug(op.id))
 
     def __getitem__(self, item):
         uuid = slug_to_uuid(item)
-        for op in self.get_operations():
-            if op.id == uuid:
-                return op
-        raise KeyError()
+        uop = self.request.dbsession.query(UserCryptoOperation).get(uuid)
+
+        if not uop:
+            raise KeyError()
+
+        if uop.user != self.wallet.user:
+            raise httpexceptions.HTTPForbidden()
+
+        return Resource.make_lineage(self, UserOperation(self.request, uop), uuid_to_slug(uop.id))
 
 
 class UserWallet(Resource):
@@ -89,6 +127,9 @@ class UserWallet(Resource):
         owner_principal = "user:{}".format(self.request.user.id)
         return [(Allow, owner_principal, "view"),
                 (Allow, "group:admin", "view")]
+
+    def get_title(self):
+        return "{}'s wallet".format(self.user.friendly_name)
 
     def __init__(self, request: Request, user: User):
         super(UserWallet, self).__init__(request)
@@ -111,12 +152,17 @@ class UserWallet(Resource):
     def get_address_resource(self, address: UserCryptoAddress) -> UserAddress:
         return self["accounts"][uuid_to_slug(address.id)]
 
+    def get_uop_resource(self, uop: UserCryptoOperation) -> UserOperation:
+        return self["transactions"][uuid_to_slug(uop.id)]
 
 class WalletFolder(Resource):
     """Sever UserWallets from this folder.
 
     Each user wallet is on its own url. Path is keyed by user UUID.
     """
+
+    def get_title(self):
+        return "Wallets"
 
     def __getitem__(self, user_id: str):
         user = self.request.dbsession.query(User).filter_by(uuid=slug_to_uuid(user_id)).one_or_none()
@@ -133,19 +179,69 @@ def wallet_root(wallet_root, request):
     return httpexceptions.HTTPFound(url)
 
 
+def describe_operation(request, uop: UserOperation) -> dict:
+    """Fetch operation details and link data for rendering."""
+    assert isinstance(uop, UserOperation)
+    detail = {}
+    op = uop.uop.crypto_operation
+    detail["op"] = op
+    if op.holding_account and op.holding_account.asset:
+        detail["asset_desc"] = get_asset_resource(request, op.holding_account.asset)
+
+    confirmations = op.calculate_confirmations()
+    if confirmations is not None:
+        if confirmations > 30:
+            confirmations = "30+"
+        detail["confirmations"] = confirmations
+
+    if op.external_address:
+        detail["address"] = bin_to_eth_address(op.external_address)
+        if op.operation_type in (CryptoOperationType.deposit, CryptoOperationType.import_token):
+            detail["address_label"] = "From {}".format(detail["address"])
+        elif op.operation_type in (CryptoOperationType.withdraw,):
+            detail["address_label"] = "To {}".format(detail["address"])
+        else:
+            detail["address_label"] = detail["address"]
+
+    if op.txid:
+        detail["txid"] = bin_to_txid(op.txid)
+
+    amount = op.amount
+
+    if amount:
+        detail["amount"] = format_asset_amount(amount, op.asset.asset_class)
+
+    detail["resource"] = uop
+    detail["tx_name"] = uop.get_title()
+    detail["state"] = OP_STATES[op.state]
+
+    return detail
+
+
 @view_config(context=UserOperationFolder, route_name="wallet", name="", renderer="wallet/ops.html")
 def operations_root(op_root: UserOperationFolder, request):
     """When wallet folder is accessed without path key, redirect to the users own wallet."""
     wallet = op_root.wallet
-    operations = op_root.get_operations()
-    details = []
-    for uop in operations:
-        detail = {}
-        op = uop.op.crypto_operation
-        detail["op"] = op
-        if op.holding_account and op.holding_account.asset:
-            detail["asset_desc"] =  get_asset_resource(request, op.holding_account.asset)
-        details.append(detail)
+
+    pending_operations= op_root.get_operations(state=[CryptoOperationState.waiting, CryptoOperationState.broadcasted, CryptoOperationState.pending])
+    pending_operations = [describe_operation(request, uop) for uop in pending_operations]
+
+    finished_operations = op_root.get_operations(state=[CryptoOperationState.success, CryptoOperationState.failed])
+    finished_operations = [describe_operation(request, uop) for uop in finished_operations]
+
+    breadcrumbs = get_breadcrumbs(op_root, request)
+
+    return locals()
+
+
+@view_config(context=UserOperation, route_name="wallet", name="", renderer="wallet/op.html")
+def operation(uop: UserOperation, request):
+    """Single operation in a wallet."""
+    detail = describe_operation(request, uop)
+    op = detail["op"]
+    wallet = uop.__parent__.__parent__
+
+    breadcrumbs = get_breadcrumbs(uop, request)
 
     return locals()
 
@@ -169,7 +265,10 @@ def wallet(wallet: UserWallet, request: Request):
         entry["asset_desc"] = get_asset_resource(request, account.account.asset)
         entry["address"] = wallet.get_address_resource(user_address)
         entry["balance"] = format_asset_amount(account.account.get_balance(), account.account.asset.asset_class)
+        entry["network_desc"] = get_network_resource(request, account.account.asset.network)
         account_details.append(entry)
+
+    breadcrumbs = get_breadcrumbs(wallet, request)
 
     return locals()
 
@@ -179,3 +278,11 @@ def route_factory(request):
     wallet_root = WalletFolder(request)
     root = Root.root_factory(request)
     return Resource.make_lineage(root, wallet_root, "wallet")
+
+
+def get_user_crypto_operation_resource(request, uop: UserCryptoOperation) -> UserOperation:
+    assert isinstance(uop, UserCryptoOperation)
+    wallet_root = WalletFolder(request)
+    wallet = wallet_root[uuid_to_slug(uop.user.uuid)]
+    return wallet.get_uop_resource(uop)
+

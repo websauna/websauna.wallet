@@ -45,7 +45,13 @@ def create_default_user_address(user: User, network: AssetNetwork) -> CryptoAddr
     ca = CryptoAddress(network=network)
     dbsession.add(ca)
     dbsession.flush()
-    uca = UserCryptoAddress(address=ca, name="Default")
+
+    if network.name == "ethereum":
+        name = "Default"
+    else:
+        name = "Default ({})".format(network.name)
+
+    uca = UserCryptoAddress(address=ca, name=name)
     user.owned_crypto_addresses.append(uca)
     dbsession.flush()
     op = CryptoAddressCreation(ca)

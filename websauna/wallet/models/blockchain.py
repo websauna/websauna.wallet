@@ -21,7 +21,7 @@ from websauna.system.model.json import NestedMutationDict
 from websauna.system.user.models import User
 from websauna.utils.time import now
 from websauna.system.model.meta import Base
-from websauna.wallet.ethereum.utils import bin_to_eth_address
+from websauna.wallet.ethereum.utils import bin_to_eth_address, bin_to_txid
 from websauna.wallet.utils import ensure_positive
 
 from .account import Account
@@ -438,11 +438,22 @@ class CryptoOperation(Base):
         super().__init__(network=network, **kwargs)
 
     def __str__(self):
+        dbsession = Session.object_session(self)
         address = self.external_address and bin_to_eth_address(self.external_address) or "-"
         account = self.crypto_account and self.crypto_account.account or "-"
         failure_reason = self.other_data.get("error") or ""
 
-        return "{} externaladdress:{} completed:{} confirmed:{} failed:{} acc:{} holding: {} network: {}".format(self.operation_type, address, self.completed_at, self.confirmed_at, failure_reason, account, self.holding_account, self.network.name)
+        if self.has_txid():
+            network_status = dbsession.query(CryptoNetworkStatus).get(self.network_id)
+            if network_status:
+                nblock = network_status.block_number
+            else:
+                nblock = "network-missing"
+            txinfo = "txid:{} block:{} nblock:{}".format(bin_to_txid(self.txid), self.block, nblock)
+        else:
+            txinfo = ""
+
+        return "{} {} externaladdress:{} completed:{} confirmed:{} failed:{} acc:{} holding:{} network:{} {}".format(self.operation_type, self.state, address, self.completed_at, self.confirmed_at, failure_reason, account, self.holding_account, self.network.name, txinfo)
 
     def __repr__(self):
         return self.__str__()
@@ -455,16 +466,34 @@ class CryptoOperation(Base):
         return None
 
     @property
+    def asset(self) -> Optional[Asset]:
+        if self.holding_account:
+            return self.holding_account.asset
+
+    @property
     def amount(self) -> Optional[Decimal]:
         """Return human readable value of this operation in asset or None if no asset assigned."""
         if self.holding_account:
-            return self.holding_account.get_balance()
+            return self.holding_account.transactions.first().amount
         return None
 
     @property
     def confirmed_at(self):
         """Backwards compatibliy."""
         return self.completed_at
+
+    def is_in_progress(self):
+        return self.state in (CryptoOperationState.waiting, CryptoOperationState.broadcasted, CryptoOperationState.pending)
+
+    def is_failed(self):
+        return self.state == CryptoOperationState.failed
+
+    def has_txid(self) -> bool:
+        """Does this operation have txid or will it receive one in the future.
+
+        E.g. address creation never has txid.
+        """
+        return self.required_confirmation_count
 
     def mark_performed(self):
         """
@@ -492,6 +521,34 @@ class CryptoOperation(Base):
     def update_confirmations(self, confirmation_count) -> bool:
         """How this operation reacts for confirmation counts."""
         raise NotImplementedError()
+
+    def calculate_confirmations(self) -> Optional[int]:
+        """Use network latest block number to calculate confirmation counts.
+
+        :return: Confirmation count or None if not applicable
+        """
+
+        dbsession = Session.object_session(self)
+
+        if not self.required_confirmation_count:
+            return None
+
+        if not self.block:
+            return None
+
+        network_status = dbsession.query(CryptoNetworkStatus).get(self.network_id)
+        if not network_status:
+            return None
+
+        heartbeat = network_status.data.get("heartbeat")
+        if not heartbeat:
+            return
+
+        current_block = heartbeat.get("block_number")
+        if not current_block:
+            return None
+
+        return current_block - self.block
 
 
 class CryptoAddressOperation(CryptoOperation):
@@ -807,6 +864,16 @@ class CryptoNetworkStatus(Base):
             dbsession.add(obj)
             dbsession.flush()
         return obj
+
+    @property
+    def block_number(self) -> Optional[int]:
+        """Return the latest scanned block of network."""
+        heartbeat = self.data.get("heartbeat")
+        if not heartbeat:
+            return None
+
+        return heartbeat.get("block_number")
+
 
 
 

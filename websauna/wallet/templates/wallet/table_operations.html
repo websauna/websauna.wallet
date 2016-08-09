@@ -2,21 +2,41 @@
 
   <thead>
     <tr>
+      <th></th>
       <th>Started (UTC)</th>
       <th>Type</th>
       <th>Assets</th>
       <th>Amount</th>
-      <th>Address</th>
+      <th>Network address</th>
       <th>Confirmations</th>
     </tr>
   </thead>
 
-  <tbody>
-    {% for detail in details %}
+    <tbody>
+      {% for detail in details %}
       <tr>
         <td>
-          <a href="#">
-            {{ detail.op.created_at|friendly_time(timezone='UTC')}}
+          {% if detail.op.is_in_progress() %}
+            <i class="fa fa-spinner fa-spin crypto-operation-in-progress"></i>
+          {% elif detail.op.is_failed() %}
+            <i class="fa fa-times crypto-operation-failed"></i>
+          {% else %}
+            <i class="fa fa-check crypto-operation-success"></i>
+          {% endif %}
+        </td>
+        <td>
+
+            <div>
+              <a href="{{ detail.resource|model_url }}">
+                {{ detail.op.created_at|arrow_format('YYYY-MM-DD HH:MM:ss') }}
+              </a>
+            </div>
+            <div>
+              <a href="{{ detail.resource|model_url }}">
+                <small>{{ detail.op.created_at|friendly_time(timezone='UTC')}}</small>
+              </a>
+            </div>
+
           </a>
         </td>
 
@@ -37,10 +57,17 @@
         </td>
 
         <td>
+          {% if detail.address %}
+            {{ detail.address_label }}
+          {% endif %}
+        </td>
 
+        <td>
+          {% if detail.confirmations %}
+            {{ detail.confirmations }} / {{ detail.op.required_confirmation_count }}
+          {% endif %}
         </td>
       </tr>
     {% endfor %}
   </tbody>
 </table>
-</div>

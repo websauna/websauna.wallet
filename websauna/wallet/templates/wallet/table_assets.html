@@ -30,7 +30,9 @@
       </td>
 
       <td>
-        {{ account.address.network.name }}
+        <a href="{{ detail.network_desc|model_url }}">
+          {{ detail.network_desc.network.name }}
+        </a>
       </td>
     </tr>
   {% endfor %}
