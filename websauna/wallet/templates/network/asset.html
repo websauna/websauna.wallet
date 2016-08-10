@@ -22,8 +22,20 @@
 
     <tr>
       <th>Total distribution</th>
-      <td>{{ asset_desc.asset.supply }}</td>
+      <td>
+        {% if asset_desc.asset.supply %}
+          {{ asset_desc.asset.supply }}
+        {% else %}
+          Unknown
+        {% endif %}
+      </td>
     </tr>
+
+    <tr>
+      <th>Smart contract address</th>
+      <td>{{ asset_desc.address }}</td>
+    </tr>
+
 
   </table>
 {% endblock %}

@@ -27,6 +27,14 @@
           <td>{{ status.data.heartbeat.block_number }}</td>
         </tr>
 
+        <tr>
+          <th>Listed assets</th>
+          <td>
+            <a href="{{ network_desc|model_url('assets') }}">
+              View all assets
+            </a>
+          </td>
+        </tr>
       </table>
     </div>
 

@@ -1,0 +1,33 @@
+
+<table class="table table-listing table-assets">
+
+  <thead>
+    <tr>
+      <th>Chain</th>
+      <th>Description</th>
+      <th>Listed assets</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for network_desc in networks %}
+      <tr>
+        <td>
+          <a href="{{ network_desc|model_url }}">
+            {{ network_desc.network.name|capitalize }}
+          </a>
+        </td>
+
+      <td>
+        {{ network_desc.description }}
+      </td>
+
+      <td>
+        <a href="{{ network_desc|model_url('assets') }}">
+          View assets
+        </a>
+      </td>
+    </tr>
+  {% endfor %}
+</tbody>
+</table>

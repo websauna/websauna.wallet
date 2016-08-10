@@ -1,3 +1,4 @@
+from typing import Iterable
 from uuid import UUID
 
 from pyramid import httpexceptions
@@ -12,11 +13,13 @@ from websauna.system.core.route import simple_route
 from websauna.system.core.traversal import Resource
 from websauna.system.http import Request
 from websauna.utils.slug import slug_to_uuid, uuid_to_slug
+from websauna.wallet.ethereum.utils import bin_to_eth_address
 from websauna.wallet.models import AssetNetwork
 from websauna.wallet.models import CryptoNetworkStatus
 from websauna.system.core.breadcrumbs import get_breadcrumbs
 
 from websauna.wallet.models import Asset
+from websauna.wallet.utils import format_asset_amount
 
 
 class AssetDescription(Resource):
@@ -29,6 +32,17 @@ class AssetDescription(Resource):
     def asset_to_slug(cls, asset: Asset):
         return "{}.{}".format(slugify(asset.name), uuid_to_slug(asset.id))
 
+    @property
+    def address(self) -> str:
+        if self.asset.external_id:
+            return bin_to_eth_address(self.asset.external_id)
+        else:
+            return ""
+
+    @property
+    def network(self) -> "NetworkDescription":
+        return self.__parent__.__parent__
+
     @classmethod
     def slug_to_asset_id(cls, slug: str) -> UUID:
         *seo, slug = slug.split(".")
@@ -36,6 +50,13 @@ class AssetDescription(Resource):
 
     def get_title(self):
         return "{} ({})".format(self.asset.name, self.asset.symbol)
+
+    @property
+    def supply(self):
+        if self.asset.supply:
+            return format_asset_amount(self.asset.supply, self.asset.asset_class)
+        else:
+            return ""
 
 
 class AssetFolder(Resource):
@@ -51,13 +72,20 @@ class AssetFolder(Resource):
     def get_title(self):
         return "Assets"
 
-    def get_network(self):
+    def get_network(self) -> AssetNetwork:
         return self.__parent__.network
 
     def get_description(self, asset: Asset):
         asset_desc = AssetDescription(self.request, asset)
         assert asset.network == self.get_network()
         return Resource.make_lineage(self, asset_desc, AssetDescription.asset_to_slug(asset))
+
+    def get_public_assets(self) -> Iterable[AssetDescription]:
+        """List all assets in this folder."""
+        network = self.get_network()
+        dbsession = self.request.dbsession
+        for asset in dbsession.query(Asset).filter_by(network=network):
+            yield self.get_description(asset)
 
 
 class NetworkDescription(Resource):
@@ -93,10 +121,16 @@ class NetworkFolder(Resource):
         desc = NetworkDescription(self.request, network)
         return Resource.make_lineage(self, desc, network.name)
 
+    def get_public_networks(self) -> Iterable[NetworkDescription]:
+        networks = self.request.dbsession.query(AssetNetwork).all()
+        for network in networks:
+            yield self.get_description(network)
 
-@view_config(context=AssetFolder, route_name="network", name="")
-def asset_root(wallet_root, request):
-    return httpexceptions.HTTPNotFound()
+
+@view_config(context=AssetFolder, route_name="network", name="", renderer="network/assets.html")
+def asset_root(asset_folder, request):
+    assets = asset_folder.get_public_assets()
+    return locals()
 
 
 @view_config(context=AssetDescription, route_name="network", name="", renderer="network/asset.html")
@@ -105,9 +139,10 @@ def asset(asset_desc: AssetDescription, request: Request):
     return locals()
 
 
-@view_config(context=NetworkFolder, route_name="network", name="")
-def network_root(wallet_root, request):
-    return httpexceptions.HTTPFound(request.route_url("home"))
+@view_config(context=NetworkFolder, route_name="network", name="", renderer="network/networks.html")
+def network_root(network_folder, request):
+    networks = network_folder.get_public_networks()
+    return locals()
 
 
 @view_config(context=NetworkDescription, route_name="network", name="", renderer="network/network.html")

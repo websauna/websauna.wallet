@@ -1,0 +1,40 @@
+
+<table class="table table-listing table-assets">
+
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Address</th>
+      <th>Chain</th>
+      <th>Supply</th>
+    </tr>
+  </thead>
+
+  <tbody>
+    {% for asset_desc in assets %}
+      <tr>
+        <td>
+          <a href="{{ asset_desc|model_url }}">
+            {{ asset_desc.asset.name }} ({{ asset_desc.asset.symbol }})
+          </a>
+        </td>
+
+      <td>
+        {{ asset_desc.address }}
+      </td>
+
+      <td>
+        <a href="{{ asset_desc.network |model_url }}">
+          {{ asset_desc.network.network.name }}
+        </a>
+      </td>
+
+      <td>
+        {% if asset_desc.supply %}
+          {{ asset_desc.supply }}
+        {% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+</tbody>
+</table>

@@ -1,0 +1,13 @@
+{# Template for home view #}
+
+{% extends "site/base.html" %}
+
+{% block content %}
+
+  {% include "wallet/breadcrumbs.html" %}
+
+  <h1>Chains</h1>
+
+  {% include "network/table_networks.html" %}
+
+{% endblock %}
