@@ -3,7 +3,7 @@
 from decimal import Decimal
 
 import binascii
-from typing import Optional, Iterable, List, Tuple
+from typing import Optional, Iterable, List, Tuple, Union
 
 import enum
 import uuid
@@ -539,11 +539,16 @@ class CryptoOperation(Base):
 
         dbsession = Session.object_session(self)
 
-        if not self.required_confirmation_count:
+        if self.required_confirmation_count is None:
             return None
 
+        if not self.txid:
+            # Not yet in mempool
+            return 0
+
         if not self.block:
-            return None
+            # Not yet mined
+            return 0
 
         network_status = dbsession.query(CryptoNetworkStatus).get(self.network_id)
         if not network_status:
@@ -754,17 +759,27 @@ class UserCryptoAddress(Base):
                                         single_parent=True,),)
 
     @staticmethod
-    def create_account(user: User):
+    def create_address(user: User, network: AssetNetwork, name: str, confirmations: int) -> CryptoAddressCreation:
         """Initiates account creation operation."""
         dbsession = Session.object_session(user)
         uca = UserCryptoAddress()
-        user.owned_crypto_accounts.append(uca)
-
+        uca.address = CryptoAddress(network=network)
+        uca.name = name
+        user.owned_crypto_addresses.append(uca)
         dbsession.flush()
 
         # Put the creation operation in pipeline
         op = CryptoAddressCreation(address=uca.address)
-        dbsession.add(op)
+        op.required_confirmation_count = confirmations
+
+        # Bind operation to a user
+        uo = UserCryptoOperation(user=user, crypto_operation=op)
+        dbsession.add(uo)
+        dbsession.flush()
+
+        assert op.network
+
+        return op
 
     @classmethod
     def get_user_asset_accounts(cls, user: User) -> List[Tuple["UserCryptoAddress", Account]]:

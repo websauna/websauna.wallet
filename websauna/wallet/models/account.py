@@ -24,7 +24,12 @@ from websauna.system.model.meta import Base
 class AssetNetwork(Base):
     __tablename__ = "asset_network"
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=sqlalchemy.text("uuid_generate_v4()"),)
+
+    #: Internal string identifier for this network
+
     name = Column(String(256), nullable=False)
+
+    #: All assets listed in this network
     assets = relationship("Asset", lazy="dynamic", back_populates="network")
 
     #: Bag of random things one can assign to this network
@@ -38,6 +43,13 @@ class AssetNetwork(Base):
 
     def __repr__(self):
         return self.__str__()
+
+    @property
+    def human_friendly_name(self):
+        name = self.other_data.get("human_friendly_name")
+        if name:
+            return name
+        return self.name.title()
 
     def create_asset(self, name: str, symbol: str, supply: Decimal, asset_class: "AssetClass") -> "Asset":
         """Instiate the asset."""

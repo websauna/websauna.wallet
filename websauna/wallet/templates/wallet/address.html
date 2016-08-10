@@ -9,8 +9,8 @@
     <tr>
       <th>Chain</th>
       <td>
-        <a href="{{ detail.network|model_url }}">
-          {{ detail.network.network.name }}
+        <a href="{{ detail.network_resource|model_url }}">
+          {{ detail.network_resource.get_title() }}
         </a>
       </td>
     </tr>

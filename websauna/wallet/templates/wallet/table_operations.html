@@ -63,7 +63,7 @@
         </td>
 
         <td>
-          {% if detail.confirmations %}
+          {% if detail.confirmations is not none %}
             {{ detail.confirmations }} / {{ detail.op.required_confirmation_count }}
           {% endif %}
         </td>

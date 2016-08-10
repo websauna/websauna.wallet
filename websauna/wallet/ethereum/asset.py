@@ -4,9 +4,11 @@ from typing import Optional
 import transaction
 from sqlalchemy.orm import Session
 
+from pyramid.registry import Registry
 from websauna.system.user.models import User
 from websauna.wallet.ethereum.utils import eth_address_to_bin
 from websauna.wallet.models import AssetNetwork, Asset, AssetClass, UserCryptoAddress, CryptoAddressCreation, UserCryptoOperation, CryptoAddress, CryptoAddressAccount
+from websauna.wallet.models.blockchain import CryptoOperationType
 
 
 def get_eth_network(dbsession: Session, asset_network_name="ethereum") -> AssetNetwork:
@@ -123,4 +125,18 @@ def create_house_address(network: AssetNetwork) -> CryptoAddressCreation:
     return op
 
 
+def get_required_confirmation_count(registry: Registry, network: AssetNetwork, op_type: CryptoOperationType) -> int:
+    """How many confirmations we require for some operations."""
 
+    if network.name in ("testnet", "private testnet"):
+        return 1
+
+    # Production defaults
+    op_map = {
+        CryptoOperationType.withdraw: 3,
+        CryptoOperationType.deposit: 6,
+        CryptoOperationType.import_token: None,
+        CryptoOperationType.create_token: 3,
+        CryptoOperationType.create_address: 3
+    }
+    return op_map[op_type]

@@ -69,7 +69,10 @@ class UserOperation(Resource):
             else:
                 tx_name = "<transaction hash pending>"
         else:
-            tx_name = "{} {}".format(op.human_friendly_type, bin_to_eth_address(op.external_address))
+            if op.external_address:
+                tx_name = "bad"
+            else:
+                tx_name = "foo"
 
         return tx_name
 
@@ -83,6 +86,10 @@ class UserAddressFolder(Resource):
     def __init__(self, request: Request, user: User):
         super(UserAddressFolder, self).__init__(request)
         self.user = user
+
+    @property
+    def wallet(self) -> "UserWallet":
+        return self.__parent__
 
     def get_title(self):
         return "Accounts"
@@ -204,7 +211,7 @@ def describe_address(request, ua: UserAddress) -> dict:
     detail = {}
     detail["user_address"] = ua
     detail["address"] = ua.address.address
-    detail["network"] = get_network_resource(request, ua.address.address.network)
+    detail["network_resource"] = get_network_resource(request, ua.address.address.network)
     detail["name"] = ua.address.name
     detail["op"] = ua.address.address.get_creation_op()
     return detail
@@ -220,6 +227,7 @@ def describe_operation(request, uop: UserOperation) -> dict:
         detail["asset_resource"] = get_asset_resource(request, op.holding_account.asset)
 
     confirmations = op.calculate_confirmations()
+
     if confirmations is not None:
         if confirmations > 30:
             confirmations = "30+"
@@ -246,6 +254,7 @@ def describe_operation(request, uop: UserOperation) -> dict:
     detail["tx_name"] = uop.get_title()
     detail["state"] = OP_STATES[op.state]
     detail["address_resource"] = get_user_address_resource(request, op.address)
+    detail["network_resource"] = get_network_resource(request, op.network)
 
     return detail
 
@@ -266,7 +275,7 @@ def operations_root(op_root: UserOperationFolder, request):
     return locals()
 
 
-@view_config(context=UserOperation, route_name="wallet", name="", renderer="wallet/address.html")
+@view_config(context=UserOperation, route_name="wallet", name="", renderer="wallet/op.html")
 def operation(uop: UserOperation, request):
     """Single operation in a wallet."""
     detail = describe_operation(request, uop)

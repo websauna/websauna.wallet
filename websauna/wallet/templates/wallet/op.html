@@ -8,7 +8,11 @@
 
     <tr>
       <th>Network</th>
-      <td>{{ detail.op.network.name }}</td>
+      <td>
+        <a href="{{ detail.network_resource|model_url }}">
+          {{ detail.network_resource.get_title() }}
+        </a>
+      </td>
     </tr>
 
     <tr>

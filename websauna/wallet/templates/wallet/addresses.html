@@ -5,4 +5,8 @@
   <h1>Accounts</h1>
 
   {% include "wallet/table_addresses.html" %}
+
+  <p class="text-right">
+    <a id="btn-create-account" class="btn btn-default" href="{{ uaf.wallet|model_url('create-account') }}">Create new account</a>
+  </p>
 {% endblock %}
