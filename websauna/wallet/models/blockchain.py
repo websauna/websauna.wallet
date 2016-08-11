@@ -968,12 +968,12 @@ class UserWithdrawConfirmation(ManualConfirmation):
         dbsession.flush()
         return uwc
 
-    def resolve(self):
-        super(UserWithdrawConfirmation, self).resolve()
+    def resolve(self, capture_data=None):
+        super(UserWithdrawConfirmation, self).resolve(capture_data)
         self.user_crypto_operation.crypto_operation.state = CryptoOperationState.waiting
 
-    def cancel(self):
-        super(UserWithdrawConfirmation, self).cancel()
+    def cancel(self, capture_data=None):
+        super(UserWithdrawConfirmation, self).cancel(capture_data)
         self.user_crypto_operation.crypto_operation.mark_failed("Manual confirmation cancelled")
 
     def timeout(self):

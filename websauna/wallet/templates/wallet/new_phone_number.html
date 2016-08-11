@@ -1,0 +1,13 @@
+{%  extends "wallet/base.html" %}
+
+{% block wallet_content %}
+
+  <h1>Phone number required</h1>
+
+  <p>
+    For the security of your user account a mobile phone number confirmation is required. This number is used for the future withdrawal confirmations.
+  </p>
+
+  {{ rendered_form|safe }}
+
+{% endblock %}

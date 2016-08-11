@@ -60,7 +60,6 @@ def test_confirm_user_withdraw_cancelled(dbsession, eth_network_id, eth_asset_id
 
 def test_confirm_user_withdraw_timeout(dbsession, eth_network_id, eth_asset_id, user_id, topped_up_user):
 
-
     with transaction.manager:
         uca = dbsession.query(UserCryptoAddress).first()
         asset = dbsession.query(Asset).get(eth_asset_id)

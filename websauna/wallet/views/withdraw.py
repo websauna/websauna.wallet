@@ -8,8 +8,9 @@ from websauna.system.form.schema import CSRFSchema
 from websauna.wallet.ethereum.asset import get_required_confirmation_count
 from websauna.wallet.models import UserCryptoAddress
 from websauna.wallet.models.blockchain import CryptoOperationType
+from websauna.wallet.tests.eth.models.sms import AskConfirmation
 
-from .wallet import UserAddressAsset
+from .wallet import UserAddressAsset, UserOperation
 from .wallet import UserAddressFolder
 from .wallet import UserWallet
 from .schemas import network_choice_node
@@ -49,7 +50,6 @@ def withdraw(user_asset: UserAddressAsset, request):
     wallet = user_asset.wallet
     asset_resource = user_asset
 
-
     # User submitted this form
     if request.method == "POST":
         if 'process' in request.POST:
@@ -84,3 +84,13 @@ def withdraw(user_asset: UserAddressAsset, request):
     return locals()
 
 
+
+class ConfirmWithdraw(AskConfirmation):
+
+    @property
+    def manual_confirmation(self):
+        return self.context.manual_confirmation
+
+    @view_config(context=UserOperation, route_name="wallet", name="confirm-withdraw", renderer="wallet/confirm_withdraw.html")
+    def render(self):
+        return self.act()

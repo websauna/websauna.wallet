@@ -1,5 +1,6 @@
 import random
 from string import digits
+from typing import Optional
 
 import enum
 
@@ -95,7 +96,7 @@ class ManualConfirmation(Base):
     def is_valid_sms(self, code):
         return self.other_data["sms_code"] == code
 
-    def resolve_sms(self, code):
+    def resolve_sms(self, code, capture_data: Optional[dict]):
 
         if self.confirmation_type != ManualConfirmationType.sms:
             raise ManualConfirmationError("Wrong manual confirmation type")
@@ -103,9 +104,13 @@ class ManualConfirmation(Base):
         if not self.is_valid_sms(code):
             raise ManualConfirmationError("SMS does not match")
 
-        self.resolve()
+        self.resolve(capture_data)
 
-    def resolve(self):
+    def update_capture_data(self, capture_data: Optional[dict]):
+        if capture_data:
+            self.other_data.update(capture_data)
+
+    def resolve(self, capture_data: Optional[dict]=None):
 
         if now() > self.deadline_at:
             raise ManualConfirmationError("Cannot confirm after deadline.")
@@ -113,9 +118,12 @@ class ManualConfirmation(Base):
         self.action_taken_at = now()
         self.state = ManualConfirmationState.resolved
 
-    def cancel(self):
+        self.other_data.update(capture_data)
+
+    def cancel(self, capture_data: Optional[dict]=None):
         self.action_taken_at = now()
         self.state = ManualConfirmationState.cancelled
+        self.other_data.update(capture_data)
 
     def timeout(self):
         self.action_taken_at = now()
@@ -127,3 +135,18 @@ class ManualConfirmation(Base):
             if now > confirmation.deadline_at:
                 confirmation.timeout()
 
+
+class UserNewPhoneNumberConfirmation(ManualConfirmation):
+    """Make sure we get user phone numbers."""
+
+    __tablename__ = "user_new_phone_number_confirmation"
+
+    id = sa.Column(psql.UUID(as_uuid=True), sa.ForeignKey("manual_confirmation.id"), primary_key=True)
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'withdraw',
+    }
+
+    def resolve(self, capture_data):
+        super(UserNewPhoneNumberConfirmation, self).resolve(capture_data)
+        self.user.user_data["phone_number"] = self.other_data["phone_number"]
