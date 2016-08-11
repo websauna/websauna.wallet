@@ -6,7 +6,9 @@
 
   <div class="assets-summary">
     <h2>Assets</h2>
-    {% include "wallet/table_assets.html" %}
+    {% with details=asset_details %}
+      {% include "wallet/table_assets.html" %}
+    {% endwith %}
   </div>
 
 {% endblock %}

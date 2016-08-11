@@ -18,6 +18,9 @@ from websauna.wallet.models import UserCryptoOperation
 from websauna.wallet.models import CryptoOperationState
 from websauna.wallet.models import CryptoOperation
 from websauna.wallet.models import CryptoAddress
+from websauna.wallet.models import Account
+from websauna.wallet.models import Asset
+from websauna.wallet.models import CryptoAddressAccount
 from websauna.wallet.models.blockchain import CryptoOperationType
 from websauna.wallet.utils import format_asset_amount
 from websauna.wallet.views.network import get_asset_resource
@@ -31,6 +34,48 @@ OP_STATES = {
     CryptoOperationState.success: "Success",
     CryptoOperationState.failed: "Failure",
 }
+
+
+class UserAddressAsset(Resource):
+    """Asset in user wallet.
+
+    * Withdraw
+
+    * Transaction history
+
+    """
+
+    def __init__(self, request: Request, crypto_account: CryptoAddressAccount):
+        super(UserAddressAsset, self).__init__(request)
+        self.crypto_account = crypto_account
+
+    def get_title(self):
+        return "{} ({})".format(self.account.asset.name, self.account.asset.symbol)
+
+    @property
+    def account(self):
+        return self.crypto_account.account
+
+    @property
+    def user(self) -> User:
+        return self.wallet.user
+
+    @property
+    def wallet(self) -> "UserWallet":
+        return self.__parent__.__parent__.__parent__
+
+    @property
+    def address(self) -> "UserAddress":
+        return self.__parent__
+
+    @property
+    def asset(self) -> Asset:
+        return self.crypto_account.account.asset
+
+    def get_latest_ops(self, limit=5):
+        dbsession = self.request.dbsession
+        for uco in dbsession.query(UserCryptoOperation).filter_by(user=self.user).join(CryptoOperation).filter_by(crypto_account=self.crypto_account).order_by(CryptoOperation.created_at.desc())[0:limit]:
+            yield get_user_crypto_operation_resource(self.request, uco)
 
 
 class UserAddress(Resource):
@@ -49,10 +94,28 @@ class UserAddress(Resource):
     def get_title(self):
         return self.address.name
 
+    def get_user_address_asset(self, crypto_account: CryptoAddressAccount):
+        uaa = UserAddressAsset(self.request, crypto_account)
+        return Resource.make_lineage(self, uaa, uuid_to_slug(crypto_account.id))
+
     def get_latest_ops(self, limit=5):
         dbsession = self.request.dbsession
         for uco in dbsession.query(UserCryptoOperation).filter_by(user=self.get_user()).join(CryptoOperation).order_by(CryptoOperation.created_at.desc())[0:limit]:
             yield get_user_crypto_operation_resource(self.request, uco)
+
+    def get_assets(self) -> Iterable[UserAddressAsset]:
+        """Get all assets under this address."""
+        dbsession = self.request.dbsession
+        for crypto_account in dbsession.query(CryptoAddressAccount).filter_by(address=self.address.address).join(Account).order_by(Account.created_at.desc()):
+            yield self.get_user_address_asset(crypto_account)
+
+    def __getitem__(self, item):
+        dbsession = self.request.dbsession
+        crypto_account = dbsession.query(CryptoAddressAccount).filter_by(address=self.address.address).filter_by(id=slug_to_uuid(item)).one_or_none()
+        if crypto_account:
+            return self.get_user_address_asset(crypto_account)
+        raise KeyError()
+
 
 
 class UserOperation(Resource):
@@ -178,6 +241,13 @@ class UserWallet(Resource):
         assert uop.user == self.user
         return self["transactions"][uuid_to_slug(uop.id)]
 
+    def list_all_assets(self):
+        """Get all assets under all addresses."""
+
+        for user_address in self["accounts"].get_addresses():
+            for asset in user_address.get_assets():
+                yield asset
+
 
 class WalletFolder(Resource):
     """Sever UserWallets from this folder.
@@ -215,6 +285,20 @@ def describe_address(request, ua: UserAddress) -> dict:
     detail["name"] = ua.address.name
     detail["op"] = ua.address.address.get_creation_op()
     return detail
+
+
+def describe_user_address_asset(request, uaa: UserAddressAsset) -> dict:
+    """Fetch user asset holding details."""
+    entry = {}
+    account = uaa.crypto_account.account
+    entry["name"] = uaa.get_title()
+    entry["account"] = uaa.crypto_account.account
+    entry["asset_resource"] = uaa
+    entry["type"] = account.asset.asset_class.value
+    entry["address_resource"] = uaa.address
+    entry["balance"] = format_asset_amount(account.get_balance(), account.asset.asset_class)
+    entry["network_resource"] = get_network_resource(request, account.asset.network)
+    return entry
 
 
 def describe_operation(request, uop: UserOperation) -> dict:
@@ -291,6 +375,7 @@ def address(ua: UserAddress, request):
     """Show single address."""
     wallet = ua.__parent__.__parent__
     latest_ops = [describe_operation(request, op) for op in ua.get_latest_ops()]
+    assets = [describe_user_address_asset(request, op) for op in ua.get_assets()]
     detail = describe_address(request, ua)
     breadcrumbs = get_breadcrumbs(ua, request)
     return locals()
@@ -305,6 +390,17 @@ def addresses(uaf: UserAddressFolder, request):
     return locals()
 
 
+@view_config(context=UserAddressAsset, route_name="wallet", name="", renderer="wallet/asset.html")
+def asset(uaa: UserAddressAsset, request):
+    """Show single address."""
+    wallet = uaa.wallet
+    assert isinstance(wallet, UserWallet)
+    detail = describe_user_address_asset(request, uaa)
+    latest_ops = [describe_operation(request, uop) for uop in uaa.get_latest_ops()]
+    breadcrumbs = get_breadcrumbs(uaa, request)
+    return locals()
+
+
 @view_config(context=UserWallet, route_name="wallet", name="", renderer="wallet/wallet.html")
 def wallet(wallet: UserWallet, request: Request):
     """Wallet Overview page."""
@@ -314,19 +410,8 @@ def wallet(wallet: UserWallet, request: Request):
 
     # Set up initial addresses if user doesn't have any yet
     setup_user_account(user)
-    account_data = UserCryptoAddress.get_user_asset_accounts(user)
 
-    # Look up asset and address specs for accounts
-    account_details = []
-    for user_address, account in account_data:
-        entry = {}
-        entry["account"] = account.account
-        entry["asset_desc"] = get_asset_resource(request, account.account.asset)
-        entry["address"] = wallet.get_address_resource(user_address)
-        entry["balance"] = format_asset_amount(account.account.get_balance(), account.account.asset.asset_class)
-        entry["network_desc"] = get_network_resource(request, account.account.asset.network)
-        account_details.append(entry)
-
+    asset_details = [describe_user_address_asset(request, asset) for asset in wallet.list_all_assets()]
     breadcrumbs = get_breadcrumbs(wallet, request)
 
     return locals()
@@ -353,5 +438,6 @@ def get_user_address_resource(request, address: CryptoAddress):
     wallet_root = route_factory(request)
     wallet = wallet_root.get_user_wallet(uca.user)
     return wallet.get_address_resource(uca)
+
 
 

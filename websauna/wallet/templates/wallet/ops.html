@@ -7,6 +7,8 @@
   {% if pending_operations %}
     <div id="transactions-pending">
       <h2>In progress</h2>
+
+      <p>These transactions are waiting to get included in a blockchain or waiting to receive more blocks to have higher confirmation degree.</p>
       {% with details=pending_operations %}
         {% include "wallet/table_operations.html" %}
       {% endwith %}
@@ -16,6 +18,8 @@
   {% if finished_operations %}
     <div id="transactions-finished">
       <h2>Complete</h2>
+
+      <p>These transactions have been succesfully included in a blockchain.</p>
       {% with details=finished_operations %}
         {% include "wallet/table_operations.html" %}
       {% endwith %}

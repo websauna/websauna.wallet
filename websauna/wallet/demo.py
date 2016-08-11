@@ -12,6 +12,12 @@ class Initializer(websauna.system.Initializer):
         """Include this addon in the configuration."""
         self.config.include("websauna.wallet")
 
+    def configure_static(self):
+        """Configure static asset serving and cache busting."""
+        super(Initializer, self).configure_static()
+
+        self.config.registry.static_asset_policy.add_static_view('wallet-static', 'websauna.wallet:static')
+
     def run(self):
         super(Initializer, self).run()
         self.config.add_jinja2_search_path('websauna.wallet:demotemplates', name='.html', prepend=True)

@@ -4,6 +4,10 @@
 
   <h1 id="heading-address">{{ detail.name }}</h1>
 
+  <p>This is your account <a href="{{ detail.network_resource|model_url }}">{{ detail.network_resource.get_title() }}</a> assets.</p>
+
+  <h2>Summary</h2>
+
   <table class="table">
 
     <tr>
@@ -12,6 +16,13 @@
         <a href="{{ detail.network_resource|model_url }}">
           {{ detail.network_resource.get_title() }}
         </a>
+      </td>
+    </tr>
+
+    <tr>
+      <th>Address</th>
+      <td>
+          {{ detail.address }}
       </td>
     </tr>
 
@@ -27,8 +38,18 @@
       </td>
     </tr>
   </table>
-  
+
+  <h2>Assets</h2>
+
+  <p>Assets held on this account.</p>
+
+  {% with details=assets %}
+    {% include "wallet/table_assets.html" %}
+  {% endwith %}
+
   <h2>Latest transactions</h2>
+
+  <p>Latest account activity.</p>
   
   {% with details=latest_ops %}
     {% include "wallet/table_operations.html" %}

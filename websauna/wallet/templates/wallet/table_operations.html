@@ -7,7 +7,8 @@
       <th>Type</th>
       <th>Assets</th>
       <th>Amount</th>
-      <th>Network address</th>
+      <th>Account</th>
+      <th>Counterparty</th>
       <th>Confirmations</th>
     </tr>
   </thead>
@@ -24,8 +25,8 @@
             <i class="fa fa-check crypto-operation-success"></i>
           {% endif %}
         </td>
-        <td>
 
+        <td>
             <div>
               <a href="{{ detail.resource|model_url }}">
                 {{ detail.op.created_at|arrow_format('YYYY-MM-DD HH:MM:ss') }}
@@ -45,9 +46,9 @@
         </td>
 
         <td>
-          {% if detail.asset_desc %}
-            <a href="{{ detail.asset_desc|model_url }}">
-              {{ detail.asset_desc.asset.name }} ({{ detail.asset_desc.asset.symbol }})
+          {% if detail.asset_resource %}
+            <a href="{{ detail.asset_resource|model_url }}">
+              {{ detail.asset_resource.get_title() }}
             </a>
           {% endif %}
         </td>
@@ -57,8 +58,18 @@
         </td>
 
         <td>
+          {% if detail.address_resource %}
+            <a href="{{ detail.address_resource|model_url }}">
+              {{ detail.address_resource.get_title() }}
+            </a>
+          {% endif %}
+        </td>
+
+        <td class="col-op-counterparty">
           {% if detail.address %}
-            {{ detail.address_label }}
+            <small>
+              {{ detail.address_label }}
+            </small>
           {% endif %}
         </td>
 

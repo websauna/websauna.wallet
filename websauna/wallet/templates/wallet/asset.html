@@ -1,0 +1,49 @@
+{%  extends "wallet/base.html" %}
+
+{% block wallet_content %}
+
+  <h1 id="heading-asset">{{ detail.name }}</h1>
+
+  <table class="table">
+
+    <tr>
+      <th>Holding on account</th>
+      <td>
+        <a href="{{ detail.address_resource|model_url }}">
+          {{ detail.address_resource.get_title() }}
+        </a>
+      </td>
+    </tr>
+
+    <tr>
+      <th>Chain</th>
+      <td>
+        <a href="{{ detail.network_resource|model_url }}">
+          {{ detail.network_resource.get_title() }}
+        </a>
+      </td>
+    </tr>
+
+    <tr>
+      <th>Balance</th>
+      <td>
+        {{ detail.balance }}
+      </td>
+    </tr>
+
+    <tr>
+      <th>Type</th>
+      <td>
+        {{ detail.type }}
+      </td>
+    </tr>
+
+  </table>
+
+  <h2>Latest transactions</h2>
+
+  {% with details=latest_ops %}
+    {% include "wallet/table_operations.html" %}
+  {% endwith %}
+
+{% endblock %}

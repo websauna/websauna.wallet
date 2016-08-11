@@ -11,11 +11,11 @@
   </thead>
 
   <tbody>
-    {% for detail in account_details %}
+    {% for detail in details %}
       <tr>
         <td>
-          <a href="{{ detail.asset_desc|model_url }}">
-            {{ detail.asset_desc.asset.name }} ({{ detail.asset_desc.asset.symbol }})
+          <a href="{{ detail.asset_resource|model_url }}">
+            {{ detail.asset_resource.asset.name }} ({{ detail.asset_resource.asset.symbol }})
           </a>
         </td>
 
@@ -24,14 +24,14 @@
       </td>
 
       <td>
-        <a href="{{ detail.address|model_url }}">
-          {{ detail.address }}
+        <a href="{{ detail.address_resource|model_url }}">
+          {{ detail.address_resource.get_title() }}
         </a>
       </td>
 
       <td>
-        <a href="{{ detail.network_desc|model_url }}">
-          {{ detail.network_desc.network.name }}
+        <a href="{{ detail.network_resource|model_url }}">
+          {{ detail.network_resource.network.name }}
         </a>
       </td>
     </tr>

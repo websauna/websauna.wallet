@@ -51,7 +51,7 @@ def create_default_user_address(user: User, network: AssetNetwork) -> CryptoAddr
     if network.name == "ethereum":
         name = "Default"
     else:
-        name = "Default ({})".format(network.name)
+        name = "{} primary".format(network.name.title())
 
     uca = UserCryptoAddress(address=ca, name=name)
     user.owned_crypto_addresses.append(uca)
