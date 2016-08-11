@@ -2,7 +2,7 @@
 
 {% block wallet_content %}
 
-  <h3>Transaction {{ detail.tx_name }}</h3>
+  <h3 id="heading-op">Transaction {{ detail.tx_name }}</h3>
 
   <table class="table">
 
@@ -21,13 +21,24 @@
     </tr>
 
     <tr>
+      <th>Account</th>
+      <td>
+        {% if detail.address_resource %}
+          <a id="nav-op-address" href="{{ detail.address_resource|model_url }}">
+            {{ detail.address_resource.get_title() }}
+          </a>
+        {% endif %}
+      </td>
+    </tr>
+
+    <tr>
       <th>Type</th>
       <td>{{ detail.op.human_friendly_type }}</td>
     </tr>
 
     <tr>
       <th>State</th>
-      <td>{{ detail.state }}</td>
+      <td id="op-state-{{ detail.op.state.name }}">{{ detail.state }}</td>
     </tr>
 
 

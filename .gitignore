@@ -30,3 +30,6 @@ celerybeat*
 # geth test note created folders
 chains
 keystore
+
+# splinter screenshots
+websauna.wallet.tests.*

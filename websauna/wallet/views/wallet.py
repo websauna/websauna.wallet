@@ -250,6 +250,7 @@ def describe_operation(request, uop: UserOperation) -> dict:
     if amount:
         detail["amount"] = format_asset_amount(amount, op.asset.asset_class)
 
+    detail["uuid"] = str(uop.uop.id)
     detail["resource"] = uop
     detail["tx_name"] = uop.get_title()
     detail["state"] = OP_STATES[op.state]

@@ -46,7 +46,7 @@ def create_address(wallet: UserWallet, request):
                 UserCryptoAddress.create_address(wallet.user, network, name, confirmations)
 
                 # Thank user and take him/her to the next page
-                messages.add(request, kind="info", msg="New account is being created")
+                messages.add(request, kind="info", msg="New account is being created", msg_id="msg-account-created")
                 return HTTPFound(request.resource_url(wallet, "transactions"))
 
             except deform.ValidationFailure as e:

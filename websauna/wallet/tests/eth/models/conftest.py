@@ -32,6 +32,7 @@ def mock_eth_service(eth_network_id, dbsession, registry):
     s = EthereumService(web3, eth_network_id, dbsession, registry)
     return s
 
+
 @pytest.fixture
 def testnet_service(web3, testnet_network_id, dbsession, registry):
     """Create Ethereum Service for testnet to run ops or mock ups."""

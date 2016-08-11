@@ -13,26 +13,9 @@ from websauna.wallet.ethereum.asset import setup_user_account
 from websauna.wallet.ethereum.utils import eth_address_to_bin, txid_to_bin, bin_to_txid
 from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw, CryptoOperationState, AssetClass
 from websauna.wallet.models.blockchain import MultipleAssetAccountsPerAddress, UserCryptoOperation, UserCryptoAddress
-
-TEST_ADDRESS = "0x2f70d3d26829e412a602e83fe8eebf80255aeea5"
+from websauna.wallet.tests.eth.utils import mock_create_addresses, TEST_ADDRESS
 
 TEST_TXID = "0x00df829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcf"
-
-
-def mock_create_addresses(eth_service, dbsession):
-    """Create fake addresses instead of going to geth to ask for new address."""
-
-    def _create_address(service, dbsession, opid):
-        with transaction.manager:
-            op = dbsession.query(CryptoOperation).get(opid)
-            assert isinstance(op.address, CryptoAddress)
-            op.address.address = eth_address_to_bin(TEST_ADDRESS)
-            op.mark_performed()
-            op.mark_complete()
-
-    with mock.patch("websauna.wallet.ethereum.ops.create_address", new=_create_address):
-        success_op_count, failed_op_count = eth_service.run_waiting_operations()
-        return success_op_count, failed_op_count
 
 
 def test_create_eth_account(dbsession, eth_network_id, eth_service):
@@ -264,10 +247,13 @@ def test_setup_user_account(dbsession, registry, eth_service, testnet_service, e
             op.mark_complete()
 
     with mock.patch("websauna.wallet.ethereum.ops.create_address", new=_create_address):
+
+        # Create address on main net
         success_op_count, failed_op_count = eth_service.run_waiting_operations()
         assert success_op_count == 1
         assert failed_op_count == 0
 
+        # Create address on test net
         success_op_count, failed_op_count = testnet_service.run_waiting_operations()
         assert success_op_count == 1
         assert failed_op_count == 0

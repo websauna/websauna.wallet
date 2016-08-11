@@ -7,9 +7,9 @@
   {% include "wallet/breadcrumbs.html" %}
 
   <ul class="nav nav-tabs">
-    <li role="presentation"><a href="{{ wallet|model_url }}">Overview</a></li>
-    <li role="presentation"><a href="{{ wallet.transactions|model_url }}">Transactions</a></li>
-    <li role="presentation"><a href="{{ wallet.accounts|model_url }}">Accounts</a></li>
+    <li role="presentation"><a id="nav-wallet-overview" href="{{ wallet|model_url }}">Overview</a></li>
+    <li role="presentation"><a id="nav-wallet-transactions" href="{{ wallet.transactions|model_url }}">Transactions</a></li>
+    <li role="presentation"><a id="nav-wallet-accounts" href="{{ wallet.accounts|model_url }}">Accounts</a></li>
   </ul>
 
   {% block wallet_content %}

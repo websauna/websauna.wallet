@@ -14,7 +14,7 @@
 
     <tbody>
       {% for detail in details %}
-      <tr>
+      <tr class="row-operation" id="row-operation-{{ detail.uuid }}">
         <td>
           {% if detail.op.is_in_progress() %}
             <i class="fa fa-spinner fa-spin crypto-operation-in-progress"></i>
