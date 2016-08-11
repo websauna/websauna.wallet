@@ -31,3 +31,29 @@ def network_choice_node():
 
         # A SelectWidget with values lazily populated
         widget=network_choice_widget)
+
+
+def validate_ethereum_address(node, value, **kwargs):
+    """Make sure the user gives a valid ethereum hex address."""
+
+    if not value.startswith("0x"):
+        raise colander.Invalid(node, "Please enter a hex address starting using 0x")
+
+    if not len(value) == 42:
+        raise colander.Invalid(node, "Ethereum address must be 42 characters, including 0x prefix")
+
+
+
+def validate_withdraw_amount(node, value, **kwargs):
+    """Make sure the user doesn't attempt to overdraw account."""
+
+    user_account = kwargs["user_account"]
+
+    if value <= 0:
+        raise colander.Invalid(node, "Withdraw amount must be positive.")
+
+    if value > user_account.balance:
+        raise colander.Invalid(node, "The account holds balance of {}".format(user_account.balance))
+
+
+

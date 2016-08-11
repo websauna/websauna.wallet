@@ -7,6 +7,7 @@
       <th>Amount</th>
       <th>Account</th>
       <th>Chain</th>
+      <th>Actions</th>
     </tr>
   </thead>
 
@@ -33,6 +34,14 @@
         <a href="{{ detail.network_resource|model_url }}">
           {{ detail.network_resource.network.name }}
         </a>
+      </td>
+
+      <td>
+        {% if detail.can_withdraw %}
+          <a href="{{ detail.asset_resource|model_url('withdraw') }}">
+            Withdraw
+          </a>
+        {% endif %}
       </td>
     </tr>
   {% endfor %}

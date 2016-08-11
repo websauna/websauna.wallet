@@ -13,25 +13,42 @@ from .wallet import UserAddressAsset
 from .wallet import UserAddressFolder
 from .wallet import UserWallet
 from .schemas import network_choice_node
+from .schemas import validate_ethereum_address
+from .schemas import validate_withdraw_amount
 
 
-class Withdraw(CSRFSchema):
+class WithdrawSchema(CSRFSchema):
 
-    address = colander.SchemaNode(colander.String())
+    address = colander.SchemaNode(
+        colander.String(),
+        title="To address",
+        validators=[validate_ethereum_address])
 
-    amount = colander.SchemaNode(colander.String())
+    amount = colander.SchemaNode(
+        colander.Decimal(),
+        validators=[validate_withdraw_amount],
+        description="Use dot (.) as a decimal separator")
+
+    note = colander.SchemaNode(
+        colander.String(),
+        title="Note",
+        description="For your own history")
 
 
-
-@view_config(context=UserAddressAsset, route_name="wallet", name="create-account", renderer="wallet/wallet_form.html")
+@view_config(context=UserAddressAsset, route_name="wallet", name="withdraw", renderer="wallet/withdraw.html")
 def withdraw(user_asset: UserAddressAsset, request):
     """List all addresses."""
 
-    schema = CreateAddressSchema().bind(request=request)
+    schema = WithdrawSchema().bind(request=request, user_asset=user_asset)
 
     # Create a styled button with some extra Bootstrap 3 CSS classes
-    b = deform.Button(name='process', title="Create", css_class="btn-block btn-lg")
+    b = deform.Button(name='process', title="Withdraw", css_class="btn-block btn-lg")
     form = deform.Form(schema, buttons=(b,))
+
+    title = "Withdraw"
+    wallet = user_asset.wallet
+    asset_resource = user_asset
+
 
     # User submitted this form
     if request.method == "POST":
@@ -41,13 +58,16 @@ def withdraw(user_asset: UserAddressAsset, request):
                 appstruct = form.validate(request.POST.items())
 
                 # Save form data from appstruct
-                network = appstruct["network"]
-                name = appstruct["name"]
-                confirmations = get_required_confirmation_count(request.registry, network, CryptoOperationType.create_address)
-                UserCryptoAddress.create_address(wallet.user, network, name, confirmations)
+                amount = appstruct["amount"]
+                address = appstruct["address"]
+                note = appstruct["note"]
+                confirmations = get_required_confirmation_count(request.registry, user_asset.account.network, CryptoOperationType.withdraw)
+
+                user_crypto_address = asset_resource.address.address
+                user_crypto_address.withdraw(asset_resource.asset, amount, address, note, confirmations)
 
                 # Thank user and take him/her to the next page
-                messages.add(request, kind="info", msg="New account is being created", msg_id="msg-account-created")
+                messages.add(request, kind="info", msg="Please confirm withdraw", msg_id="msg-confirmation-needed")
                 return HTTPFound(request.resource_url(wallet, "transactions"))
 
             except deform.ValidationFailure as e:
@@ -60,8 +80,6 @@ def withdraw(user_asset: UserAddressAsset, request):
     else:
         # Render a form with initial values
         rendered_form = form.render()
-
-    title = "Create new account"
 
     return locals()
 

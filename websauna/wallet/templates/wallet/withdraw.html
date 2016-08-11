@@ -1,0 +1,15 @@
+{%  extends "wallet/base.html" %}
+
+{% block wallet_content %}
+
+  <h1>Withdraw</h1>
+
+  <p>
+    Withdrawing asset
+    <a href="{{ asset_resource|model_url}}">{{ asset_resource.get_title() }}</a>
+    in <a href="{{ network_resource|model_url}}">{{ network_resource.get_title() }}.
+  </p>
+
+  {{ rendered_form|safe }}
+
+{% endblock %}

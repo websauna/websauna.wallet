@@ -5,6 +5,8 @@ from decimal import Decimal
 import binascii
 from typing import Optional, Iterable, List, Tuple, Union
 
+import datetime
+
 import enum
 import uuid
 
@@ -16,6 +18,7 @@ from sqlalchemy import Column, Integer, Numeric, ForeignKey, func, String, Large
 from sqlalchemy.orm import relationship, backref, Session
 from sqlalchemy.dialects.postgresql import UUID
 import sqlalchemy.dialects.postgresql as psql
+
 from websauna.system.model.columns import UTCDateTime
 from websauna.system.model.json import NestedMutationDict
 from websauna.system.user.models import User
@@ -27,6 +30,8 @@ from websauna.wallet.utils import ensure_positive
 from .account import Account
 from .account import AssetNetwork
 from .account import Asset
+
+from .confirmation import ManualConfirmation, ManualConfirmationType
 
 
 class MultipleAssetAccountsPerAddress(Exception):
@@ -46,6 +51,9 @@ class CryptoOperationType(enum.Enum):
 
 class CryptoOperationState(enum.Enum):
     """Different crypto operations."""
+
+    #: The operation needs manual confirmation by user, by SMS
+    confirmation_required = "confirmation_required"
 
     #: Operation is created by web process and it's waiting to be picked up the service daemon
     waiting = "waiting"
@@ -427,6 +435,8 @@ class CryptoOperation(Base):
                                         single_parent=True,),)
 
     #: Any other (subclass specific) data we associate with this transaction. Contains ``error`` string after ``mark_failed()``
+    #: Contents
+    #: * error
     other_data = Column(NestedMutationDict.as_mutable(psql.JSONB), default=dict)
 
     #: Label used in UI
@@ -522,10 +532,11 @@ class CryptoOperation(Base):
         self.completed_at = now()
         self.state = CryptoOperationState.success
 
-    def mark_failed(self):
+    def mark_failed(self, error: Optional[str]=None):
         """This operation cannot be completed."""
         self.failed_at = now()
         self.state = CryptoOperationState.failed
+        self.other_data["error"] = error
 
     def update_confirmations(self, confirmation_count) -> bool:
         """How this operation reacts for confirmation counts."""
@@ -773,12 +784,8 @@ class UserCryptoAddress(Base):
         op.required_confirmation_count = confirmations
 
         # Bind operation to a user
-        uo = UserCryptoOperation(user=user, crypto_operation=op)
-        dbsession.add(uo)
-        dbsession.flush()
-
+        uo = UserCryptoOperation.wrap(user=user, crypto_operation=op)
         assert op.network
-
         return op
 
     @classmethod
@@ -809,6 +816,17 @@ class UserCryptoAddress(Base):
         dbsession = Session.object_session(address)
         return dbsession.query(UserCryptoAddress).filter_by(address=address).one_or_none()
 
+    def get_crypto_account(self, asset: Asset):
+        crypto_account = self.address.get_account(asset)
+        return crypto_account
+
+    def withdraw(self, asset: Asset, amount: Decimal, address: str, note: str, required_confirmation_count: int) -> "UserCryptoOperation":
+        """Withdraw assets from this address."""
+        crypto_account = self.get_crypto_account(asset)
+        op = crypto_account.withdraw(amount, address, note, required_confirmation_count)
+        uco = UserCryptoOperation.wrap(self.user, op)
+        return uco
+
 
 class UserCryptoOperation(Base):
     """Operation initiated by a user.."""
@@ -835,6 +853,16 @@ class UserCryptoOperation(Base):
 
     def __repr__(self):
         return self.__str__()
+
+    @classmethod
+    def wrap(cls, user: User, op: CryptoOperation) -> "UserCryptoOperation":
+        assert op.id
+        assert user.id
+        dbsession = Session.object_session(user)
+        uco = UserCryptoOperation(user=user, crypto_operation=op)
+        dbsession.add(uco)
+        dbsession.flush()
+        return uco
 
     @classmethod
     def get_operations(cls, user: User, states: Iterable) -> Iterable[CryptoOperation]:
@@ -903,6 +931,54 @@ class CryptoNetworkStatus(Base):
         return heartbeat.get("block_number")
 
 
+
+class UserWithdrawConfirmation(ManualConfirmation):
+    """Confirm withdraws."""
+
+    __tablename__ = "user_withdraw_confirmation"
+
+    id = Column(psql.UUID(as_uuid=True), ForeignKey("manual_confirmation.id"), primary_key=True)
+
+    user_crypto_operation_id = Column(ForeignKey("user_crypto_operation.id"), nullable=True, unique=True)
+    user_crypto_operation = relationship(UserCryptoOperation,
+                                    single_parent=True,
+                                    cascade="all, delete-orphan",
+                                    backref="withdraw_confirmation")
+
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'withdraw',
+    }
+
+    @classmethod
+    def require_confirmation(self, uco: UserCryptoOperation, timeout=4*3600):
+
+        assert uco.id
+        assert uco.crypto_operation.operation_type == CryptoOperationType.withdraw
+
+        dbsession = Session.object_session(uco)
+        uco.crypto_operation.state = CryptoOperationState.confirmation_required
+
+        uwc = UserWithdrawConfirmation()
+        uwc.user = uco.user
+        uwc.user_crypto_operation = uco
+        uwc.deadline_at = now() + datetime.timedelta(seconds=timeout)
+        uwc.require_sms()
+        dbsession.add(uwc)
+        dbsession.flush()
+        return uwc
+
+    def resolve(self):
+        super(UserWithdrawConfirmation, self).resolve()
+        self.user_crypto_operation.crypto_operation.state = CryptoOperationState.waiting
+
+    def cancel(self):
+        super(UserWithdrawConfirmation, self).cancel()
+        self.user_crypto_operation.crypto_operation.mark_failed("Manual confirmation cancelled")
+
+    def timeout(self):
+        super(UserWithdrawConfirmation, self).timeout()
+        self.user_crypto_operation.crypto_operation.mark_failed("Manual confirmation timed out")
 
 
 

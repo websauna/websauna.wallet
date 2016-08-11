@@ -1,5 +1,6 @@
 from typing import List, Iterable
 
+from decimal import Decimal
 from pyramid import httpexceptions
 from pyramid.decorator import reify
 from pyramid.security import Allow
@@ -67,6 +68,10 @@ class UserAddressAsset(Resource):
     @property
     def address(self) -> "UserAddress":
         return self.__parent__
+
+    @property
+    def balance(self) -> Decimal:
+        return self.account.get_balance()
 
     @property
     def asset(self) -> Asset:
@@ -298,6 +303,7 @@ def describe_user_address_asset(request, uaa: UserAddressAsset) -> dict:
     entry["address_resource"] = uaa.address
     entry["balance"] = format_asset_amount(account.get_balance(), account.asset.asset_class)
     entry["network_resource"] = get_network_resource(request, account.asset.network)
+    entry["can_withdraw"] = account.get_balance() > 0
     return entry
 
 
