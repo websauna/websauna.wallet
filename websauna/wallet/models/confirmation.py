@@ -2,6 +2,9 @@ import random
 from string import digits
 from typing import Optional
 
+import datetime
+from sqlalchemy.orm import Session
+
 import enum
 
 import sqlalchemy as sa
@@ -89,9 +92,9 @@ class ManualConfirmation(Base):
         'polymorphic_on': confirmed_action
     }
 
-    def require_sms(self):
+    def require_sms(self, phone_number):
         self.confirmation_type = ManualConfirmationType.sms
-        self.other_data = dict(sms_code=create_sms_code())
+        self.other_data = dict(sms_code=create_sms_code(), phone_number=phone_number)
 
     def is_valid_sms(self, code):
         return self.other_data["sms_code"] == code
@@ -118,12 +121,12 @@ class ManualConfirmation(Base):
         self.action_taken_at = now()
         self.state = ManualConfirmationState.resolved
 
-        self.other_data.update(capture_data)
+        self.update_capture_data(capture_data)
 
     def cancel(self, capture_data: Optional[dict]=None):
         self.action_taken_at = now()
         self.state = ManualConfirmationState.cancelled
-        self.other_data.update(capture_data)
+        self.update_capture_data(capture_data)
 
     def timeout(self):
         self.action_taken_at = now()
@@ -137,16 +140,34 @@ class ManualConfirmation(Base):
 
 
 class UserNewPhoneNumberConfirmation(ManualConfirmation):
-    """Make sure we get user phone numbers."""
+    """Manage user phone number initial set and phone number change confirmations."""
 
     __tablename__ = "user_new_phone_number_confirmation"
 
     id = sa.Column(psql.UUID(as_uuid=True), sa.ForeignKey("manual_confirmation.id"), primary_key=True)
 
     __mapper_args__ = {
-        'polymorphic_identity': 'withdraw',
+        'polymorphic_identity': 'new_phone_number',
     }
 
-    def resolve(self, capture_data):
+    def resolve(self, capture_data: Optional[dict]=None):
         super(UserNewPhoneNumberConfirmation, self).resolve(capture_data)
         self.user.user_data["phone_number"] = self.other_data["phone_number"]
+
+    @classmethod
+    def get_pending_confirmation(cls, user: User) -> Optional["UserNewPhoneNumberConfirmation"]:
+        dbsession = Session.object_session(user)
+        return dbsession.query(UserNewPhoneNumberConfirmation).filter_by(user=user, state=ManualConfirmationState.pending).one_or_none()
+
+    @classmethod
+    def require_confirmation(cls, user: User, phone_number, timeout=4*3600):
+        assert cls.get_pending_confirmation(user) == None
+        dbsession = Session.object_session(user)
+
+        confirmation = UserNewPhoneNumberConfirmation()
+        confirmation.user = user
+        confirmation.deadline_at = now() + datetime.timedelta(seconds=timeout)
+        confirmation.require_sms(phone_number)
+        dbsession.add(confirmation)
+        dbsession.flush()
+        return confirmation

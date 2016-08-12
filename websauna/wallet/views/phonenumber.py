@@ -1,6 +1,5 @@
 """Get the initial user phone number."""
 import colander
-from websauna.wallet.tests.eth.models.sms import AskConfirmation
 import logging
 import deform
 from pyramid.view import view_config
@@ -10,6 +9,7 @@ from websauna.system.form import rollingwindow
 from websauna.system.http import Request
 from websauna.system.user.models import User
 from websauna.wallet.models.confirmation import UserNewPhoneNumberConfirmation, ManualConfirmation
+from websauna.wallet.views.confirm import AskConfirmation
 from websauna.wallet.views.wallet import UserWallet
 
 

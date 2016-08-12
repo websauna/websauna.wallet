@@ -959,11 +959,12 @@ class UserWithdrawConfirmation(ManualConfirmation):
         dbsession = Session.object_session(uco)
         uco.crypto_operation.state = CryptoOperationState.confirmation_required
 
+        user = uco.user
         uwc = UserWithdrawConfirmation()
-        uwc.user = uco.user
+        uwc.user = user
         uwc.user_crypto_operation = uco
         uwc.deadline_at = now() + datetime.timedelta(seconds=timeout)
-        uwc.require_sms()
+        uwc.require_sms(user.user_data["phone_number"])
         dbsession.add(uwc)
         dbsession.flush()
         return uwc

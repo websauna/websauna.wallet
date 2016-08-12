@@ -46,9 +46,10 @@ def validate_sms_code(node, kw):
 class SMSConfirmationSchema(colander.Schema):
 
     code = colander.SchemaNode(colander.String(),
-        validators=[throttle_confirmation_attempts, validate_sms_code]
+        title="Verification code",
+        validators=[throttle_confirmation_attempts, validate_sms_code],
         widget=deform.widget.TextInputWidget(size=6, maxlength=6, type='email', template="textinput_placeholder", placeholder="000000")
-        ))
+        )
 
 
 class AskConfirmation:

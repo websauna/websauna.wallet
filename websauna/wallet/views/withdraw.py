@@ -8,12 +8,9 @@ from websauna.system.form.schema import CSRFSchema
 from websauna.wallet.ethereum.asset import get_required_confirmation_count
 from websauna.wallet.models import UserCryptoAddress
 from websauna.wallet.models.blockchain import CryptoOperationType
-from websauna.wallet.tests.eth.models.sms import AskConfirmation
+from websauna.wallet.views.confirm import AskConfirmation
 
 from .wallet import UserAddressAsset, UserOperation
-from .wallet import UserAddressFolder
-from .wallet import UserWallet
-from .schemas import network_choice_node
 from .schemas import validate_ethereum_address
 from .schemas import validate_withdraw_amount
 
