@@ -6,9 +6,12 @@ from pyramid.view import view_config
 from websauna.system.core import messages
 from websauna.system.form.schema import CSRFSchema
 from websauna.wallet.ethereum.asset import get_required_confirmation_count
+from websauna.wallet.ethereum.utils import eth_address_to_bin
 from websauna.wallet.models import UserCryptoAddress
 from websauna.wallet.models.blockchain import CryptoOperationType
+from websauna.wallet.utils import format_asset_amount
 from websauna.wallet.views.confirm import AskConfirmation
+from websauna.wallet.views.network import get_network_resource
 
 from .wallet import UserAddressAsset, UserOperation
 from .schemas import validate_ethereum_address
@@ -20,11 +23,12 @@ class WithdrawSchema(CSRFSchema):
     address = colander.SchemaNode(
         colander.String(),
         title="To address",
-        validators=[validate_ethereum_address])
+        validator=validate_ethereum_address,
+        description="Ethereum address as 0x prefixed hex string format")
 
     amount = colander.SchemaNode(
         colander.Decimal(),
-        validators=[validate_withdraw_amount],
+        validator=validate_withdraw_amount,
         description="Use dot (.) as a decimal separator")
 
     note = colander.SchemaNode(
@@ -37,15 +41,18 @@ class WithdrawSchema(CSRFSchema):
 def withdraw(user_asset: UserAddressAsset, request):
     """List all addresses."""
 
-    schema = WithdrawSchema().bind(request=request, user_asset=user_asset)
-
-    # Create a styled button with some extra Bootstrap 3 CSS classes
-    b = deform.Button(name='process', title="Withdraw", css_class="btn-block btn-lg")
-    form = deform.Form(schema, buttons=(b,))
 
     title = "Withdraw"
     wallet = user_asset.wallet
     asset_resource = user_asset
+    network_resource = get_network_resource(request, asset_resource.asset.network)
+    balance = format_asset_amount(user_asset.balance, user_asset.asset.asset_class)
+    address_resource = asset_resource.address
+    account = user_asset.account
+
+    schema = WithdrawSchema().bind(request=request, account=account)
+    b = deform.Button(name='process', title="Withdraw", css_class="btn-block btn-lg")
+    form = deform.Form(schema, buttons=(b,))
 
     # User submitted this form
     if request.method == "POST":
@@ -56,9 +63,9 @@ def withdraw(user_asset: UserAddressAsset, request):
 
                 # Save form data from appstruct
                 amount = appstruct["amount"]
-                address = appstruct["address"]
+                address = eth_address_to_bin(appstruct["address"])
                 note = appstruct["note"]
-                confirmations = get_required_confirmation_count(request.registry, user_asset.account.network, CryptoOperationType.withdraw)
+                confirmations = get_required_confirmation_count(request.registry, user_asset.account.asset.network, CryptoOperationType.withdraw)
 
                 user_crypto_address = asset_resource.address.address
                 user_crypto_address.withdraw(asset_resource.asset, amount, address, note, confirmations)

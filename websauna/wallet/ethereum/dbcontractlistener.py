@@ -194,7 +194,6 @@ class EthWalletListener(DatabaseContractListener):
 
             op.opid = opid
             op.txid = txid_to_bin(log_entry["transactionHash"])
-            op.address = address
             op.block = int(log_entry["blockNumber"], 16)
             op.required_confirmation_count = self.confirmation_count
             self.dbsession.add(op)

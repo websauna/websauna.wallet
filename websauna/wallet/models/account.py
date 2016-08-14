@@ -258,6 +258,12 @@ class AccountTransaction(Base):
     def __json__(self, request):
         return dict(id=str(self.id), amount=float(self.amount), message=self.message)
 
+    def reverse(self) -> "AccountTransaction":
+        """Moves the funds back to the sending account."""
+        counter_account = self.counterparty.account
+        note = "Transaction {} reversed".format(self.id)
+        return Account.transfer(self.amount, self.account, counter_account, self.amount, note)
+
 
 class UserOwnedAccount(Base):
     """An account belonging to a some user."""

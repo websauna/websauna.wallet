@@ -8,7 +8,16 @@
 
   <ul class="nav nav-tabs">
     <li role="presentation"><a id="nav-wallet-overview" href="{{ wallet|model_url }}">Overview</a></li>
-    <li role="presentation"><a id="nav-wallet-transactions" href="{{ wallet.transactions|model_url }}">Transactions</a></li>
+    <li role="presentation">
+      <a id="nav-wallet-transactions" href="{{ wallet.transactions|model_url }}">
+        Transactions
+        {% with pending=wallet.get_pending_operation_count() %}
+          {% if pending  %}
+            <span class="label label-warning">{{ pending }}</span>
+          {% endif %}
+        {% endwith %}
+      </a>
+    </li>
     <li role="presentation"><a id="nav-wallet-accounts" href="{{ wallet.accounts|model_url }}">Accounts</a></li>
   </ul>
 

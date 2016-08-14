@@ -43,17 +43,20 @@ def validate_ethereum_address(node, value, **kwargs):
         raise colander.Invalid(node, "Ethereum address must be 42 characters, including 0x prefix")
 
 
-
-def validate_withdraw_amount(node, value, **kwargs):
+@colander.deferred
+def validate_withdraw_amount(node, bind_kw):
     """Make sure the user doesn't attempt to overdraw account."""
 
-    user_account = kwargs["user_account"]
+    account = bind_kw["account"]
 
-    if value <= 0:
-        raise colander.Invalid(node, "Withdraw amount must be positive.")
+    def validate(node, value):
+        if value <= 0:
+            raise colander.Invalid(node, "Withdraw amount must be positive.")
 
-    if value > user_account.balance:
-        raise colander.Invalid(node, "The account holds balance of {}".format(user_account.balance))
+        if value > account.get_balance():
+            raise colander.Invalid(node, "The account holds balance of {}".format(account.get_balance()))
+
+    return validate
 
 
 

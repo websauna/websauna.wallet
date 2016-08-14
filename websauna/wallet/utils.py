@@ -14,6 +14,7 @@ def get_asset_formatter(formatter: AssetClass):
 
 
 def format_asset_amount(num: Decimal, formatter: AssetClass):
+    assert isinstance(formatter, AssetClass)
     python_format = get_asset_formatter(formatter)
     return python_format.format(num)
 

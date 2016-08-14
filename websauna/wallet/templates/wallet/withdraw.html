@@ -2,12 +2,13 @@
 
 {% block wallet_content %}
 
-  <h1>Withdraw</h1>
+  <h1>Withdraw {{ asset_resource.asset.name }}</h1>
 
   <p>
     Withdrawing asset
     <a href="{{ asset_resource|model_url}}">{{ asset_resource.get_title() }}</a>
-    in <a href="{{ network_resource|model_url}}">{{ network_resource.get_title() }}.
+    (<a href="{{ network_resource|model_url}}">{{ network_resource.get_title() }}</a>).
+    Account <a href="{{ address_resource|model_url}}">{{ address_resource.get_title() }}</a> balance is <strong>{{ balance }}</strong>.
   </p>
 
   {{ rendered_form|safe }}

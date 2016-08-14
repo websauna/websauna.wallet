@@ -240,6 +240,12 @@ class UserWallet(Resource):
 
         raise KeyError()
 
+    def get_pending_operation_count(self):
+        """Used to render the pending op number in wallet nav."""
+        state = (CryptoOperationState.waiting, CryptoOperationState.confirmation_required, CryptoOperationState.broadcasted, CryptoOperationState.pending)
+        ops = self.user.owned_crypto_operations.join(CryptoOperation).filter(CryptoOperation.state.in_(state))
+        return ops.count()
+
     def get_address_resource(self, address: UserCryptoAddress) -> UserAddress:
         assert address.user == self.user
         return self["accounts"][uuid_to_slug(address.id)]

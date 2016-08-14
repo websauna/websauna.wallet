@@ -10,6 +10,7 @@ from pyramid_sms.validators import valid_international_phone_number
 from websauna.system.core import messages
 from websauna.system.form import rollingwindow
 from websauna.system.form.schema import CSRFSchema
+from websauna.system.form.throttle import throttled_view
 from websauna.system.http import Request
 from websauna.system.user.models import User
 from websauna.wallet.models.confirmation import UserNewPhoneNumberConfirmation, ManualConfirmation, ManualConfirmationState
@@ -20,30 +21,16 @@ from websauna.wallet.views.wallet import UserWallet
 logger = logging.getLogger(__name__)
 
 
-@colander.deferred
-def throttle_new_phone_number_sign_ups(node, kw):
-    request = kw["request"]
-
-    def inner(node, value):
-        # Check we don't have somebody brute forcing expires
-        # TODO: Use per confirmation keys
-        if rollingwindow.check(request.registry, "new_phone_number", window=60, limit=5):
-
-            # Alert devops through Sentry
-            logger.warn("Excessive new phone number sign ups")
-
-            # Tell users slow down
-            raise colander.Invalid(node, 'Too many phone number sign ups at the moment. Please try again later.')
-
-    return inner
-
 
 class NewPhoneNumber(CSRFSchema):
+
     phone_number = colander.SchemaNode(
         colander.String(),
-        validators=[throttle_new_phone_number_sign_ups, valid_international_phone_number],
+        validator=valid_international_phone_number,
         title="Mobile phone number",
-        desciption="Please give your mobile phone number in international format starting with + country code prefix. Example: +1 555 123 1234."
+        default="+",
+        description="Please give your mobile phone number in international format using with country code prefix with plus sign notation. Example: +1 555 123 1234.",
+        widget=deform.widget.TextInputWidget(size=6, maxlength=6, type='tel', template="textinput_placeholder")
 
     )
 
@@ -52,7 +39,12 @@ def has_pending_phone_number_request(request: Request, user: User):
     return request.dbsession.query(UserNewPhoneNumberConfirmation).filter_by(user=user, state=ManualConfirmationState.pending).one_or_none()
 
 
-@view_config(context=UserWallet, route_name="wallet", name="new-phone-number", renderer="wallet/new_phone_number.html")
+@view_config(
+    context=UserWallet,
+    route_name="wallet",
+    name="new-phone-number",
+    renderer="wallet/new_phone_number.html",
+    decorator=throttled_view(limit=60))
 def new_phone_number(wallet, request):
 
     user = wallet.user

@@ -67,8 +67,11 @@ class CryptoOperationState(enum.Enum):
     #: The operation was success, confirmation block count reached
     success = "success"
 
-    #: The operation failed after max retry attempts
+    #: The operation failed due to not enough gas, timeout or such after the network interaction. The balance cannot be returned to the user without manual intervention and confirmations.
     failed = "failed"
+
+    #: The operation was cancelled before it was broadcasted to the network. The balance was returned to the user automatically.
+    cancelled = "cancelled"
 
 
 class CryptoAddress(Base):
@@ -538,6 +541,16 @@ class CryptoOperation(Base):
         self.state = CryptoOperationState.failed
         self.other_data["error"] = error
 
+    def mark_cancelled(self, error: Optional[str]=None):
+        """This operation cannot be completed.
+
+        Calling this implies automatic :meth:`reverse` of the operation.
+        """
+        self.failed_at = now()
+        self.state = CryptoOperationState.cancelled
+        self.other_data["error"] = error
+        self.reverse()
+
     def update_confirmations(self, confirmation_count) -> bool:
         """How this operation reacts for confirmation counts."""
         raise NotImplementedError()
@@ -574,6 +587,10 @@ class CryptoOperation(Base):
             return None
 
         return current_block - self.block
+
+    def reverse(self):
+        """Undo the operation and return the hold balance to the user."""
+        raise NotImplementedError()
 
 
 class CryptoAddressOperation(CryptoOperation):
@@ -713,6 +730,11 @@ class CryptoAddressWithdraw(CryptoOperation):
             self.mark_complete()
             return True
         return False
+
+    def reverse(self):
+        """User cancels the withdraw before it reaches the network."""
+        escrow_tx = self.holding_account.transactions.first()
+        escrow_tx.reverse()
 
 
 class CryptoTokenCreation(DepositResolver, CryptoOperation):
@@ -975,11 +997,11 @@ class UserWithdrawConfirmation(ManualConfirmation):
 
     def cancel(self, capture_data=None):
         super(UserWithdrawConfirmation, self).cancel(capture_data)
-        self.user_crypto_operation.crypto_operation.mark_failed("Manual confirmation cancelled")
+        self.user_crypto_operation.crypto_operation.mark_cancelled("Manual confirmation cancelled")
 
     def timeout(self):
         super(UserWithdrawConfirmation, self).timeout()
-        self.user_crypto_operation.crypto_operation.mark_failed("Manual confirmation timed out")
+        self.user_crypto_operation.crypto_operation.mark_cancelled("Manual confirmation timed out")
 
 
 
