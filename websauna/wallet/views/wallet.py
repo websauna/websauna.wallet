@@ -24,6 +24,7 @@ from websauna.wallet.models import Asset
 from websauna.wallet.models import CryptoAddressAccount
 from websauna.wallet.models.blockchain import CryptoOperationType
 from websauna.wallet.utils import format_asset_amount
+from websauna.wallet.views.decorators import wallet_view
 from websauna.wallet.views.network import get_asset_resource
 from websauna.wallet.views.network import get_network_resource
 
@@ -230,6 +231,7 @@ class UserWallet(Resource):
         self.op_folder = Resource.make_lineage(self, uof, "transactions")
 
     def __getitem__(self, item):
+
         if item == "accounts":
             return self.address_folder
 
@@ -272,13 +274,6 @@ class WalletFolder(Resource):
         if not user:
             raise KeyError()
         return self.get_user_wallet(user)
-
-
-@view_config(context=WalletFolder, route_name="wallet", name="")
-def wallet_root(wallet_root, request):
-    """When wallet folder is accessed without path key, redirect to the users own wallet."""
-    url = request.resource_url(wallet_root[uuid_to_slug(request.user.uuid)])
-    return httpexceptions.HTTPFound(url)
 
 
 def describe_address(request, ua: UserAddress) -> dict:
@@ -351,6 +346,7 @@ def describe_operation(request, uop: UserOperation) -> dict:
 
 
 @view_config(context=UserOperationFolder, route_name="wallet", name="", renderer="wallet/ops.html")
+@wallet_view
 def operations_root(op_root: UserOperationFolder, request):
     """When wallet folder is accessed without path key, redirect to the users own wallet."""
     wallet = op_root.wallet
@@ -367,6 +363,7 @@ def operations_root(op_root: UserOperationFolder, request):
 
 
 @view_config(context=UserOperation, route_name="wallet", name="", renderer="wallet/op.html")
+@wallet_view
 def operation(uop: UserOperation, request):
     """Single operation in a wallet."""
     detail = describe_operation(request, uop)
@@ -377,6 +374,7 @@ def operation(uop: UserOperation, request):
 
 
 @view_config(context=UserAddress, route_name="wallet", name="", renderer="wallet/address.html")
+@wallet_view
 def address(ua: UserAddress, request):
     """Show single address."""
     wallet = ua.__parent__.__parent__
@@ -388,6 +386,7 @@ def address(ua: UserAddress, request):
 
 
 @view_config(context=UserAddressFolder, route_name="wallet", name="", renderer="wallet/addresses.html")
+@wallet_view
 def addresses(uaf: UserAddressFolder, request):
     """List all addresses."""
     wallet = uaf.__parent__
@@ -397,6 +396,7 @@ def addresses(uaf: UserAddressFolder, request):
 
 
 @view_config(context=UserAddressAsset, route_name="wallet", name="", renderer="wallet/asset.html")
+@wallet_view
 def asset(uaa: UserAddressAsset, request):
     """Show single address."""
     wallet = uaa.wallet
@@ -408,6 +408,7 @@ def asset(uaa: UserAddressAsset, request):
 
 
 @view_config(context=UserWallet, route_name="wallet", name="", renderer="wallet/wallet.html")
+@wallet_view
 def wallet(wallet: UserWallet, request: Request):
     """Wallet Overview page."""
 
@@ -421,6 +422,15 @@ def wallet(wallet: UserWallet, request: Request):
     breadcrumbs = get_breadcrumbs(wallet, request)
 
     return locals()
+
+
+@view_config(context=WalletFolder, route_name="wallet", name="")
+def wallet_root(wallet_root, request):
+    """Root of all hosted wallet resources.
+
+    When wallet folder is accessed without path key, redirect to the users own wallet."""
+    url = request.resource_url(wallet_root[uuid_to_slug(request.user.uuid)])
+    return httpexceptions.HTTPFound(url)
 
 
 def route_factory(request):

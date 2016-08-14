@@ -1,14 +1,18 @@
-"""Get the initial user phone number."""
+"""Get the user phone number."""
 import colander
 import logging
 import deform
+from pyramid.renderers import render
 from pyramid.view import view_config
 from pyramid import httpexceptions
 
+from pyramid_sms.validators import valid_international_phone_number
+from websauna.system.core import messages
 from websauna.system.form import rollingwindow
+from websauna.system.form.schema import CSRFSchema
 from websauna.system.http import Request
 from websauna.system.user.models import User
-from websauna.wallet.models.confirmation import UserNewPhoneNumberConfirmation, ManualConfirmation
+from websauna.wallet.models.confirmation import UserNewPhoneNumberConfirmation, ManualConfirmation, ManualConfirmationState
 from websauna.wallet.views.confirm import AskConfirmation
 from websauna.wallet.views.wallet import UserWallet
 
@@ -34,25 +38,26 @@ def throttle_new_phone_number_sign_ups(node, kw):
     return inner
 
 
-class NewPhoneNumber(colander.Schema):
+class NewPhoneNumber(CSRFSchema):
     phone_number = colander.SchemaNode(
         colander.String(),
+        validators=[throttle_new_phone_number_sign_ups, valid_international_phone_number],
         title="Mobile phone number",
-        desciption="Please give your mobile phone number in international format."
+        desciption="Please give your mobile phone number in international format starting with + country code prefix. Example: +1 555 123 1234."
 
     )
 
 
 def has_pending_phone_number_request(request: Request, user: User):
-    return request.dbsession.query(UserNewPhoneNumberConfirmation).filter_by(user=user, state=ManualConfirmation.pending).one_or_none()
+    return request.dbsession.query(UserNewPhoneNumberConfirmation).filter_by(user=user, state=ManualConfirmationState.pending).one_or_none()
 
 
-@view_config(context=UserWallet, route_name="wallet", name="give-new-phone-number")
+@view_config(context=UserWallet, route_name="wallet", name="new-phone-number", renderer="wallet/new_phone_number.html")
 def new_phone_number(wallet, request):
 
     user = wallet.user
 
-    if has_pending_phone_number_request(user):
+    if has_pending_phone_number_request(request, user):
         return httpexceptions.HTTPFound(request.resource_url(wallet), "confirm-phone-number")
 
     schema = NewPhoneNumber().bind(request=request)
@@ -69,9 +74,7 @@ def new_phone_number(wallet, request):
 
                 # Save form data from appstruct
                 phone_number = appstruct["phone_number"]
-                user.user_data["pending_phone_number"] = phone_number
-
-
+                UserNewPhoneNumberConfirmation.require_confirmation(user, phone_number)
 
                 return httpexceptions.HTTPFound(request.resource_url(wallet, "confirm-phone-number"))
 
@@ -91,11 +94,36 @@ def new_phone_number(wallet, request):
 
 
 class ConfirmPhoneNumber(AskConfirmation):
+    """Get the confirmation code from the user phone number."""
 
     @property
-    def manual_confirmation(self):
-        return self.context.manual_confirmation
+    def manual_confirmation(self) -> UserNewPhoneNumberConfirmation:
+        wallet = self.context
+        return UserNewPhoneNumberConfirmation.get_pending_confirmation(wallet.user)
 
-    @view_config(context=UserWallet, route_name="wallet", name="confirm-phone-number", renderer="wallet/new_phone_number.html")
+    def render_sms(self, template_context):
+        return render("wallet/sms/confirm_phone_number.txt", template_context, request=self.request)
+    
+    def do_success(self):
+        super(ConfirmPhoneNumber, self).do_success()
+        wallet = self.context
+        messages.add(self.request, kind="success", msg="Your mobile phone number has been confirmed.", msg_id="msg-phone-confirmed")
+        return httpexceptions.HTTPFound(self.request.resource_url(wallet))
+
+    def do_cancel(self):
+        super(ConfirmPhoneNumber, self).do_cancel()
+        wallet = self.context
+        return httpexceptions.HTTPFound(self.request.resource_url(wallet))
+
+    @view_config(context=UserWallet, route_name="wallet", name="confirm-phone-number", renderer="wallet/confirm_phone_number.html")
     def render(self):
-        return self.act()
+
+        wallet = self.context  # type: UserWallet
+        user = wallet.user
+        request = self.request
+
+        if not has_pending_phone_number_request(request, user):
+            # We have confirmed the phone number, go to wallet root
+            return httpexceptions.HTTPFound(self.request.resource_url(wallet))
+
+        return self.act(locals())

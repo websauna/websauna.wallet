@@ -11,6 +11,7 @@ class Initializer(websauna.system.Initializer):
     def include_addons(self):
         """Include this addon in the configuration."""
         self.config.include("websauna.wallet")
+        self.config.include("pyramid_sms")
 
     def configure_static(self):
         """Configure static asset serving and cache busting."""

@@ -93,6 +93,7 @@ class ManualConfirmation(Base):
     }
 
     def require_sms(self, phone_number):
+        """Require SMS confirmation as confirmation type."""
         self.confirmation_type = ManualConfirmationType.sms
         self.other_data = dict(sms_code=create_sms_code(), phone_number=phone_number)
 
@@ -153,6 +154,10 @@ class UserNewPhoneNumberConfirmation(ManualConfirmation):
     def resolve(self, capture_data: Optional[dict]=None):
         super(UserNewPhoneNumberConfirmation, self).resolve(capture_data)
         self.user.user_data["phone_number"] = self.other_data["phone_number"]
+
+    @classmethod
+    def has_confirmed_phone_number(cls, user: User) -> bool:
+        return "phone_number" in user.user_data
 
     @classmethod
     def get_pending_confirmation(cls, user: User) -> Optional["UserNewPhoneNumberConfirmation"]:

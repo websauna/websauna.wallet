@@ -7,6 +7,16 @@ from websauna.wallet.tests.eth.utils import mock_create_addresses
 
 
 @pytest.fixture
+def require_phone_number(request, registry):
+    """Force phone number confirmation on wallet users for the test run."""
+    old_val = registry.settings.get("websauna.wallet.require_phone_number", False)
+    registry.settings["websauna.wallet.require_phone_number"] = True
+    def undo():
+        registry.settings["websauna.wallet.require_phone_number"] = old_val
+    request.addfinalizer(undo)
+
+
+@pytest.fixture
 def mock_eth_service(eth_network_id, dbsession, registry):
     """Non-functional Ethereum Service without a connection to geth."""
 

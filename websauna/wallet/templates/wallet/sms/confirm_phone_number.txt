@@ -1,0 +1,1 @@
+Use code {{ sms_code }} to verify your phone number for {{ site_name }}.

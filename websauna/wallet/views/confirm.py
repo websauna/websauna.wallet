@@ -7,6 +7,8 @@ import colander as c
 from pyramid_sms.outgoing import send_sms, send_templated_sms
 from websauna.system.core import messages
 from websauna.system.form import rollingwindow
+from websauna.system.form.schema import CSRFSchema
+from websauna.utils.time import now
 from websauna.wallet.models import ManualConfirmation
 
 
@@ -43,16 +45,17 @@ def validate_sms_code(node, kw):
             raise colander.Invalid("Confirmation code was not correct.")
 
 
-class SMSConfirmationSchema(colander.Schema):
+class SMSConfirmationSchema(CSRFSchema):
 
     code = colander.SchemaNode(colander.String(),
         title="Verification code",
         validators=[throttle_confirmation_attempts, validate_sms_code],
-        widget=deform.widget.TextInputWidget(size=6, maxlength=6, type='email', template="textinput_placeholder", placeholder="000000")
+        widget=deform.widget.TextInputWidget(size=6, maxlength=6, type='tel', template="textinput_placeholder", placeholder="000000")
         )
 
 
 class AskConfirmation:
+    """Generic confirmation view for SMS codes."""
 
     def __init__(self, context, request: Request):
         self.context = context
@@ -63,10 +66,14 @@ class AskConfirmation:
         raise NotImplementedError()
 
     def do_success(self):
-        raise NotImplementedError()
+        """Override in subclass to take action when confirmation success."""
+        self.success()
+        pass
 
     def do_cancel(self):
-        raise NotImplementedError()
+        """Override in subclass to take action when user cancels."""
+        self.cancel()
+        pass
 
     def capture_data(self):
         return {
@@ -78,14 +85,18 @@ class AskConfirmation:
         self.manual_confirmation.cancel(self.capture_data())
 
     def success(self):
-        self.manual_confirmation.success(self.capture_data())
+        self.manual_confirmation.resolve(self.capture_data())
 
     def get_target_phone_number(self):
         """Get the user's phone number."""
-        return self.user.user_data["phone_number"]
+        return self.manual_confirmation.other_data.get("phone_number")
 
     def is_confirmation_sent(self):
-        return "phone_number" in self.manual_confirmation.other_data
+        return "sms_sent_at" in self.manual_confirmation.other_data
+
+    def render_sms(self, template_context) -> str:
+        """Get SMS text for this confirmation."""
+        raise NotImplementedError()
 
     def send_confirmation(self):
 
@@ -95,15 +106,18 @@ class AskConfirmation:
             return
 
         context = {
-            "code": self.manual_confirmation.other_data["code"],
-            "action_text": self.manual_confirmation.other_data["action_text"]
+            "sms_code": self.manual_confirmation.other_data["sms_code"],
         }
 
-        send_templated_sms(self.request, phone_number, context)
+        sms_text = self.render_sms(context)
 
-        messages.add(self.request, type="success", msg="A confirmation SMS has been sent to your phone number {}".format(phone_number), msg_id="msg-phone-confirmation-send")
+        send_sms(self.request, phone_number, sms_text)
+        self.manual_confirmation.other_data["sms_sent_at"] = now()
 
-    def act(self):
+        messages.add(self.request, kind="success", msg="A confirmation SMS has been sent to your phone number {}".format(phone_number), msg_id="msg-phone-confirmation-send")
+
+    def act(self, extra_template_context: dict):
+        """Subclasses call this in their own rendering method."""
         request = self.request
         schema = SMSConfirmationSchema().bind(request=request, manual_confirmation=self.manual_confirmation)
 
@@ -137,6 +151,8 @@ class AskConfirmation:
 
         title = "Create new account"
 
-        return locals()
+        template_context = locals()
+        template_context.update(extra_template_context)
+        return template_context
 
 
