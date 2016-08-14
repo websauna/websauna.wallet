@@ -21,3 +21,4 @@ from .blockchain import UserWithdrawConfirmation
 from .confirmation import ManualConfirmation
 from .confirmation import ManualConfirmationType
 from .confirmation import ManualConfirmationState
+from .confirmation import UserNewPhoneNumberConfirmation

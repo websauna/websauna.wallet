@@ -4,6 +4,7 @@
 #
 
 set -u
+set -x
 
 # Don't run service while we nuke the db
 pkill ethereum-service

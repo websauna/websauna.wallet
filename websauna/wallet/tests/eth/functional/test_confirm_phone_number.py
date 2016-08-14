@@ -1,6 +1,3 @@
-
-"""An example login test case."""
-
 import transaction
 from sqlalchemy.orm.session import Session
 

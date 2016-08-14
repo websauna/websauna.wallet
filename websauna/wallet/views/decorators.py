@@ -5,6 +5,19 @@ from pyramid import httpexceptions
 from websauna.wallet.models.confirmation import UserNewPhoneNumberConfirmation
 
 
+
+def get_wallet(context):
+    # TODO: Move this to its own module
+    from websauna.wallet.views.wallet import UserWallet
+    while context and not isinstance(context, UserWallet):
+        context = context.__parent__
+
+    if not context:
+        raise RuntimeError("Could not resolve wallet for {}".format(context))
+
+    return context
+
+
 def wallet_view(func):
     """Decorates the view to be rendered inside a wallet.
 
@@ -13,7 +26,8 @@ def wallet_view(func):
 
     @wraps(func)
     def inner(*args, **kwargs):
-        wallet, request = args
+        context, request = args
+        wallet = get_wallet(context)
         user = request.user
 
         # Redirect user to the phone number confirmation
