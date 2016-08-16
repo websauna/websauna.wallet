@@ -298,8 +298,11 @@ def test_get_user_account_assets(dbsession, registry, mock_eth_service, eth_netw
 
     # Play around with user accounts
     with transaction.manager:
+
+        # No accounts yet
         assert UserCryptoAddress.get_user_asset_accounts(user) == []
 
+        # User gets a deposit, an account gets created
         user = dbsession.query(User).first()
         network = dbsession.query(AssetNetwork).get(eth_network_id)
         asset = dbsession.query(Asset).get(eth_asset_id)
@@ -307,6 +310,10 @@ def test_get_user_account_assets(dbsession, registry, mock_eth_service, eth_netw
         account = address.address.get_or_create_account(asset)
         account.account.do_withdraw_or_deposit(Decimal("+10"), "Top up")
 
-        assert UserCryptoAddress.get_user_asset_accounts(user) == [account]
+        current_accounts = UserCryptoAddress.get_user_asset_accounts(user)
+        assert len(current_accounts) == 1
+        current_address, current_account = current_accounts[0]
+        assert current_account == account
+        assert current_address == address
 
 

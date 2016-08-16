@@ -83,7 +83,7 @@ def finalize_pending_crypto_ops(dbsession, timeout=90):
 
         # Cleared this item
         if op.completed_at:
-            logger.info("Finished %s", id)
+            logger.info("Finished %s", op)
             return True
 
         if op.failed_at:
@@ -102,6 +102,7 @@ def finalize_pending_crypto_ops(dbsession, timeout=90):
 
         if not ids:
             # All ops cleared
+            logger.info("All ops clear")
             return
 
         # Filter out completed operations

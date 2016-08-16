@@ -14,6 +14,7 @@ from websauna.wallet.models import AssetClass
 from websauna.wallet.models import Asset
 from websauna.wallet.models import CryptoAddress
 from websauna.wallet.models import AssetNetwork
+from websauna.wallet.models.heartbeat import is_network_alive
 
 
 def create_token(network: AssetNetwork, name: str, symbol: str, supply: int, initial_owner_address: CryptoAddress) -> Asset:
@@ -35,6 +36,8 @@ def setup_networks(request):
     for network_name in ["ethereum", "testnet", "private testnet"]:
 
         network = get_eth_network(dbsession, network_name)
+        assert is_network_alive(network), "Network was dead when we started to create address {}".format(network)
+
         dbsession.flush()
         house_address = get_house_address(network)
 

@@ -813,9 +813,12 @@ class UserCryptoAddress(Base):
         op = CryptoAddressCreation(address=uca.address)
         op.required_confirmation_count = confirmations
 
-        # Bind operation to a user
-        uo = UserCryptoOperation.wrap(user=user, crypto_operation=op)
+        dbsession.add(op)
+        dbsession.flush()
         assert op.network
+
+        # Bind operation to a user
+        uo = UserCryptoOperation.wrap(user=user, op=op)
         return op
 
     @classmethod
@@ -961,20 +964,19 @@ class CryptoNetworkStatus(Base):
         return heartbeat.get("block_number")
 
 
-
 class UserWithdrawConfirmation(ManualConfirmation):
-    """Confirm withdraws."""
+    """Confirm withdraws with SMS."""
 
     __tablename__ = "user_withdraw_confirmation"
 
     id = Column(psql.UUID(as_uuid=True), ForeignKey("manual_confirmation.id"), primary_key=True)
 
+    #: Pointer to the crypto operation that needs SMS confirmation
     user_crypto_operation_id = Column(ForeignKey("user_crypto_operation.id"), nullable=True, unique=True)
     user_crypto_operation = relationship(UserCryptoOperation,
                                     single_parent=True,
                                     cascade="all, delete-orphan",
                                     backref="withdraw_confirmation")
-
 
     __mapper_args__ = {
         'polymorphic_identity': 'withdraw',
@@ -982,7 +984,7 @@ class UserWithdrawConfirmation(ManualConfirmation):
 
     @classmethod
     def require_confirmation(cls, uco: UserCryptoOperation, timeout=4*3600):
-
+        """Make a crypto operatation to require a SMS confirmation before it can proceed."""
         assert uco.id
         assert uco.crypto_operation.operation_type == CryptoOperationType.withdraw
 
