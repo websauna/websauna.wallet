@@ -13,7 +13,7 @@
 
   <tbody>
     {% for detail in details %}
-      <tr>
+      <tr id="row-asset-{{ detail.asset_id }}">
         <td>
           <a href="{{ detail.asset_resource|model_url }}">
             {{ detail.asset_resource.asset.name }} ({{ detail.asset_resource.asset.symbol }})
@@ -38,7 +38,7 @@
 
       <td>
         {% if detail.can_withdraw %}
-          <a href="{{ detail.asset_resource|model_url('withdraw') }}">
+          <a class="withdraw-asset" href="{{ detail.asset_resource|model_url('withdraw') }}">
             Withdraw
           </a>
         {% endif %}

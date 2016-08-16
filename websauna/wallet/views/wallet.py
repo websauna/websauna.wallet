@@ -302,6 +302,7 @@ def describe_address(request, ua: UserAddress) -> dict:
     """Fetch address details and link data for rendering."""
     detail = {}
     detail["user_address"] = ua
+    detail["id"] = ua.address.id
     detail["address"] = ua.address.address
     detail["network_resource"] = get_network_resource(request, ua.address.address.network)
     detail["name"] = ua.address.name
@@ -313,6 +314,7 @@ def describe_user_address_asset(request, uaa: UserAddressAsset) -> dict:
     """Fetch user asset holding details."""
     entry = {}
     account = uaa.crypto_account.account
+    entry["asset_id"] = account.asset.id
     entry["name"] = uaa.get_title()
     entry["account"] = uaa.crypto_account.account
     entry["asset_resource"] = uaa

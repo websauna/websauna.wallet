@@ -12,7 +12,7 @@ from web3 import Web3, RPCProvider
 from populus.chain import testing_geth_process
 
 
-from websauna.wallet.ethereum.asset import get_eth_network
+from websauna.wallet.ethereum.asset import get_eth_network, get_ether_asset
 from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
 from websauna.wallet.ethereum.contract import Contract, deploy_contract
 from websauna.wallet.ethereum.token import Token
@@ -140,6 +140,14 @@ def eth_network_id(dbsession):
     with transaction.manager:
         network = get_eth_network(dbsession)
         return network.id
+
+
+@pytest.fixture
+def eth_asset_id(dbsession):
+    with transaction.manager:
+        asset = get_ether_asset(dbsession)
+        dbsession.flush()
+        return asset.id
 
 
 @pytest.fixture

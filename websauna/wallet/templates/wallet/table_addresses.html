@@ -10,7 +10,7 @@
 
   <tbody>
     {% for detail in details %}
-      <tr>
+      <tr id="row-address-{{ detail.id }}">
         <td>
           <a href="{{ detail.user_address|model_url }}">
             {{ detail.user_address.get_title() }}

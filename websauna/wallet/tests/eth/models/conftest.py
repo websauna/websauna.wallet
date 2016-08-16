@@ -46,14 +46,6 @@ def testnet_service(web3, testnet_network_id, dbsession, registry):
 
 
 @pytest.fixture
-def eth_asset_id(dbsession):
-    with transaction.manager:
-        asset = get_ether_asset(dbsession)
-        dbsession.flush()
-        return asset.id
-
-
-@pytest.fixture
 def eth_faux_address(dbsession, registry, eth_network_id):
     """Create a faux address that is not registered on node."""
     with transaction.manager:

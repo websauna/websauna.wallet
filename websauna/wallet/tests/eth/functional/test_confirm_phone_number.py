@@ -7,7 +7,6 @@ from websauna.system.user.models import User
 from websauna.wallet.models.confirmation import UserNewPhoneNumberConfirmation
 
 
-
 def test_ui_confirm_phone_number(require_phone_number, logged_in_wallet_user_browser: DriverAPI, dbsession: Session, mock_eth_service, test_request):
     """User needs a confirmed phone number before entering the wallet."""
 
@@ -21,9 +20,6 @@ def test_ui_confirm_phone_number(require_phone_number, logged_in_wallet_user_bro
 
     # We arrived to SMS code verification page
     assert b.is_element_present_by_css("#heading-confirm-phone-number")
-
-    # We have a notification that SMS code was sent
-    assert b.is_element_present_by_css("#msg-phone-confirmation-send")
 
     # Peek into SMS code
     with transaction.manager:
@@ -62,9 +58,6 @@ def test_ui_invalid_phone_confirmation_code(require_phone_number, logged_in_wall
 
     # We arrived to SMS code verification page
     assert b.is_element_present_by_css("#heading-confirm-phone-number")
-
-    # We have a notification that SMS code was sent
-    assert b.is_element_present_by_css("#msg-phone-confirmation-send")
 
     # Cancel action
     b.find_by_css("button[name='cancel']").click()
