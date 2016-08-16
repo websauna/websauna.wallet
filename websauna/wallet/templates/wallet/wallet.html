@@ -7,6 +7,9 @@
   <div class="assets-summary">
 
     <h2>Assets</h2>
+
+    <p>You are currently holding the following crypto assets.</p>
+
     {% with details=asset_details %}
       {% include "wallet/table_assets.html" %}
     {% endwith %}
@@ -15,6 +18,9 @@
   <div class="address-summary">
 
     <h2>Accounts</h2>
+
+    <p>You have currently the following Ethereum accounts with deposit addresses open.</p>
+
     {% with details=address_details %}
       {% include "wallet/table_addresses.html" %}
     {% endwith %}
