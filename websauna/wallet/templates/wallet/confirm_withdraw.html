@@ -1,0 +1,14 @@
+{%  extends "wallet/base.html" %}
+
+{% block wallet_content %}
+
+  <h1 id="heading-confirm-withdraw">Verify your withdraw</h1>
+
+  <p>
+    Verify the withdraw with a mobile phone confirmation code.
+    A verification code has been sent into your mobile phone number <strong>{{ phone_number }}</strong>.
+  </p>
+
+  {{ rendered_form|safe }}
+
+{% endblock %}

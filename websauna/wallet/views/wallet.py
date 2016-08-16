@@ -30,11 +30,13 @@ from websauna.wallet.views.network import get_network_resource
 
 
 OP_STATES = {
+    CryptoOperationState.confirmation_required: "Manual verification required",
     CryptoOperationState.waiting: "Scheduled for operation",
     CryptoOperationState.pending: "Waiting for broadcasting to network",
     CryptoOperationState.broadcasted: "Waiting for more confirmations",
     CryptoOperationState.success: "Success",
     CryptoOperationState.failed: "Failure",
+    CryptoOperationState.cancelled: "Cancelled",
 }
 
 
@@ -49,6 +51,7 @@ class UserAddressAsset(Resource):
 
     def __init__(self, request: Request, crypto_account: CryptoAddressAccount):
         super(UserAddressAsset, self).__init__(request)
+        assert isinstance(crypto_account, CryptoAddressAccount)
         self.crypto_account = crypto_account
 
     def get_title(self):
@@ -129,6 +132,14 @@ class UserOperation(Resource):
     def __init__(self, request: Request, uop: UserCryptoOperation):
         super(UserOperation, self).__init__(request)
         self.uop = uop
+
+    @property
+    def wallet(self) -> "UserWallet":
+        return self.__parent__.wallet
+
+    @property
+    def op(self) -> CryptoOperation:
+        return self.uop.crypto_operation
 
     def get_title(self):
         op = self.uop.crypto_operation
@@ -254,12 +265,17 @@ class UserWallet(Resource):
         assert uop.user == self.user
         return self["transactions"][uuid_to_slug(uop.id)]
 
-    def list_all_assets(self):
+    def list_all_assets(self) -> Iterable[UserAddressAsset]:
         """Get all assets under all addresses."""
 
         for user_address in self["accounts"].get_addresses():
             for asset in user_address.get_assets():
                 yield asset
+
+    def list_addresses(self) -> Iterable[UserAddress]:
+
+        for user_address in self["accounts"].get_addresses():
+            yield user_address
 
 
 class WalletFolder(Resource):
@@ -313,9 +329,16 @@ def describe_operation(request, uop: UserOperation) -> dict:
     assert isinstance(uop, UserOperation)
     detail = {}
     op = uop.uop.crypto_operation
+
+    # Link to the user asset details
     detail["op"] = op
     if op.holding_account and op.holding_account.asset:
-        detail["asset_resource"] = get_asset_resource(request, op.holding_account.asset)
+        detail["asset_resource"] = get_user_address_asset(request, op.address, op.holding_account.asset)
+
+    tx = op.primary_tx
+
+    # From: and To: swap in address rendering
+    detail["deposit_like"] = op.operation_type in (CryptoOperationType.deposit,)
 
     confirmations = op.calculate_confirmations()
 
@@ -325,13 +348,7 @@ def describe_operation(request, uop: UserOperation) -> dict:
         detail["confirmations"] = confirmations
 
     if op.external_address:
-        detail["address"] = bin_to_eth_address(op.external_address)
-        if op.operation_type in (CryptoOperationType.deposit, CryptoOperationType.import_token):
-            detail["address_label"] = "From {}".format(detail["address"])
-        elif op.operation_type in (CryptoOperationType.withdraw,):
-            detail["address_label"] = "To {}".format(detail["address"])
-        else:
-            detail["address_label"] = detail["address"]
+        detail["external_address"] = bin_to_eth_address(op.external_address)
 
     if op.txid:
         detail["txid"] = bin_to_txid(op.txid)
@@ -348,6 +365,11 @@ def describe_operation(request, uop: UserOperation) -> dict:
     detail["address_resource"] = get_user_address_resource(request, op.address)
     detail["network_resource"] = get_network_resource(request, op.network)
 
+    detail["manual_confirmation_needed"] = op.state == CryptoOperationState.confirmation_required
+
+    if tx:
+        detail["notes"] = tx.message
+
     return detail
 
 
@@ -357,7 +379,7 @@ def operations_root(op_root: UserOperationFolder, request):
     """When wallet folder is accessed without path key, redirect to the users own wallet."""
     wallet = op_root.wallet
 
-    pending_operations= op_root.get_operations(state=[CryptoOperationState.waiting, CryptoOperationState.broadcasted, CryptoOperationState.pending])
+    pending_operations= op_root.get_operations(state=[CryptoOperationState.confirmation_required, CryptoOperationState.waiting, CryptoOperationState.broadcasted, CryptoOperationState.pending])
     pending_operations = [describe_operation(request, uop) for uop in pending_operations]
 
     finished_operations = op_root.get_operations(state=[CryptoOperationState.success, CryptoOperationState.failed])
@@ -415,8 +437,8 @@ def asset(uaa: UserAddressAsset, request):
 
 @view_config(context=UserWallet, route_name="wallet", name="", renderer="wallet/wallet.html")
 @wallet_view
-def wallet(wallet: UserWallet, request: Request):
-    """Wallet Overview page."""
+def wallet_overview(wallet: UserWallet, request: Request):
+    """Wallet overview page."""
 
     # Whose wallet we are dealing with
     user = wallet.user
@@ -425,6 +447,7 @@ def wallet(wallet: UserWallet, request: Request):
     setup_user_account(user)
 
     asset_details = [describe_user_address_asset(request, asset) for asset in wallet.list_all_assets()]
+    address_details = [describe_address(request, address) for address in wallet.list_addresses()]
     breadcrumbs = get_breadcrumbs(wallet, request)
 
     return locals()
@@ -448,18 +471,32 @@ def route_factory(request):
 
 def get_user_crypto_operation_resource(request, uop: UserCryptoOperation) -> UserOperation:
     assert isinstance(uop, UserCryptoOperation)
-    wallet_root = WalletFolder(request)
+    wallet_root = route_factory(request)
     wallet = wallet_root[uuid_to_slug(uop.user.uuid)]
     return wallet.get_uop_resource(uop)
 
 
-def get_user_address_resource(request, address: CryptoAddress):
+def get_user_address_resource(request, address: CryptoAddress) -> UserAddress:
     uca = UserCryptoAddress.get_by_address(address)
     if not uca:
         return None
     wallet_root = route_factory(request)
     wallet = wallet_root.get_user_wallet(uca.user)
     return wallet.get_address_resource(uca)
+
+
+def get_user_address_asset(request, address: CryptoAddress, asset: Asset) -> UserAddressAsset:
+    assert isinstance(asset, Asset)
+    uca = UserCryptoAddress.get_by_address(address)
+    if not uca:
+        return None
+    wallet_root = route_factory(request)
+    wallet = wallet_root.get_user_wallet(uca.user)
+    address = wallet.get_address_resource(uca)
+    crypto_address_account = address.address.get_crypto_account(asset)
+    asset = address.get_user_address_asset(crypto_address_account)
+    return asset
+
 
 
 

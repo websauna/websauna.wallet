@@ -1,0 +1,7 @@
+Use code {{ sms_code }} to verify your withdraw at {{ site_name }}.
+
+Withdraw details:
+
+Asset: {{ asset }}
+Amount: {{ amount }}
+To: {{ address }}

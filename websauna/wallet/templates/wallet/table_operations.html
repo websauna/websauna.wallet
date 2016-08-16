@@ -7,9 +7,8 @@
       <th>Type</th>
       <th>Assets</th>
       <th>Amount</th>
-      <th>Account</th>
-      <th>Counterparty</th>
-      <th>Confirmations</th>
+      <th>Details</th>
+      <th>Progress</th>
     </tr>
   </thead>
 
@@ -57,25 +56,49 @@
           {{ detail.amount }}
         </td>
 
-        <td>
+        <td class="col-op-notes">
+          {% if detail.notes %}
+            <p>
+              {{ detail.notes }}
+            </p>
+          {% endif %}
+
           {% if detail.address_resource %}
-            <a href="{{ detail.address_resource|model_url }}">
-              {{ detail.address_resource.get_title() }}
-            </a>
-          {% endif %}
-        </td>
+            <p>
+              {% if detail.deposit_like %}
+                To address:
+              {% else %}
+                From address:
+              {% endif %}
 
-        <td class="col-op-counterparty">
-          {% if detail.address %}
-            <small>
-              {{ detail.address_label }}
-            </small>
+              <a href="{{ detail.address_resource|model_url }}">
+                {{ detail.address_resource.get_title() }}
+              </a>
+            </p>
+          {% endif %}
+
+          {% if detail.external_address %}
+            <p>
+             {% if detail.deposit_like %}
+                From address:
+              {% else %}
+                To address:
+              {% endif %}
+              {{ detail.external_address  }}
+            </p>
           {% endif %}
         </td>
 
         <td>
-          {% if detail.confirmations is not none %}
-            {{ detail.confirmations }} / {{ detail.op.required_confirmation_count }}
+        
+          {% if detail.manual_confirmation_needed %}
+            <a href="{{ detail.resource|model_url("confirm-withdraw") }}">
+              Verify withdraw
+            </a>
+          {% else %}
+            {% if detail.confirmations is not none %}
+              {{ detail.confirmations }} / {{ detail.op.required_confirmation_count }} block confirmations
+            {% endif %}
           {% endif %}
         </td>
       </tr>

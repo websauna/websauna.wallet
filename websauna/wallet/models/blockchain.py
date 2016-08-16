@@ -27,7 +27,7 @@ from websauna.system.model.meta import Base
 from websauna.wallet.ethereum.utils import bin_to_eth_address, bin_to_txid
 from websauna.wallet.utils import ensure_positive
 
-from .account import Account
+from .account import Account, AccountTransaction
 from .account import AssetNetwork
 from .account import Asset
 
@@ -489,10 +489,18 @@ class CryptoOperation(Base):
             return self.holding_account.asset
 
     @property
+    def primary_tx(self) -> Optional[AccountTransaction]:
+        """Get the transaction that moves value between user account and holding account."""
+        if self.holding_account:
+            return self.holding_account.transactions.first()
+        return None
+
+    @property
     def amount(self) -> Optional[Decimal]:
         """Return human readable value of this operation in asset or None if no asset assigned."""
-        if self.holding_account:
-            return self.holding_account.transactions.first().amount
+        tx = self.primary_tx
+        if tx:
+            return tx.amount
         return None
 
     @property
@@ -505,7 +513,7 @@ class CryptoOperation(Base):
         return self.completed_at
 
     def is_in_progress(self):
-        return self.state in (CryptoOperationState.waiting, CryptoOperationState.broadcasted, CryptoOperationState.pending)
+        return self.state in (CryptoOperationState.confirmation_required, CryptoOperationState.waiting, CryptoOperationState.broadcasted, CryptoOperationState.pending)
 
     def is_failed(self):
         return self.state == CryptoOperationState.failed
@@ -973,7 +981,7 @@ class UserWithdrawConfirmation(ManualConfirmation):
     }
 
     @classmethod
-    def require_confirmation(self, uco: UserCryptoOperation, timeout=4*3600):
+    def require_confirmation(cls, uco: UserCryptoOperation, timeout=4*3600):
 
         assert uco.id
         assert uco.crypto_operation.operation_type == CryptoOperationType.withdraw
@@ -990,6 +998,11 @@ class UserWithdrawConfirmation(ManualConfirmation):
         dbsession.add(uwc)
         dbsession.flush()
         return uwc
+
+    @classmethod
+    def get_pending_confirmation(cls, uco: UserCryptoOperation):
+        dbsession = Session.object_session(uco)
+        return dbsession.query(UserWithdrawConfirmation).filter(UserWithdrawConfirmation.user_crypto_operation==uco).one_or_none()
 
     def resolve(self, capture_data=None):
         super(UserWithdrawConfirmation, self).resolve(capture_data)

@@ -114,16 +114,17 @@ class AskConfirmation:
         send_sms(self.request, phone_number, sms_text)
         self.manual_confirmation.other_data["sms_sent_at"] = now()
 
-        messages.add(self.request, kind="success", msg="A confirmation SMS has been sent to your phone number {}".format(phone_number), msg_id="msg-phone-confirmation-send")
+    def get_buttons(self):
+        confirm = deform.Button(name='confirm', title="Verify")
+        cancel = deform.Button(name='cancel', title="Cancel")
+        return (confirm, cancel)
 
     def act(self, extra_template_context: dict):
         """Subclasses call this in their own rendering method."""
         request = self.request
         schema = SMSConfirmationSchema().bind(request=request, manual_confirmation=self.manual_confirmation)
 
-        confirm = deform.Button(name='confirm', title="Confirm")
-        cancel = deform.Button(name='cancel', title="Cancel")
-        form = deform.Form(schema, buttons=(confirm, cancel))
+        form = deform.Form(schema, buttons=self.get_buttons())
 
         # If we did not yet send the user SMS do it now
         if not self.is_confirmation_sent():
