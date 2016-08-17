@@ -41,10 +41,14 @@ def test_registrar_based_wallet(web3: Web3, coinbase):
     # against Relay contract.
     contract_def = get_compiled_contract_cached("Wallet")
     relayed_wallet = get_contract(web3, contract_def, relay.address)
+
     # Works
     assert wallet_contract.call().version().decode("utf-8") == "1.0"
-    # Fails: Not enough data for head
-    assert relayed_wallet.call().version().decode("utf-8") == "1.0"
+
+    # Read static field
+    impl = get_contract(web3, contract_def, relay.call().getImpAddr())
+    impl_wallet = get_contract(web3, contract_def, impl)
+    assert impl_wallet.call().version().decode("utf-8") == "1.0"
 
     # Deposit some ETH
     txid = send_balance_to_contract(relayed_wallet.address, wei_amount)

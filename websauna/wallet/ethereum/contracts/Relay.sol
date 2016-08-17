@@ -17,10 +17,13 @@ contract Relay {
         name = _name;
     }
 
-    function() {
-        address currentVersion;
+    function getImplAddr() constant returns (address) {
         Registrar registrar = Registrar(registrarAddr);
-        currentVersion = registrar.addr(name);
+        return registrar.addr(name);
+    }
+
+    function() {
+        currentVersion = this.getImplAddr();
         if(!currentVersion.delegatecall(msg.data)) throw;
     }
 }
