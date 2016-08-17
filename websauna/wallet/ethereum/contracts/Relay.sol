@@ -23,7 +23,7 @@ contract Relay {
     }
 
     function() {
-        currentVersion = this.getImplAddr();
+        address currentVersion = this.getImplAddr();
         if(!currentVersion.delegatecall(msg.data)) throw;
     }
 }

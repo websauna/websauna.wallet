@@ -15,6 +15,10 @@ from websauna.wallet.tests.eth.utils import wait_tx, send_balance_to_contract
 TEST_VALUE = Decimal("0.01")
 
 
+def decode_addr(addr):
+    return "0x" + addr.decode("ascii")
+
+
 @pytest.mark.slow
 def test_registrar_based_wallet(web3: Web3, coinbase):
     """Create registrar contract and register a wallet against it."""
@@ -30,11 +34,19 @@ def test_registrar_based_wallet(web3: Web3, coinbase):
     wallet_contract, txid = deploy_contract(web3, contract_def)
 
     # Register wallet contract body
-    txid = registrar_contract.transact().setAddr("wallet", wallet_contract.address)
+    assert wallet_contract.address
+    txid = registrar_contract.transact().setAddr(b"wallet", wallet_contract.address)
     confirm_transaction(web3, txid)
+
+    # Check registration succeeded
+    assert decode_addr(registrar_contract.call().addr(b"wallet")) == wallet_contract.address
+
+    # Wallet implementation says we are 1.0
+    assert wallet_contract.call().version().decode("utf-8") == "1.0"
 
     # Deploy relay against the registered wallet
     contract_def = get_compiled_contract_cached("Relay")
+    assert registrar_contract.address
     relay, txid = deploy_contract(web3, contract_def, constructor_arguments=[registrar_contract.address, "wallet"])
 
     # Test relayed wallet. We use Wallet ABI
@@ -42,12 +54,16 @@ def test_registrar_based_wallet(web3: Web3, coinbase):
     contract_def = get_compiled_contract_cached("Wallet")
     relayed_wallet = get_contract(web3, contract_def, relay.address)
 
-    # Works
-    assert wallet_contract.call().version().decode("utf-8") == "1.0"
+    # Check relay internal data structures
+    assert decode_addr(relay.call().registrarAddr()) == registrar_contract.address
+    assert relay.call().name().decode("ascii") == "wallet"
+
+    # We point to the wallet implementation
+    impl_addr = decode_addr(relay.call().getImplAddr())
+    assert impl_addr == wallet_contract.address
 
     # Read static field
-    impl = get_contract(web3, contract_def, relay.call().getImpAddr())
-    impl_wallet = get_contract(web3, contract_def, impl)
+    impl_wallet = get_contract(web3, contract_def, impl_addr)
     assert impl_wallet.call().version().decode("utf-8") == "1.0"
 
     # Deposit some ETH
