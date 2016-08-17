@@ -38,6 +38,8 @@ def test_registrar_based_wallet(web3: Web3, coinbase):
     txid = registrar_contract.transact().setAddr(b"wallet", wallet_contract.address)
     confirm_transaction(web3, txid)
 
+    import pdb ; pdb.set_trace()
+
     # Check registration succeeded
     assert decode_addr(registrar_contract.call().addr(b"wallet")) == wallet_contract.address
 
