@@ -1,10 +1,5 @@
 /**
- * Simple hosted wallet contract.
- *
- *
- *
- *
- * All error cases (throws) are reported as out of gas: http://ethereum.stackexchange.com/questions/2307/why-does-a-solidity-throw-consume-all-gas
+ * Alternative wallet code for testing upgrades, see version string.
  */
 contract Wallet {
 
@@ -28,7 +23,7 @@ contract Wallet {
     // that your server speaks to via RPC
     address public owner;
 
-    string public version = "1.0";
+    string public version = "2.0";
 
     function Wallet() {
         // Lock down the wallet, so that only our private geth

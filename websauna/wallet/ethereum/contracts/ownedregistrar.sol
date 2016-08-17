@@ -5,8 +5,8 @@
 // @authors:
 //   Gav Wood <g@ethdev.com>
 
-import "owned";
-import "Registrar";
+import "./owned.sol";
+import "./Registrar.sol";
 
 contract OwnedRegistrar is Registrar, owned {
 	struct Record {

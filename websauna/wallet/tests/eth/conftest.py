@@ -8,9 +8,9 @@ import transaction
 from eth_rpc_client import Client
 from geth.accounts import create_new_account
 from geth.wrapper import DEFAULT_PASSWORD_PATH
+from populus.project import Project
+from populus.utils.config import Config
 from web3 import Web3, RPCProvider
-from populus.chain import testing_geth_process
-
 
 from websauna.wallet.ethereum.asset import get_eth_network, get_ether_asset
 from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
@@ -56,8 +56,8 @@ def client_credentials(registry) -> tuple:
 
 
 @pytest.yield_fixture(scope="session")
-def web3(request, client_mode, client_credentials) -> Web3:
-    """A py.test fixture to get a Web3 interface to locally launched geth.
+def web3() -> Web3:
+    """A py.test fixture to get a Web3 interface to a temporary geth instance.
 
     This is session scoped fixture.
     Geth is launched only once during the beginning of the test run.
@@ -65,13 +65,39 @@ def web3(request, client_mode, client_credentials) -> Web3:
     Geth will have huge instant balance on its coinbase account.
     Geth will also mine our transactions on artificially
     low difficulty level.
+
+    :yield: :py:class:`web3.Web3` instance
     """
 
-    # Ramp up a local geth server, store blockchain files in the
-    # current working directory
-    with testing_geth_process(project_dir=os.getcwd(), test_name="test") as geth_proc:
-        # Launched in port 8080
-        web3 = Web3(RPCProvider(host="127.0.0.1", port=geth_proc.rpc_port))
+    project = Project()
+
+    # Project is configured using populus.config.Config class
+    # which is a subclass of Python config parser.
+    # Instead of reading .ini file, here we dynamically
+    # construct the configuration.
+    project.config = Config()
+
+    # Settings come for [populus] section of the config.
+    project.config.add_section("populus")
+
+    # Configure where Populus can find our contracts.json
+    build_dir = os.path.join(os.getcwd(), "websauna", "wallet", "ethereum")
+    project.config.set("populus", "build_dir", build_dir)
+
+    chain_kwargs = {
+
+        # Force RPC provider instead of default IPC one
+        "provider": RPCProvider,
+
+        # Adjust geth verbosity for less
+        # output so that test failures are easier to read.
+        "verbosity": "2"
+    }
+
+    # This returns
+    with project.get_chain("temp", **chain_kwargs) as geth_proc:
+
+        web3 = geth_proc.web3
 
         # Allow access to sendTransaction() to use coinbase balance
         # to deploy contracts. Password is from py-geth

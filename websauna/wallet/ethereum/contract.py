@@ -76,6 +76,22 @@ def deploy_contract(
     return contract, txn_hash
 
 
+def get_contract(web3: Web3, contract_definition: dict, address: str):
+    """Get contract implementation in an address."""
+    assert address.startswith("0x")
+
+    contract_class = construct_contract_class(
+        web3=web3,
+        abi=contract_definition["abi"],
+        code=contract_definition["code"],
+        code_runtime=contract_definition["code_runtime"],
+        source=contract_definition["source"],
+    )
+
+    return contract_class(address)
+
+
+
 class TransactionConfirmationError(Exception):
     """A transaction was not correctly included in blockchain."""
 
