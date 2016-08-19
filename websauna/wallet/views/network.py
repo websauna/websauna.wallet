@@ -130,6 +130,7 @@ class NetworkFolder(Resource):
 @view_config(context=AssetFolder, route_name="network", name="", renderer="network/assets.html")
 def asset_root(asset_folder, request):
     assets = asset_folder.get_public_assets()
+    breadcrumbs = get_breadcrumbs(asset_folder, request)
     return locals()
 
 
@@ -143,6 +144,19 @@ def asset(asset_desc: AssetDescription, request: Request):
 def network_root(network_folder, request):
     networks = network_folder.get_public_networks()
     return locals()
+
+
+@view_config(context=NetworkFolder, route_name="network", name="all-assets", renderer="network/all_assets.html")
+def all_assets(network_folder, request):
+    assets = []
+    networks = network_folder.get_public_networks()
+    for network in networks:
+        assets += network["assets"].get_public_assets()
+
+    breadcrumbs = get_breadcrumbs(network_folder, request)
+    view_name = "All listed tokens"
+    return locals()
+
 
 
 @view_config(context=NetworkDescription, route_name="network", name="", renderer="network/network.html")

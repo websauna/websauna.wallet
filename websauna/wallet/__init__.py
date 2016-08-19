@@ -23,6 +23,8 @@ class AddonInitializer:
         self.config.add_jinja2_search_path('websauna.wallet:templates', name='.html', prepend=False)  # HTML templates for pages
         self.config.add_jinja2_search_path('websauna.wallet:templates', name='.txt', prepend=False)  # .txt templates for SMS
 
+        self.config.include("websauna.wallet.templatevars")
+
     @after(Initializer.configure_instrumented_models)
     def configure_instrumented_models(self):
         """Plug models from this addon to Websauna."""
