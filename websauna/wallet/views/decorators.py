@@ -29,7 +29,6 @@ def wallet_view(func):
         context, request = args
         wallet = get_wallet(context)
         user = request.user
-
         # Redirect user to the phone number confirmation
         if request.registry.settings.get("websauna.wallet.require_phone_number"):
             if not UserNewPhoneNumberConfirmation.has_confirmed_phone_number(user):

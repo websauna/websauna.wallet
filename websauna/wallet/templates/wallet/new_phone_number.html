@@ -1,11 +1,14 @@
 {%  extends "wallet/base.html" %}
 
+
+{% block wallet_nav %}{% endblock %}
+
 {% block wallet_content %}
 
   <h1 id="heading-new-phone-number">Phone number required</h1>
 
   <p>
-    The wallet security needs to confirm your mobile phone number. This number will be used for the future withdrawal confirmations.
+    Verify your mobile phone nubmer for the wallet security. This number will be used for the future withdrawal confirmations.
   </p>
 
   {{ rendered_form|safe }}

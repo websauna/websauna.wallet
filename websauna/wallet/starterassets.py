@@ -3,15 +3,11 @@ from decimal import Decimal
 from pyramid.events import subscriber
 from sqlalchemy.orm import Session
 
-from websauna.system import user
+
 from websauna.wallet.ethereum.asset import get_toy_box, get_house_holdings
 from websauna.wallet.ethereum.utils import bin_to_eth_address
 from websauna.wallet.tests.eth.utils import send_balance_to_address
 from .events import InitialAddressCreation
-from .models import UserCryptoOperation
-from .models import UserCryptoAddress
-from .models import CryptoAddressCreation
-from .models import AssetNetwork
 
 
 def give_toybox(event):

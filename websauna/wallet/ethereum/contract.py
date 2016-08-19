@@ -42,13 +42,15 @@ def deploy_contract(
     assert "abi" in contract_definition, \
         "Please pass a valid contract definition dictionary, got {}".format(contract_definition)
 
+    assert len(contract_definition["code"]) > 8, "Contract did not have properly compiled code payload"
+
     contract_class = construct_contract_class(
         web3=web3,
         abi=contract_definition["abi"],
         code=contract_definition["code"],
         code_runtime=contract_definition["code_runtime"],
         source=contract_definition["source"],
-            )
+        )
 
     if not from_account:
         from_account = web3.eth.coinbase
@@ -68,10 +70,7 @@ def deploy_contract(
     # Create Contract proxy object
     contract = contract_class(
         address=address,
-        abi=contract_definition["abi"],
-        code=contract_definition["code"],
-        code_runtime=contract_definition["code_runtime"],
-        source=contract_definition["source"])
+    )
 
     return contract, txn_hash
 

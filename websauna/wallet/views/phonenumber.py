@@ -44,13 +44,13 @@ def has_pending_phone_number_request(request: Request, user: User):
     route_name="wallet",
     name="new-phone-number",
     renderer="wallet/new_phone_number.html",
-    decorator=throttled_view(limit=60))
+    decorator=throttled_view(limit=999999))
 def new_phone_number(wallet, request):
 
     user = wallet.user
 
     if has_pending_phone_number_request(request, user):
-        return httpexceptions.HTTPFound(request.resource_url(wallet), "confirm-phone-number")
+        return httpexceptions.HTTPFound(request.resource_url(wallet, "confirm-phone-number"))
 
     schema = NewPhoneNumber().bind(request=request)
 
