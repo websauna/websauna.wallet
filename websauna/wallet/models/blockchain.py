@@ -320,6 +320,8 @@ class CryptoAddressAccount(Base):
 
         ensure_positive(amount)
 
+        self.account.asset.ensure_not_frozen()
+
         network = self.account.asset.network
         assert network.id
 
@@ -855,6 +857,10 @@ class UserCryptoAddress(Base):
 
     def withdraw(self, asset: Asset, amount: Decimal, address: str, note: str, required_confirmation_count: int) -> "UserCryptoOperation":
         """Withdraw assets from this address."""
+
+
+        asset.ensure_not_frozen()
+
         crypto_account = self.get_crypto_account(asset)
         op = crypto_account.withdraw(amount, address, note, required_confirmation_count)
         uco = UserCryptoOperation.wrap(self.user, op)

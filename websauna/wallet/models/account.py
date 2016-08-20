@@ -1,24 +1,38 @@
 """Core accounting primitivtes."""
 from decimal import Decimal
-from typing import Tuple, List
-
+from typing import Tuple, Optional
 import enum
 
 import sqlalchemy
-from sqlalchemy import func
 from sqlalchemy import Enum
 from sqlalchemy import LargeBinary
 from sqlalchemy import UniqueConstraint
 from sqlalchemy import Column, Integer, Numeric, ForeignKey, func, String
-from sqlalchemy import CheckConstraint
 import sqlalchemy.dialects.postgresql as psql
 from sqlalchemy.orm import relationship, backref, Session
 from sqlalchemy.dialects.postgresql import UUID
+
 from websauna.system.model.columns import UTCDateTime
 from websauna.system.model.json import NestedMutationDict
 from websauna.system.user.models import User
 from websauna.utils.time import now
 from websauna.system.model.meta import Base
+
+
+class AssetState(enum.Enum):
+    """What kind of global visibility asset has in the system."""
+
+    #: Asset information and ownership is publicly known
+    public = "public"
+
+    #: Only who own asset have access to the information
+    shared = "shared"
+
+    #: Only asset owner sees the information
+    owner = "owner"
+
+    #: Asset is frozen. All withdraws from accounts are blocked.
+    frozen = "frozen"
 
 
 class AssetNetwork(Base):
@@ -88,6 +102,10 @@ class AssetClass(enum.Enum):
     ether = "ether"
 
 
+class AssetFrozen(Exception):
+    """A frozen asset was transferred."""
+
+
 class Asset(Base):
 
     __tablename__ = "asset"
@@ -119,6 +137,9 @@ class Asset(Base):
     #  is this
     asset_class = Column(Enum(AssetClass), nullable=False)
 
+    #: How asset should be treated
+    state = Column(Enum(AssetState), nullable=False, default=AssetState.public)
+
     #: Misc parameters we can set
     other_data = Column(NestedMutationDict.as_mutable(psql.JSONB), default=dict)
 
@@ -140,6 +161,23 @@ class Asset(Base):
         asset_total = dbsession.query(func.sum(Account.denormalized_balance)).join(Asset).scalar()
         return asset_total
 
+    def ensure_not_frozen(self):
+        """Is the transfer of this asset blocked.
+
+        :raise: :class:`AssetFrozen` if the current state is frozen
+        """
+
+        if self.state == AssetState.frozen:
+            raise AssetFrozen("Asset is frozen: {}".format(self))
+
+
+class IncompatibleAssets(Exception):
+    """Transfer between accounts of different assets."""
+
+
+class AccountOverdrawn(Exception):
+    """Tried to send more than account has."""
+
 
 class Account(Base):
     """Internal credit/debit account.
@@ -156,13 +194,12 @@ class Account(Base):
     #: When this data was updated last time
     updated_at = Column(UTCDateTime, onupdate=now)
 
+    #: Asset this account is holding
     asset_id = Column(ForeignKey("asset.id"), nullable=False)
     asset = relationship(Asset, backref=backref("accounts", uselist=True, lazy="dynamic"))
 
+    #: Hold cached balance that is sum of all transactions
     denormalized_balance = Column(Numeric(40, 10), nullable=False, server_default='0')
-
-    class BalanceException(Exception):
-        pass
 
     def __str__(self):
         return "<Acc:{} asset:{} bal:{}>".format(self.id, self.asset.symbol, self.get_balance())
@@ -188,16 +225,23 @@ class Account(Base):
         :param amount: How much
         :param note: Human readable
         :param allow_negative: Set true to create negative balances or allow overdraw.
-        :raise Account.BalanceException: If the account is overdrawn
+        :raise AccountOverdrawn: If the account is overdrawn
         :return: Created AccountTransaction
         """
 
         assert self.id
         assert isinstance(amount, Decimal)
 
+        if note:
+            assert isinstance(note, str)
+
+        # Confirm we are not withdrawing frozen asset
+        if amount > 0:
+            self.asset.ensure_not_frozen()
+
         if not allow_negative:
             if amount < 0 and self.get_balance() < abs(amount):
-                raise Account.BalanceException("Cannot withdraw more than you have on the account")
+                raise AccountOverdrawn("Cannot withdraw more than you have on the account")
 
         DBSession = Session.object_session(self)
         t = AccountTransaction(account=self)
@@ -210,11 +254,27 @@ class Account(Base):
         return t
 
     @classmethod
-    def transfer(self, amount:Decimal, from_:object, to:object, note:str, registry=None):
-        """Transfer between accounts"""
+    def transfer(cls, amount: Decimal, from_: "Account", to: "Account", note: Optional[str]=None):
+        """Transfer between accounts.
+
+        This creates two transactions
+
+        - Debit on from account
+
+        - Credit on to account
+
+        - Transaction counterparty fields point each other
+        """
         DBSession = Session.object_session(from_)
+
+        if from_.asset != to.asset:
+            raise IncompatibleAssets("Tried to transfer between {} and {}".format(from_, to))
+
+        from_.asset.ensure_not_frozen()
+
         withdraw = from_.do_withdraw_or_deposit(-amount, note)
         deposit = to.do_withdraw_or_deposit(amount, note)
+
         DBSession.flush()
 
         deposit.counterparty = withdraw
@@ -262,7 +322,7 @@ class AccountTransaction(Base):
         """Moves the funds back to the sending account."""
         counter_account = self.counterparty.account
         note = "Transaction {} reversed".format(self.id)
-        return Account.transfer(self.amount, self.account, counter_account, self.amount, note)
+        return Account.transfer(self.amount, self.account, counter_account, note)
 
 
 class UserOwnedAccount(Base):

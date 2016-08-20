@@ -6,11 +6,17 @@ from websauna.wallet.utils import format_asset_amount
 
 def get_default_balance(request):
     """Get ETH balance in Ethereum network."""
+
     user = request.user
+
+    if not user:
+        return None
+
     asset = get_ether_asset(request.dbsession)
     network = get_eth_network(request.dbsession)
     default_address = UserCryptoAddress.get_default(user, network)
     account = default_address.get_crypto_account(asset)
+
     if account:
         return format_asset_amount(account.account.get_balance(), asset.asset_class)
     else:

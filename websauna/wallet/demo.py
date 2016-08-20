@@ -5,7 +5,7 @@ import websauna.system
 from websauna.wallet.ethereum.ethjsonrpc import get_web3
 
 
-class Initializer(websauna.system.Initializer):
+class Initializer(websauna.system.DemoInitializer):
     """A demo / test app initializer for testing addon websauna.wallet."""
 
     def include_addons(self):
