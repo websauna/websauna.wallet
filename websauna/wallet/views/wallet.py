@@ -446,7 +446,7 @@ def wallet_overview(wallet: UserWallet, request: Request):
     user = wallet.user
 
     # Set up initial addresses if user doesn't have any yet
-    setup_user_account(user)
+    setup_user_account(user, request=request)
 
     asset_details = [describe_user_address_asset(request, asset) for asset in wallet.list_all_assets()]
     address_details = [describe_address(request, address) for address in wallet.list_addresses()]

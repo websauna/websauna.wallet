@@ -6,7 +6,7 @@ import time
 import redis_lock
 from celery import Task
 from websauna.system.core.redis import get_redis
-from websauna.system.task import task
+from websauna.system.task.tasks import task
 from websauna.wallet.ethereum.service import ServiceCore, OneShot
 
 logger = logging.getLogger(__name__)

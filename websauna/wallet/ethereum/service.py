@@ -16,6 +16,7 @@ from pyramid.registry import Registry
 from sqlalchemy.orm import Session
 
 from websauna.system.model.meta import create_dbsession
+from websauna.system.model.retry import ensure_transactionless
 from websauna.wallet.ethereum.asset import get_eth_network
 from websauna.wallet.ethereum.dbconfirmationupdater import DatabaseConfirmationUpdater
 from websauna.wallet.ethereum.dbcontractlistener import EthWalletListener, EthTokenListener
@@ -88,12 +89,15 @@ class EthereumService:
         block_number = self.web3.eth.blockNumber
         update_heart_beat(self.dbsession, self.asset_network_id, block_number)
 
-    def run_event_cycle(self) -> Tuple[int, int]:
+    def run_event_cycle(self, cycle_num=None) -> Tuple[int, int]:
         """Run full event cycle for all operations."""
         total_success = total_failure = 0
 
         for func in (self.run_waiting_operations, self.run_listener_operations, self.run_confirmation_updates):
+            # Make sure all transactions are closed before and after running ops
+            ensure_transactionless("TX management Error. Starting to process {} in event cycle {}".format(func, cycle_num))
             success, failure = func()
+            ensure_transactionless()
             total_success += success
             total_failure += failure
 
@@ -191,8 +195,11 @@ class ServiceCore:
         self.service = EthereumService(web3, network_id, dbsession, request.registry)
         self.do_unlock()
 
-    def run_cycle(self):
-        """Run one event cycle."""
+    def run_cycle(self, cycle_num=None):
+        """Run one event cycle.
+
+        :param cycle_num: Optional integer of the number of cycles since the start of this process. Used in debug logging.
+        """
 
         geth = self.geth
         service = self.service
@@ -202,7 +209,7 @@ class ServiceCore:
                 raise RuntimeError("Geth died upon us")
 
         try:
-            service.run_event_cycle()
+            service.run_event_cycle(cycle_num)
         except Exception as e:
             logger.error("Dying, because of %s", e)
             logger.exception(e)
@@ -240,7 +247,7 @@ class ServiceThread(ServiceCore, threading.Thread):
         try:
             while not self.killed:
                 logger.debug("Ethereum service %s event cycle %d, last block is %d", self.name, cycle, self.service.web3.eth.blockNumber)
-                self.run_cycle()
+                self.run_cycle(cycle)
                 time.sleep(sleepy)
                 cycle += 1
         finally:

@@ -41,37 +41,36 @@ def get_ether_asset(dbsession) -> Asset:
     return asset
 
 
-def create_default_user_address(user: User, network: AssetNetwork) -> CryptoAddressCreation:
+def create_default_user_address(user: User, network: AssetNetwork, confirmations=1) -> CryptoAddressCreation:
     """Initiate operation to create operation in a network."""
-    dbsession = Session.object_session(user)
-    ca = CryptoAddress(network=network)
-    dbsession.add(ca)
-    dbsession.flush()
 
     if network.name == "ethereum":
         name = "Default"
     else:
-        name = "{} primary".format(network.name.title())
+        name = "{} default".format(network.name.title())
 
-    uca = UserCryptoAddress(address=ca, name=name)
-    user.owned_crypto_addresses.append(uca)
-    dbsession.flush()
-    op = CryptoAddressCreation(ca)
-    op.crypto_address = uca.address
-    user.owned_crypto_operations.append(UserCryptoOperation(crypto_operation=op))
+    op = UserCryptoAddress.create_address(user, network, name, confirmations)
     return op
 
 
-def setup_user_account(user: User):
+def setup_user_account(user: User, request=None):
     """Setup hosted wallets on Ethereum and testnet networks."""
+
     dbsession = Session.object_session(user)
     for net in ("ethereum", "testnet"):
         ethereum = get_eth_network(dbsession, net)
 
+        if request:
+            # Read wanted number of confirmations from settings
+            confirmations = get_required_confirmation_count(request.registry, ethereum, CryptoOperationType.create_address)
+        else:
+            # Use default
+            confirmations = 1
+
         eth_addresses = user.owned_crypto_addresses.join(CryptoAddress).filter_by(network=ethereum)
         if eth_addresses.count() == 0:
             # Create default address
-            create_default_user_address(user, ethereum)
+            create_default_user_address(user, ethereum, confirmations=confirmations)
 
 
 def get_toy_box(network: AssetNetwork) -> Asset:

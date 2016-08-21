@@ -109,6 +109,15 @@
         {% endif %}
       </td>
     </tr>
+  
+    {% if detail.op.block %}
+      <tr>
+        <th>Block number</th>
+        <td>
+          {{ detail.op.block }}
+        </td>
+      </tr>
+    {% endif %}
 
   </table>
 

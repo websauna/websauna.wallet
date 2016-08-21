@@ -13,7 +13,7 @@ from .models import CryptoAddress
 
 @subscriber(CryptoOperationComplete)
 def initial_address_creation_checker(event: CryptoOperationComplete):
-    """Check completed evennts and transfor one to initial address creation if needed."""
+    """Check completed events and transfor one to initial address creation if needed."""
     op = event.op
     registry = event.registry
 

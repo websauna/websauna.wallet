@@ -58,9 +58,12 @@
 
         <td class="col-op-notes">
           {% if detail.notes %}
-            <p>
-              {{ detail.notes }}
-            </p>
+            {% if not detail.deposit_like %}
+              {# Notes are useless for deposits #}
+              <p>
+                {{ detail.notes }}
+              </p>
+            {% endif %}
           {% endif %}
 
           {% if detail.address_resource %}
@@ -68,7 +71,11 @@
               {% if detail.deposit_like %}
                 To address:
               {% else %}
-                From address:
+                {% if detail.op.operation_type.value == "create_address" %}
+                  Address creation for account:
+                {% else %}
+                  From address:
+                {% endif %}
               {% endif %}
 
               <a href="{{ detail.address_resource|model_url }}">
@@ -82,7 +89,11 @@
              {% if detail.deposit_like %}
                 From address:
               {% else %}
-                To address:
+                {% if detail.op.operation_type.value == "create_address" %}
+                  New address:
+                {% else %}
+                  To address:
+                {% endif %}
               {% endif %}
               {{ detail.external_address  }}
             </p>
