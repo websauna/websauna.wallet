@@ -15,6 +15,9 @@ def get_default_balance(request):
     asset = get_ether_asset(request.dbsession)
     network = get_eth_network(request.dbsession)
     default_address = UserCryptoAddress.get_default(user, network)
+    if not default_address:
+        return format_asset_amount(0, asset.asset_class)
+
     account = default_address.get_crypto_account(asset)
 
     if account:

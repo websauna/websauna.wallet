@@ -1,6 +1,8 @@
 """Celery tasks."""
 import logging
 
+import time
+
 import redis_lock
 from celery import Task
 from websauna.system.core.redis import get_redis
@@ -28,12 +30,14 @@ def update_networks(self: Task):
 
         if not lock.acquire(blocking=False):
             # This network is still procesing pending operations from the previous task run
-            logger.warn("Could not acquire lock %s when doing update_networks", network_name)
+            logger.warn("Could not acquire lock on %s when doing update_networks", network_name)
             continue
 
         lock.release()
 
         with lock:
             logger.info("Updating network %s", network_name)
+            start = time.time()
             one_shot = OneShot(request, network_name, services[network_name])
             one_shot.run_shot()
+            logger.info("Updated network %s in %d seconds", network_name, time.time() - start)

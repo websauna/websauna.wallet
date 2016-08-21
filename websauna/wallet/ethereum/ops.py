@@ -33,8 +33,6 @@ def create_address(web3: Web3, dbsession: Session, opid: UUID):
 
     assert isinstance(opid, UUID)
 
-    wallet = HostedWallet.create(web3)
-
     @retryable
     def finish_op():
         op = dbsession.query(CryptoOperation).get(opid)
@@ -51,6 +49,9 @@ def create_address(web3: Web3, dbsession: Session, opid: UUID):
         op.mark_broadcasted()
         op.mark_complete()
 
+    logger.info("Starting wallet creation for %s", opid)
+    wallet = HostedWallet.create(web3)
+    logger.info("Updating db for wallet creation for %s", opid)
     finish_op()
 
 

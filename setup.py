@@ -53,7 +53,8 @@ setup(name='websauna.wallet',
       [console_scripts]
       ethereum-service = websauna.wallet.ethereum.main:main
       ethereum-service-one-shot= websauna.wallet.ethereum.main:one_shot_main
-      wallet-bootstrap = websauna.wallet.bootstrap:main
-      ethereum-unlock = websauna.wallet.unlock:main
+      wallet-bootstrap = websauna.wallet.bin.bootstrap:main
+      ethereum-unlock = websauna.wallet.bin.unlock:main
+      ethereum-clear-service-locks = websauna.wallet.bin.clearlocks:main
       """,
       )
