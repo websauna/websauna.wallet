@@ -1,15 +1,21 @@
-"""Setup initial assets and network parameters for running the demo. """
+"""Setup initial assets and network parameters for running the demo.
+
+"""
 import os
 import sys
+
+import time
+
 import transaction
 from decimal import Decimal
-from sqlalchemy.orm import Session
+
 
 from websauna.system.http import Request
 from websauna.system.model.retry import retryable
 from websauna.wallet.ethereum.asset import get_eth_network, create_house_address, get_house_address, get_toy_box
 from websauna.wallet.ethereum.confirm import finalize_pending_crypto_ops
-from websauna.wallet.ethereum.ethjsonrpc import get_web3
+
+from websauna.wallet.ethereum.service import ServiceCore
 from websauna.wallet.models import AssetClass
 from websauna.wallet.models import Asset
 from websauna.wallet.models import CryptoAddress
@@ -25,6 +31,17 @@ def create_token(network: AssetNetwork, name: str, symbol: str, supply: int, ini
 
 @retryable
 def setup_networks(request):
+    """Setup network objects.
+    """
+
+    dbsession = request.dbsession
+    for network_name in ["ethereum", "testnet", "private testnet"]:
+        network = get_eth_network(dbsession, network_name)
+        print("Network available ", network)
+
+
+@retryable
+def setup_house(request):
     """Setup different networks supported by the instance.
 
     Setup house wallets on each network.
@@ -33,7 +50,11 @@ def setup_networks(request):
     """
 
     dbsession = request.dbsession
-    for network_name in ["ethereum", "testnet", "private testnet"]:
+
+    services = ServiceCore.parse_network_config(request)
+    networks = services.keys()
+
+    for network_name in networks:
 
         network = get_eth_network(dbsession, network_name)
         assert is_network_alive(network), "Network was dead when we started to create address {}".format(network)
@@ -47,10 +68,12 @@ def setup_networks(request):
         if not "initial_assets" in network.other_data:
             network.other_data["initial_assets"] = {}
 
-        # Setup ETH give away
-        if network_name in ("testnet", "private testnet"):
-            network.other_data["initial_assets"]["eth_amount"] = "0.1"
+        if network_name == "testnet":
+            network.other_data["human_friendly_name"] = "Ethereum Testnet"
 
+        # Setup testnet ETH give away
+        if network_name in ("testnet", "private testnet"):
+            network.other_data["initial_assets"]["eth_amount"] = "5.0"
 
 
 @retryable
@@ -70,12 +93,42 @@ def setup_toybox(request):
     network.other_data["initial_assets"]["toybox_amount"] = 50
 
 
+def ensure_networks_online(request):
+    """Give time to ethereum-service process to catch up.
+
+    Don't go forward until we have confirmed that Ethereum service is alive and talking to us.
+    """
+    services = ServiceCore.parse_network_config(request)
+    networks = services.keys()
+
+    while True:
+        remaining_networks = []
+
+        for network_name in networks:
+            with transaction.manager:
+                network = get_eth_network(request.dbsession, network_name)
+                if not is_network_alive(network):
+                    remaining_networks.append(network_name)
+
+        if remaining_networks:
+            print("Waiting ethereum-service to wake up for networks ", remaining_networks)
+            time.sleep(15)
+            networks = remaining_networks
+        else:
+            break
+
+    print("All networks green")
+
+
 def bootstrap(request: Request):
     """Setup environment for demo."""
     setup_networks(request)
-    finalize_pending_crypto_ops(request.dbsession)
+    ensure_networks_online(request)
+    setup_house(request)
+    # blocks, not so fast
+    finalize_pending_crypto_ops(request.dbsession, timeout=180)
     setup_toybox(request)
-    finalize_pending_crypto_ops(request.dbsession)
+    finalize_pending_crypto_ops(request.dbsession, timeout=180)
 
 
 def main(argv=sys.argv):

@@ -105,12 +105,15 @@ class EthereumService:
 class ServiceCore:
     """Provide core functionality for inline, threaded or processed services."""
 
-    def __init__(self, request, name, config: dict):
+    def __init__(self, request, name, config: dict, require_unlock=True):
         self.request = request
         self.name = name
         self.config = config
         self.service = None
         self.geth = None  # Running private geth testnet process
+
+        #: Do coinbase account unlock test
+        self.require_unlock = require_unlock
 
     def unlock(self, web3, password):
         """Unlock coinbase account."""
@@ -129,9 +132,10 @@ class ServiceCore:
             raise RuntimeError("Cannot unlock coinbase account: {}".format(self.config))
 
     def start_geth(self):
-        chains_dir = self.request.registry.settings["ethereum.chains_dir"]
 
         if self.config["private_geth"]:
+
+            chains_dir = self.request.registry.settings["ethereum.chains_dir"]
 
             host = self.config["host"]
             port = int(self.config["port"])
@@ -145,6 +149,30 @@ class ServiceCore:
             geth = None
         return geth
 
+    def check_account_locked(self, web3, account):
+        # http://ethereum.stackexchange.com/a/6960/620
+        try:
+            web3.eth.sendTransaction({"from": account, "to": account, "value": 1})
+        except Exception as e:
+            raise RuntimeError("Coinbase account locked on {}? {}. Cannot start.".format(self.name, str(e))) from e
+
+    def do_unlock(self):
+
+        if not self.require_unlock:
+            return
+
+        # Optionally unlock the geth instance
+        passwd = self.config.get("coinbase_password", None)
+        if passwd is not None:
+
+            if passwd == "":
+                raise RuntimeError("Cannot have empty coinbase password")
+
+            self.unlock(self.web3, passwd)
+
+        # Check if account is still locked and bail out
+        self.check_account_locked(self.web3, self.web3.eth.coinbase)
+
     def setup(self):
         request = self.request
         dbsession = create_dbsession(request.registry)
@@ -153,19 +181,15 @@ class ServiceCore:
 
         host = self.config["host"]
         port = int(self.config["port"])
-        web3 = Web3(RPCProvider(host, port))
+        self.web3 = web3 = Web3(RPCProvider(host, port))
 
         with transaction.manager:
             network = get_eth_network(dbsession, self.name)
             network_id = network.id
 
         self.geth = self.start_geth()
-
         self.service = EthereumService(web3, network_id, dbsession, request.registry)
-
-        # Optionally unlock the geth instance
-        passwd = self.config.get("coinbase_password")
-        self.unlock(web3, passwd)
+        self.do_unlock()
 
     def run_cycle(self):
         """Run one event cycle."""
@@ -235,7 +259,8 @@ class OneShot(ServiceCore):
         try:
             self.run_cycle()
         finally:
-            self.geth.stop()
+            if self.geth:
+                self.geth.stop()
 
 
 def one_shot(request, network_name):

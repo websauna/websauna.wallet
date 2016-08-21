@@ -33,7 +33,7 @@ setup(name='websauna.wallet',
           'setuptools-git >= 0',
           'setuptools-git-version',
       ],
-      install_requires=['websauna'],
+      install_requires=['websauna', 'python-redis-lock'],
       extras_require={
         # Dependencies for running test suite
         'test': ['websauna[test]', 'pexpect'],
@@ -54,5 +54,6 @@ setup(name='websauna.wallet',
       ethereum-service = websauna.wallet.ethereum.main:main
       ethereum-service-one-shot= websauna.wallet.ethereum.main:one_shot_main
       wallet-bootstrap = websauna.wallet.bootstrap:main
+      ethereum-unlock = websauna.wallet.unlock:main
       """,
       )

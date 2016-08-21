@@ -51,6 +51,11 @@ class AddonInitializer:
         from . import views
         self.config.scan(views)
 
+    @after(Initializer.configure_tasks)
+    def configure_tasks(self):
+        from . import tasks
+        self.config.scan(tasks)
+
     def configure_events(self):
         from . import subscribers
         from . import starterassets
