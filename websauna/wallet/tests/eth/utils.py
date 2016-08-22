@@ -6,7 +6,7 @@ from uuid import UUID
 import pytest
 import time
 import transaction
-from eth_rpc_client import Client
+
 import mock
 
 from web3 import Web3
