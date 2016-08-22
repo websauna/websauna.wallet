@@ -57,7 +57,7 @@ def withdraw(user_asset: UserAddressAsset, request):
     account = user_asset.account
 
     schema = WithdrawSchema().bind(request=request, account=account)
-    b = deform.Button(name='process', title="Withdraw", css_class="btn-block btn-lg")
+    b = deform.Button(name='process', title="Verify with SMS", css_class="btn-block btn-lg")
     form = deform.Form(schema, buttons=(b,))
 
     # User submitted this form

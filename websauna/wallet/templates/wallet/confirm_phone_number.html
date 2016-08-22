@@ -1,10 +1,17 @@
-{%  extends "wallet/base.html" %}
+{%  extends "wallet/confirm_panel.html" %}
 
 {% block wallet_nav %}{% endblock %}
 
-{% block wallet_content %}
+{% block panel_heading %}
+<h1 id="heading-confirm-phone-number">Enter verification code</h1>
+{% endblock %}
 
-  <h1 id="heading-confirm-phone-number">Verify your phone number</h1>
+{% block panel_content %}
+
+  <p>
+    Verification code was sent to your phone number <strong>{{ phone_number }}</strong>.
+    Please give the verification text message two minutes to arrive.
+  </p>
 
   {{ rendered_form|safe }}
 

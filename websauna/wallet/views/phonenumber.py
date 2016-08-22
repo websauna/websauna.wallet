@@ -6,6 +6,7 @@ from pyramid.renderers import render
 from pyramid.view import view_config
 from pyramid import httpexceptions
 
+from pyramid_sms.utils import normalize_international_phone_number
 from pyramid_sms.validators import valid_international_phone_number
 from websauna.system.core import messages
 from websauna.system.form import rollingwindow
@@ -54,7 +55,7 @@ def new_phone_number(wallet, request):
 
     schema = NewPhoneNumber().bind(request=request)
 
-    b = deform.Button(name='process', title="Confirm", css_class="btn-block btn-lg")
+    b = deform.Button(name='process', title="Send verification code", css_class="btn-block btn-lg")
     form = deform.Form(schema, buttons=(b,))
 
     # User submitted this form
@@ -65,7 +66,7 @@ def new_phone_number(wallet, request):
                 appstruct = form.validate(request.POST.items())
 
                 # Save form data from appstruct
-                phone_number = appstruct["phone_number"]
+                phone_number = normalize_international_phone_number(appstruct["phone_number"])
                 UserNewPhoneNumberConfirmation.require_confirmation(user, phone_number)
 
                 return httpexceptions.HTTPFound(request.resource_url(wallet, "confirm-phone-number"))
@@ -107,12 +108,19 @@ class ConfirmPhoneNumber(AskConfirmation):
         wallet = self.context
         return httpexceptions.HTTPFound(self.request.resource_url(wallet))
 
+    def get_buttons(self):
+        confirm = deform.Button(name='confirm', title="Verify")
+        cancel = deform.Button(name='cancel', title="Try again")
+        return (confirm, cancel)
+
+
     @view_config(context=UserWallet, route_name="wallet", name="confirm-phone-number", renderer="wallet/confirm_phone_number.html")
     def render(self):
 
         wallet = self.context  # type: UserWallet
         user = wallet.user
         request = self.request
+        phone_number = self.manual_confirmation.other_data["phone_number"]
 
         if not has_pending_phone_number_request(request, user):
             # We have confirmed the phone number, go to wallet root

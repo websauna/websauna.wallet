@@ -2,3 +2,16 @@
     font-size: 80%;
     word-break: break-all;
 }
+.col-address {
+    font-size: 80%;
+    font-weight: bold;
+}
+
+.panel-wallet-confirm {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+#transactions-pending tbody >   tr {
+    background: #fff6d5;
+}

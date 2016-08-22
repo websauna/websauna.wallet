@@ -1,8 +1,13 @@
-{%  extends "wallet/base.html" %}
+{%  extends "wallet/confirm_panel.html" %}
 
-{% block wallet_content %}
+{% block panel_heading %}
+<h1>
+  <i class="fa fa-mail-forward"></i>
+  Withdraw {{ asset_resource.asset.name }}
+</h1>
+{% endblock %}
 
-  <h1>Withdraw {{ asset_resource.asset.name }}</h1>
+{% block panel_content %}
 
   <p>
     Withdrawing asset

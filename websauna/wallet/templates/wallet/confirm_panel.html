@@ -1,0 +1,28 @@
+{% extends "wallet/base.html" %}
+
+{% block content %}
+
+  <div class="wallet-confirm-body">
+    <div class="row">
+      <div class="col-md-12">
+
+        <div id="{% block login_panel_id %}{% endblock %}" class="panel panel-default panel-wallet-confirm">
+
+          <div class="panel-heading">
+            {% block panel_heading %}
+              <div class="text-center">
+                <img src="{{ 'websauna.magiclogin:static/logo.png'|static_url }}" alt="">
+              </div>
+            {% endblock %}
+          </div>
+
+          <div class="panel-body">
+            {% block panel_content %}
+            {% endblock %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock content %}
+

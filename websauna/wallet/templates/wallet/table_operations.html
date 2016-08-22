@@ -15,7 +15,8 @@
     <tbody>
       {% for detail in details %}
       <tr class="row-operation" id="row-operation-{{ detail.uuid }}">
-        <td>
+
+        <td class="col-symbol">
           {% if detail.op.is_in_progress() %}
             <i class="fa fa-spinner fa-spin crypto-operation-in-progress"></i>
           {% elif detail.op.is_failed() %}
@@ -25,7 +26,7 @@
           {% endif %}
         </td>
 
-        <td>
+        <td class="col-time">
             <div>
               <a href="{{ detail.resource|model_url }}">
                 {{ detail.op.created_at|arrow_format('YYYY-MM-DD HH:MM:ss') }}

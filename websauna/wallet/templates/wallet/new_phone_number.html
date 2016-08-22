@@ -1,14 +1,19 @@
-{%  extends "wallet/base.html" %}
+{%  extends "wallet/confirm_panel.html" %}
 
 
 {% block wallet_nav %}{% endblock %}
 
-{% block wallet_content %}
+{% block panel_heading %}
+<h1 id="heading-new-phone-number">
+  <i class="fa fa-mobile"></i>
+  Verify mobile
+</h1>
+{% endblock %}
 
-  <h1 id="heading-new-phone-number">Phone number required</h1>
+{% block panel_content %}
 
   <p>
-    Verify your mobile phone nubmer for the wallet security. This number will be used for the future withdrawal confirmations.
+    Verify your mobile phone number for the wallet security. This number will be used for the future withdrawal confirmations.
   </p>
 
   {{ rendered_form|safe }}
