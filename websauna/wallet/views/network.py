@@ -164,13 +164,13 @@ def network(network_desc: NetworkDescription, request: Request):
 
     network = network_desc.network
 
+    timestamp = ""
     status = request.dbsession.query(CryptoNetworkStatus).get(network.id)
 
-    heartbeat = status.data.get("heartbeat")
-    if heartbeat:
-        timestamp = arrow.get(status.data["heartbeat"]["timestamp"]).datetime
-    else:
-        timestamp = ""
+    if status:
+        heartbeat = status.data.get("heartbeat")
+        if heartbeat:
+            timestamp = arrow.get(status.data["heartbeat"]["timestamp"]).datetime
 
     network_text = render("network/{}.html".format(network.name), {}, request=request)
 
