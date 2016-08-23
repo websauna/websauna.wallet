@@ -47,7 +47,7 @@ class AssetSchema(CSRFSchema):
     other_data = colander.SchemaNode(colander.String(), validator=validate_json, widget=JSONWidget())
 
 
-@view_overrides(context=admins.AssetAdmin)
+@view_overrides(context=admins.AssetAdmin.Resource)
 class AssetEdit(adminbaseviews.Edit):
     """Edit asset in admin."""
 
