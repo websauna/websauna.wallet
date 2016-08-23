@@ -17,15 +17,17 @@
 
       <table class="table">
 
-        <tr>
-          <th>Last update</th>
-          <td>{{ timestamp|friendly_time(timezone='UTC') }}</td>
-        </tr>
+        {% if status and status.data and status.data.heartbeat %}
+          <tr>
+            <th>Last update</th>
+            <td>{{ timestamp|friendly_time(timezone='UTC') }}</td>
+          </tr>
 
-        <tr>
-          <th>Current block number</th>
-          <td>{{ status.data.heartbeat.block_number }}</td>
-        </tr>
+          <tr>
+            <th>Current block number</th>
+            <td>{{ status.data.heartbeat.block_number }}</td>
+          </tr>
+        {% endif %}
 
         <tr>
           <th>Listed assets</th>
