@@ -17,6 +17,9 @@
 
       <table class="table">
 
+        {% if status.dat %}
+
+        {% endif %}
         <tr>
           <th>Last update</th>
           <td>{{ timestamp|friendly_time(timezone='UTC') }}</td>

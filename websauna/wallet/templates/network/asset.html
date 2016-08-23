@@ -6,36 +6,53 @@
 
   {% include "wallet/breadcrumbs.html" %}
 
-  <h1>{{ asset_desc.asset.name }}</h1>
+  <div class="row">
+    <div class="col-md-12">
+      <h1>{{ asset_desc.asset.name }}</h1>
+    </div>
+  </div>
 
-  <table class="table">
+  <div class="row">
+    <div class="col-md-6">
+        <table class="table">
 
-    <tr>
-      <th>Network</th>
-      <td>{{ asset_desc.asset.network.name }}</td>
-    </tr>
-
-    <tr>
-      <th>Symbol</th>
-      <td>{{ asset_desc.asset.symbol }}</td>
-    </tr>
-
-    <tr>
-      <th>Total distribution</th>
-      <td>
-        {% if asset_desc.asset.supply %}
-          {{ asset_desc.asset.supply }}
-        {% else %}
-          Unknown
-        {% endif %}
-      </td>
-    </tr>
-
-    <tr>
-      <th>Smart contract address</th>
-      <td>{{ asset_desc.address }}</td>
-    </tr>
+          <tr>
+            <th>Description</th>
+            <td>{{ asset_desc.asset.description }}</td>
+          </tr>
 
 
-  </table>
+          <tr>
+            <th>Network</th>
+            <td>{{ asset_desc.asset.network.name }}</td>
+          </tr>
+
+          <tr>
+            <th>Symbol</th>
+            <td>{{ asset_desc.asset.symbol }}</td>
+          </tr>
+
+          <tr>
+            <th>Total distribution</th>
+            <td>
+              {% if asset_desc.asset.supply %}
+                {{ asset_desc.asset.supply }}
+              {% else %}
+                Unknown
+              {% endif %}
+            </td>
+          </tr>
+
+          <tr>
+            <th>Smart contract address</th>
+            <td>{{ asset_desc.address }}</td>
+          </tr>
+        </table>
+    </div>
+
+    <div class="col-md-6">
+      {{ long_description|safe }}
+    </div>
+
+  </div>
 {% endblock %}
