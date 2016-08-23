@@ -98,6 +98,9 @@ class NetworkDescription(Resource):
         self.asset_folder = Resource.make_lineage(self, AssetFolder(request), "assets")
 
     def get_title(self):
+        human_name = self.network.other_data.get("human_friendly_name")
+        if human_name:
+            return human_name
         return self.network.name.capitalize()
 
     def __getitem__(self, item):
