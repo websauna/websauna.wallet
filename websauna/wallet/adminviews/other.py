@@ -13,7 +13,7 @@ from websauna.wallet.models import CryptoAddressAccount
 from websauna.wallet.models import CryptoAddress
 from websauna.wallet.utils import get_asset_formatter, format_asset_amount
 
-from . import admins
+from .. import admins
 
 
 def get_user_for_account(view, column, user_owned_account: UserOwnedAccount):

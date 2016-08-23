@@ -44,7 +44,7 @@ class UserAccountAdmin(ModelAdmin):
 class AssetAdmin(ModelAdmin):
     """Manage user owned accounts and their balances."""
     #: Traverse title
-    title = "Asset classes"
+    title = "Assets"
 
     singular_name = "asset"
     plural_name = "assets"
