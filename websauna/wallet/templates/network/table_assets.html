@@ -4,9 +4,8 @@
   <thead>
     <tr>
       <th>Name</th>
-      <th>Address</th>
-      <th>Chain</th>
-      <th>Supply</th>
+      <th>Description</th>
+      <th>Blockchain</th>
     </tr>
   </thead>
 
@@ -20,7 +19,7 @@
         </td>
 
       <td>
-        {{ asset_desc.address }}
+        {{ asset_desc.asset.description }}
       </td>
 
       <td>
@@ -29,11 +28,6 @@
         </a>
       </td>
 
-      <td>
-        {% if asset_desc.supply %}
-          {{ asset_desc.supply }}
-        {% endif %}
-      </td>
     </tr>
   {% endfor %}
 </tbody>

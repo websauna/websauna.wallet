@@ -109,7 +109,7 @@ class NetworkDescription(Resource):
 class NetworkFolder(Resource):
 
     def get_title(self):
-        return "Chains"
+        return "Blockchains"
 
     def __getitem__(self, slug: str):
         network = self.request.dbsession.query(AssetNetwork).filter_by(name=slug).one_or_none()
