@@ -37,10 +37,12 @@ class AddonInitializer:
     @after(Initializer.configure_model_admins)
     def configure_model_admins(self):
         from . import admins
-        from . import adminviews
         from . import panels
+        from .adminviews import other
+        from .adminviews import asset
         self.config.scan(admins)
-        self.config.scan(adminviews)
+        self.config.scan(other)
+        self.config.scan(asset)
         self.config.scan(panels)
 
     @after(Initializer.configure_views)

@@ -4,6 +4,7 @@ from uuid import UUID
 from pyramid import httpexceptions
 
 import arrow
+import markdown
 from pyramid.renderers import render
 from pyramid.view import view_config
 from slugify import slugify
@@ -137,6 +138,11 @@ def asset_root(asset_folder, request):
 @view_config(context=AssetDescription, route_name="network", name="", renderer="network/asset.html")
 def asset(asset_desc: AssetDescription, request: Request):
     breadcrumbs = get_breadcrumbs(asset_desc, request)
+
+    long_description = asset_desc.asset.other_data.get("long_description", "")
+    if long_description:
+        long_description = markdown.markdown(long_description)
+
     return locals()
 
 

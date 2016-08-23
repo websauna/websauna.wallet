@@ -124,6 +124,9 @@ class Asset(Base):
     #: Human readable name of this asset. Cannot be unique, because there can be several independent token contracts with the same asset name.
     name = Column(String(256), nullable=True, default=None, unique=False)
 
+    #: One line plain text description of the asset
+    description = Column(String(256), nullable=True, default=None, unique=False)
+
     #: Stock like symbol of the asset.
     symbol = Column(String(32), nullable=True, default=None, unique=False)
 
@@ -169,6 +172,11 @@ class Asset(Base):
 
         if self.state == AssetState.frozen:
             raise AssetFrozen("Asset is frozen: {}".format(self))
+
+    @property
+    def long_description(self):
+        """Optional long description (Markdown)."""
+        return self.other_data.get("long_description")
 
 
 class IncompatibleAssets(Exception):

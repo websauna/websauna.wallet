@@ -37,7 +37,7 @@ def setup_networks(request):
     dbsession = request.dbsession
     for network_name in ["ethereum", "testnet", "private testnet"]:
         network = get_eth_network(dbsession, network_name)
-        print("Network available ", network)
+        print("Network database created ", network)
 
 
 @retryable
@@ -55,6 +55,8 @@ def setup_house(request):
     networks = services.keys()
 
     for network_name in networks:
+
+        print("Setting up house wallet on ", network_name)
 
         network = get_eth_network(dbsession, network_name)
         assert is_network_alive(network), "Network was dead when we started to create address {}".format(network)
@@ -79,6 +81,9 @@ def setup_house(request):
 @retryable
 def setup_toybox(request):
     """Setup TOYBOX asset for testing."""
+
+    print("Setting up TOYBOX asset")
+
     dbsession = request.dbsession
     network = get_eth_network(dbsession, "testnet")
     toybox = get_toy_box(network)

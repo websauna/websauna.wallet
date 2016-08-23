@@ -33,7 +33,7 @@ setup(name='websauna.wallet',
           'setuptools-git >= 0',
           'setuptools-git-version',
       ],
-      install_requires=['websauna', 'python-redis-lock'],
+      install_requires=['websauna', 'python-redis-lock', 'Markdown'],
       extras_require={
         # Dependencies for running test suite
         'test': ['websauna[test]', 'pexpect'],
