@@ -166,7 +166,12 @@ def network(network_desc: NetworkDescription, request: Request):
 
     status = request.dbsession.query(CryptoNetworkStatus).get(network.id)
 
-    timestamp = arrow.get(status.data["heartbeat"]["timestamp"]).datetime
+    heartbeat = status.data.get("heartbeat")
+    if heartbeat:
+        timestamp = arrow.get(status.data["heartbeat"]["timestamp"]).datetime
+    else:
+        timestamp = ""
+
     network_text = render("network/{}.html".format(network.name), {}, request=request)
 
     breadcrumbs = get_breadcrumbs(network_desc, request)
