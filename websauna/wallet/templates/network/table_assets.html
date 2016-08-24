@@ -24,7 +24,7 @@
 
       <td>
         <a href="{{ asset_desc.network |model_url }}">
-          {{ asset_desc.network.network.name }}
+          {{ asset_desc.network.get_title() }}
         </a>
       </td>
 
