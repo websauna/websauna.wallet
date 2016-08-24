@@ -12,9 +12,15 @@ from websauna.wallet.ethereum.service import ServiceCore, OneShot
 logger = logging.getLogger(__name__)
 
 
+BAD_LOCK_TIMEOUT = 3600
+
+
 @task(name="update_networks", bind=True)
 def update_networks(self: Task):
-    """Update all incoming and outgoing events from a network."""
+    """Update all incoming and outgoing events from a network through Celery.
+
+    Offer an alternative for runnign standalone ethereum-service.
+    """
 
     request = self.request.request
     redis = get_redis(request)
@@ -30,12 +36,20 @@ def update_networks(self: Task):
 
         if not lock.acquire(blocking=False):
             # This network is still procesing pending operations from the previous task run
-            logger.warn("Could not acquire lock on %s when doing update_networks", network_name)
+
+            lock_acquired_at = redis.get("network-update-lock-started-{}".format(network_name), None)
+            if lock_acquired_at:
+                diff = time.time() - int(lock_acquired_at)
+                if diff > BAD_LOCK_TIMEOUT:
+                    logger.warn("Could not acquire lock on %s when doing update_networks for {) seconds", network_name, BAD_LOCK_TIMEOUT)
+
             continue
 
         lock.release()
 
         with lock:
+            redis.set("network-update-lock-started-{}".format(network_name), time.time())
+
             logger.info("Updating network %s", network_name)
             start = time.time()
             one_shot = OneShot(request, network_name, services[network_name])

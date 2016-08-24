@@ -84,10 +84,13 @@ class EthereumService:
         """
         return self.op_queue_manager.run_waiting_operations()
 
-    def update_stats(self):
+    def update_heartbeat(self):
         # Tell web interface we are still alive
+
         block_number = self.web3.eth.blockNumber
-        update_heart_beat(self.dbsession, self.asset_network_id, block_number)
+        block = self.web3.eth.getBlock(block_number)
+        block_time = block["timestamp"]
+        update_heart_beat(self.dbsession, self.asset_network_id, block_number, block_time)
 
     def run_event_cycle(self, cycle_num=None) -> Tuple[int, int]:
         """Run full event cycle for all operations."""
@@ -95,13 +98,14 @@ class EthereumService:
 
         for func in (self.run_waiting_operations, self.run_listener_operations, self.run_confirmation_updates):
             # Make sure all transactions are closed before and after running ops
+            logger.info("Running %s", func)
             ensure_transactionless("TX management Error. Starting to process {} in event cycle {}".format(func, cycle_num))
             success, failure = func()
             ensure_transactionless()
             total_success += success
             total_failure += failure
 
-        self.update_stats()
+        self.update_heartbeat()
 
         return total_success, total_failure
 
@@ -181,7 +185,7 @@ class ServiceCore:
         request = self.request
         dbsession = create_dbsession(request.registry)
 
-        logger.info("Got dbsession %s %s", self, dbsession)
+        logger.info("Setting up Ethereum service %s with dbsession %s", self, dbsession)
 
         host = self.config["host"]
         port = int(self.config["port"])
@@ -194,6 +198,8 @@ class ServiceCore:
         self.geth = self.start_geth()
         self.service = EthereumService(web3, network_id, dbsession, request.registry)
         self.do_unlock()
+
+        logger.info("setup() complete")
 
     def run_cycle(self, cycle_num=None):
         """Run one event cycle.

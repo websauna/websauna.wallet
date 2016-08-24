@@ -4,6 +4,7 @@ import deform
 import deform.widget
 
 from websauna.system.crud import listing
+from websauna.system.form.csrf import add_csrf
 from websauna.system.form.fields import JSONValue, EnumValue, defer_widget_values
 from websauna.system.form.resourceregistry import ResourceRegistry
 from websauna.system.form.schema import CSRFSchema, enum_values, dictify, objectify
@@ -43,7 +44,7 @@ def available_networks(node, kw):
     return [(uuid_to_slug(network.id), network.name) for network in query]
 
 
-class AssetSchema(CSRFSchema):
+class AssetSchema(colander.Schema):
 
     #: Human readable name
     name = colander.SchemaNode(colander.String())
@@ -85,24 +86,12 @@ class AssetSchema(CSRFSchema):
         JSONValue(),
         widget=JSONWidget(),
         description="JSON bag of attributes of the object",
-        missing={})
+        missing=dict)
 
-
-class AssetFormMixin:
-    """Provide serialization of SQLAlchemy Asset instance to Colander appstruct (dicts) and back."""
-
-    def get_form(self):
-        """Get Deform object we use on the admin page."""
-        schema = AssetSchema()
-        schema = self.bind_schema(schema)
-        return deform.form.Form(schema,
-            buttons=self.get_buttons(),
-            resource_registry=ResourceRegistry(self.request))
-
-    def get_appstruct(self, form: deform.Form, obj: Asset) -> dict:
+    def dictify(self, obj: Asset) -> dict:
         """Serialize SQLAlchemy model instance to nested dictionary appstruct presentation."""
 
-        appstruct = dictify(form.schema, obj, excludes=("long_description", "external_id"))
+        appstruct = dictify(self, obj, excludes=("long_description", "external_id"))
 
         # Convert between binary storage and human readable hex presentation
         appstruct["long_description"] = obj.other_data.pop("long_description", "")
@@ -114,10 +103,10 @@ class AssetFormMixin:
 
         return appstruct
 
-    def objectify_asset(self, form: deform.Form, appstruct: dict, obj: Asset):
+    def objectify(self, appstruct: dict, obj: Asset):
         """Store the dictionary data from the form submission on the object."""
 
-        objectify(form.schema, appstruct, obj, excludes=("long_description", "external_id"))
+        objectify(self, appstruct, obj, excludes=("long_description", "external_id"))
 
         if not obj.other_data:
             # When creating the object JSON value may be None
@@ -130,6 +119,34 @@ class AssetFormMixin:
         # Convert between binary storage and human readable hex presentation
         if appstruct["external_id"]:
             obj.external_id = eth_address_to_bin(appstruct["external_id"])
+
+
+class AssetFormMixin:
+    """Provide serialization of SQLAlchemy Asset instance to Colander appstruct (dicts) and back."""
+
+    def get_form(self):
+        """Get Deform object we use on the admin page."""
+
+        schema = getattr(self.request.registry, "asset_schema", None)
+        if not schema:
+            schema = AssetSchema()
+
+        add_csrf(schema)
+
+        schema = self.bind_schema(schema)
+
+        return deform.form.Form(schema,
+            buttons=self.get_buttons(),
+            resource_registry=ResourceRegistry(self.request))
+
+    def get_appstruct(self, form: deform.Form, obj: Asset) -> dict:
+        """Serialize SQLAlchemy model instance to nested dictionary appstruct presentation."""
+        appstruct = form.schema.dictify(obj)
+        return appstruct
+
+    def objectify_asset(self, form: deform.Form, appstruct: dict, obj: Asset):
+        """Store the dictionary data from the form submission on the object."""
+        form.schema.objectify(appstruct, obj)
 
 
 @view_overrides(context=admins.AssetAdmin)
@@ -148,3 +165,4 @@ class AssetEdit(AssetFormMixin, adminbaseviews.Edit):
     def save_changes(self, form: deform.Form, appstruct: dict, obj: Asset):
         """Store the dictionary data from the form submission on the object."""
         self.objectify_asset(form, appstruct, obj)
+

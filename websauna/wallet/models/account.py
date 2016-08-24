@@ -74,13 +74,29 @@ class AssetNetwork(Base):
         dbsession.flush()
         return asset
 
-    def get_asset(self, id) -> "Asset":
+    def get_asset(self, id: UUID) -> "Asset":
         """Get asset by id within this network."""
         return self.assets.filter_by(id=id).one_or_none()
 
-    def get_asset_by_symbol(self, symbol) -> "Asset":
+    def get_asset_by_symbol(self, symbol: str) -> "Asset":
         """Get asset by id within this network."""
         return self.assets.filter_by(symbol=symbol).one_or_none()
+
+    def get_asset_by_name(self, name: str) -> "Asset":
+        """Get asset by id within this network."""
+        return self.assets.filter_by(name=name).one_or_none()
+
+    def get_or_create_asset_by_name(self, name: str) -> "Asset":
+        """Get asset by id within this network."""
+
+        dbsession = Session.object_session(self)
+
+        asset = self.get_asset_by_name(name)
+        if not asset:
+            asset = Asset(name=name)
+            self.assets.append(asset)
+
+        return asset
 
 
 class AssetClass(enum.Enum):

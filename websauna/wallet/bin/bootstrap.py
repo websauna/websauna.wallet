@@ -20,7 +20,7 @@ from websauna.wallet.models import AssetClass
 from websauna.wallet.models import Asset
 from websauna.wallet.models import CryptoAddress
 from websauna.wallet.models import AssetNetwork
-from websauna.wallet.models.heartbeat import is_network_alive
+from websauna.wallet.models.heartbeat import is_network_alive, dump_network_heartbeat
 
 
 def create_token(network: AssetNetwork, name: str, symbol: str, supply: int, initial_owner_address: CryptoAddress) -> Asset:
@@ -108,15 +108,17 @@ def ensure_networks_online(request):
 
     while True:
         remaining_networks = []
+        network_stats = []
 
         for network_name in networks:
             with transaction.manager:
                 network = get_eth_network(request.dbsession, network_name)
                 if not is_network_alive(network):
                     remaining_networks.append(network_name)
+                    network_stats.append(dump_network_heartbeat(network))
 
         if remaining_networks:
-            print("Waiting ethereum-service to wake up for networks ", remaining_networks)
+            print("Waiting ethereum-service to wake up for networks ", network_stats)
             time.sleep(15)
             networks = remaining_networks
         else:

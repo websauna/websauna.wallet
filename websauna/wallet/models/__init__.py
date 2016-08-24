@@ -1,5 +1,6 @@
 from .account import Account
 from .account import AssetClass
+from .account import AssetState
 from .account import Asset
 from .account import AssetNetwork
 from .account import UserOwnedAccount
