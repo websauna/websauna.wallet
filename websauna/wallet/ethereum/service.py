@@ -89,7 +89,7 @@ class EthereumService:
 
         block_number = self.web3.eth.blockNumber
         block = self.web3.eth.getBlock(block_number)
-        block_time = block["timestamp"]
+        block_time = int(block["timestamp"])
         update_heart_beat(self.dbsession, self.asset_network_id, block_number, block_time)
 
     def run_event_cycle(self, cycle_num=None) -> Tuple[int, int]:

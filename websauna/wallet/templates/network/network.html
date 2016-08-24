@@ -8,7 +8,7 @@
 
   <div class="row">
     <div class="col-md-12">
-      <h1>{{ network.name|capitalize }} network</h1>
+      <h1>{{ network.name|capitalize }} blockchain</h1>
     </div>
   </div>
 
@@ -28,17 +28,8 @@
             <th>Current block number</th>
             <td>{{ status.data.heartbeat.block_number }}</td>
           </tr>
+
         {% endif %}
-
-        <tr>
-          <th>Last update</th>
-          <td>{{ timestamp|friendly_time(timezone='UTC') }}</td>
-        </tr>
-
-        <tr>
-          <th>Current block number</th>
-          <td>{{ status.data.heartbeat.block_number }}</td>
-        </tr>
 
         <tr>
           <th>Listed assets</th>

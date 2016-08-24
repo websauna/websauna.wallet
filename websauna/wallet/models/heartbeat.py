@@ -37,12 +37,12 @@ def is_network_alive(network: AssetNetwork, timeout=60, block_timeout=180, curre
         return False
 
     # Check if we have had a ping from network recently
-    if heartbeat_data["timestamp"] < current_time - timeout:
+    if int(heartbeat_data["timestamp"]) < current_time - timeout:
         return False
 
-    # Check if geth itself has been following blocks
+    # Check if geth itself has been following blocks or fallen out of network
     if block_timeout:
-        if heartbeat_data["block_timestamp"] < current_time - block_timeout:
+        if int(heartbeat_data["block_timestamp"]) < current_time - block_timeout:
             return False
 
     return True
@@ -60,6 +60,6 @@ def dump_network_heartbeat(network: AssetNetwork):
 
     return {
         "name": network.name,
-        "geth_ping_seconds_ago": time.time() - heartbeat_data["timestamp"],
-        "last_block_seconds_ago": time.time() - heartbeat_data["block_timestamp"],
+        "geth_ping_seconds_ago": time.time() - int(heartbeat_data["timestamp"]),
+        "last_block_seconds_ago": time.time() - int(heartbeat_data["block_timestamp"]),
     }

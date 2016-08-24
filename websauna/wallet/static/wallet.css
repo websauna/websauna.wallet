@@ -15,3 +15,7 @@
 #transactions-pending tbody >   tr {
     background: #fff6d5;
 }
+
+.table-asset-data th {
+    width: 200px;
+}

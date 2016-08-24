@@ -5,6 +5,7 @@ from pyramid import httpexceptions
 
 import arrow
 import markdown
+from jinja2.exceptions import TemplateNotFound
 from pyramid.renderers import render
 from pyramid.view import view_config
 from slugify import slugify
@@ -181,7 +182,10 @@ def network(network_desc: NetworkDescription, request: Request):
         if heartbeat:
             timestamp = arrow.get(status.data["heartbeat"]["timestamp"]).datetime
 
-    network_text = render("network/{}.html".format(network.name), {}, request=request)
+    try:
+        network_text = render("network/{}.html".format(network.name), {}, request=request)
+    except TemplateNotFound:
+        pass
 
     breadcrumbs = get_breadcrumbs(network_desc, request)
     return locals()
