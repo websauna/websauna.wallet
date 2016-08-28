@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 BAD_LOCK_TIMEOUT = 3600
 
 
-@task(name="update_networks", bind=True)
+@task(name="update_networks", bind=True, time_limit=60*30, soft_time_limit=60*15)
 def update_networks(self: Task):
     """Update all incoming and outgoing events from a network through Celery.
 
