@@ -11,7 +11,7 @@ pkill ethereum-service
 sleep 5
 dropdb wallet_demo
 createdb wallet_demo
-ws-sync-db websauna/wallet/conf/development.ini
+#ws-sync-db websauna/wallet/conf/development.ini
 # Service is needed in order to bootstrap operatons to complete
 ethereum-service websauna/wallet/conf/development.ini &
 sleep 5

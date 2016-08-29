@@ -101,7 +101,10 @@ class ConfirmPhoneNumber(AskConfirmation):
         super(ConfirmPhoneNumber, self).do_success()
         wallet = self.context
         messages.add(self.request, kind="success", msg="Your mobile phone number has been confirmed.", msg_id="msg-phone-confirmed")
-        return httpexceptions.HTTPFound(self.request.resource_url(wallet))
+
+        wallet_welcome_page = self.request.registry.settings.get("websauna.wallet.welcome_page", "")
+
+        return httpexceptions.HTTPFound(self.request.resource_url(wallet, traverse=wallet_welcome_page))
 
     def do_cancel(self):
         super(ConfirmPhoneNumber, self).do_cancel()
@@ -112,7 +115,6 @@ class ConfirmPhoneNumber(AskConfirmation):
         confirm = deform.Button(name='confirm', title="Verify")
         cancel = deform.Button(name='cancel', title="Try again")
         return (confirm, cancel)
-
 
     @view_config(context=UserWallet, route_name="wallet", name="confirm-phone-number", renderer="wallet/confirm_phone_number.html")
     def render(self):

@@ -14,6 +14,7 @@ from websauna.system.user.models import User
 from websauna.utils.slug import slug_to_uuid, uuid_to_slug
 from websauna.wallet.ethereum.asset import setup_user_account
 from websauna.wallet.ethereum.utils import bin_to_eth_address, bin_to_txid
+from websauna.wallet.events import CryptoOperationViewed
 from websauna.wallet.models import UserCryptoAddress
 from websauna.wallet.models import UserCryptoOperation
 from websauna.wallet.models import CryptoOperationState
@@ -400,6 +401,10 @@ def operation(uop: UserOperation, request):
     op = detail["op"]
     wallet = uop.__parent__.__parent__
     breadcrumbs = get_breadcrumbs(uop, request)
+
+    op = CryptoOperationViewed(request, op)
+    request.registry.notify(op)
+
     return locals()
 
 
@@ -498,6 +503,12 @@ def get_user_address_asset(request, address: CryptoAddress, asset: Asset) -> Use
     crypto_address_account = address.address.get_crypto_account(asset)
     asset = address.get_user_address_asset(crypto_address_account)
     return asset
+
+
+def get_user_wallet(request) -> UserWallet:
+    wallet_root = route_factory(request)
+    url = request.resource_url(wallet_root[uuid_to_slug(request.user.uuid)])
+    return url
 
 
 

@@ -24,6 +24,7 @@ def initial_address_creation_checker(event: CryptoOperationComplete):
         if isinstance(op, CryptoAddressCreation):
             network = op.network
             assets = UserCryptoAddress.get_user_asset_accounts_by_network(user, network)
+
             if not assets:
                 registry.notify(InitialAddressCreation(user, network, op, op.address, registry, event.web3))
 

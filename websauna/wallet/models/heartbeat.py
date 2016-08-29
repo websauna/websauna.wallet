@@ -60,6 +60,7 @@ def dump_network_heartbeat(network: AssetNetwork):
 
     return {
         "name": network.name,
-        "geth_ping_seconds_ago": time.time() - int(heartbeat_data["timestamp"]),
-        "last_block_seconds_ago": time.time() - int(heartbeat_data["block_timestamp"]),
+        "geth_ping_seconds_ago": time.time() - float(heartbeat_data["timestamp"]),
+        "last_block_seconds_ago": int(time.time()) - int(heartbeat_data["block_timestamp"]),
+        "last_block": heartbeat_data["block_number"],
     }

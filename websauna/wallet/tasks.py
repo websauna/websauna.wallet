@@ -37,7 +37,7 @@ def update_networks(self: Task):
         if not lock.acquire(blocking=False):
             # This network is still procesing pending operations from the previous task run
 
-            lock_acquired_at = redis.get("network-update-lock-started-{}".format(network_name), None)
+            lock_acquired_at = redis.get("network-update-lock-started-{}".format(network_name))
             if lock_acquired_at:
                 diff = time.time() - int(lock_acquired_at)
                 if diff > BAD_LOCK_TIMEOUT:

@@ -1,5 +1,6 @@
 from pyramid.registry import Registry
 from web3 import Web3
+from websauna.system.http import Request
 
 from websauna.system.user.models import User
 from websauna.wallet.models import CryptoOperation
@@ -42,3 +43,21 @@ class InitialAddressCreation:
         self.address = address
         self.registry = registry
         self.web3 = web3
+
+
+class WalletCreated:
+    """User wallet has been created (mobile number confirmed).
+
+    """
+
+    def __init__(self, request, user):
+        self.request = request
+        self.user = user
+
+
+class CryptoOperationViewed:
+    """User visits operation page."""
+
+    def __init__(self, request: Request, op: CryptoOperation):
+        self.request = request
+        self.op = op

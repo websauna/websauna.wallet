@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from pyramid.registry import Registry
 from websauna.system.user.models import User
 from websauna.wallet.ethereum.utils import eth_address_to_bin
+from websauna.wallet.events import WalletCreated
 from websauna.wallet.models import AssetNetwork, Asset, AssetClass, UserCryptoAddress, CryptoAddressCreation, UserCryptoOperation, CryptoAddress, CryptoAddressAccount
 from websauna.wallet.models.blockchain import CryptoOperationType
 
@@ -25,9 +26,11 @@ def get_eth_network(dbsession: Session, asset_network_name="ethereum") -> AssetN
     return network
 
 
-def get_ether_asset(dbsession) -> Asset:
+def get_ether_asset(dbsession, network=None) -> Asset:
     """Create ETH cryptocurrency instance."""
-    network = get_eth_network(dbsession)
+
+    if not network:
+        network = get_eth_network(dbsession)
 
     asset = dbsession.query(Asset).filter_by(network=network, symbol="ETH").one_or_none()
     if asset:
@@ -71,6 +74,9 @@ def setup_user_account(user: User, request=None):
         if eth_addresses.count() == 0:
             # Create default address
             create_default_user_address(user, ethereum, confirmations=confirmations)
+
+            if request:
+                request.registry.notify(WalletCreated(request, user))
 
 
 def get_toy_box(network: AssetNetwork) -> Asset:
