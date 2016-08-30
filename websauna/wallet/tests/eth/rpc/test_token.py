@@ -12,10 +12,10 @@ def test_deploy_token_contract(web3, token):
 
     contract= token.contract
 
-    assert contract.call().version().decode("utf-8") == "2"
+    assert contract.call().version() == "2"
     assert contract.call().totalSupply() == 10000
-    assert contract.call().name().decode("utf-8") == "Mootoken"
-    assert contract.call().symbol().decode("utf-8") == "MOO"
+    assert contract.call().name() == "Mootoken"
+    assert contract.call().symbol() == "MOO"
 
 
 @pytest.mark.slow

@@ -86,7 +86,10 @@ class DatabaseConfirmationUpdater:
             # Block number may change because of the works
             op.block = int(receipt["blockNumber"], 16)
 
-            assert op.block <= current_block
+            if op.block <= current_block:
+                # Not sure how serious this is. Forks going on?
+                logger.warn("Transaction was included in later block %s than was the current block %s. Receipt %s", op.block, current_block, receipt)
+
             confirmation_count = current_block - op.block
             if op.update_confirmations(confirmation_count):
                 updates += 1

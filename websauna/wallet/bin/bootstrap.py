@@ -1,6 +1,9 @@
 """Setup initial assets and network parameters for running the demo.
 
 """
+import gevent.monkey
+gevent.monkey.patch_all()
+
 import os
 import sys
 

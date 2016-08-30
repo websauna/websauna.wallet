@@ -1,11 +1,7 @@
 from pyramid.config import Configurator
 from websauna.system import Initializer
 from websauna.utils.autoevent import after
-from websauna.utils.autoevent import before
 from websauna.utils.autoevent import bind_events
-
-from websauna.system.model.utils import attach_models_to_base_from_module
-
 
 
 class AddonInitializer:
@@ -67,12 +63,23 @@ class AddonInitializer:
     def configure_assets(self):
         pass
 
+    def configure_request(self):
+        """Add extra reified methods."""
+
+        def get_wallet(request):
+            """Return resource pointing to the user wallet."""
+            from websauna.wallet.views.wallet import get_user_wallet
+            return get_user_wallet(request)
+
+        self.config.add_request_method(get_wallet, "wallet")
+
     def run(self):
         # We override this method, so that we route home to our home screen, not Websauna default one
         bind_events(self.config.registry.initializer, self)
 
         self.configure_events()
         self.configure_assets()
+        self.configure_request()
 
 
 def includeme(config: Configurator):

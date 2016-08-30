@@ -49,6 +49,7 @@ setup(name='websauna.wallet',
 
       [pytest11]
       ethereum=populus.plugin
+      wallet-gevent=websauna.wallet.tests.plugin
 
       [console_scripts]
       ethereum-service = websauna.wallet.ethereum.main:main

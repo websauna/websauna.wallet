@@ -27,7 +27,7 @@ def get_rpc_client(web3: Web3) -> Client:
     """Get a raw Ethereum RPC client for an underyling web3 client."""
 
     c = Client(web3.currentProvider.host, web3.currentProvider.port)
-    c.session = web3.currentProvider.session
+    # c.session = web3.currentProvider.session
     return c
 
 

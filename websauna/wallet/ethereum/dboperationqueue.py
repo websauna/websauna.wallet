@@ -53,11 +53,15 @@ class OperationQueueManager:
         self.registry.notify(CryptoOperationComplete(op, self.registry, self.web3))
         logger.info("Operationg success: %s", op)
 
+    def get_eth_operations(self, registry):
+        op_map = get_eth_operations(self.registry)
+        return op_map
+
     def run_op(self, op_type: CryptoOperationType, opid: UUID):
         """Run a performer for a single operation."""
 
         # Get a function to perform the op using adapters
-        op_map = get_eth_operations(self.registry)
+        op_map = self.get_eth_operations(self.registry)
         performer = op_map.get(op_type)
         if not performer:
             raise RuntimeError("Doesn't have a performer for operation {}".format(op_type))

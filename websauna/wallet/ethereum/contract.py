@@ -1,6 +1,8 @@
 from typing import Optional, Tuple
 
-from gevent import Timeout
+import gevent
+
+from requests.packages.urllib3 import Timeout
 from web3 import Web3
 from web3.contract import Contract, construct_contract_class
 
@@ -112,7 +114,7 @@ def confirm_transaction(web3: Web3, txid: str, timeout=60) -> dict:
 
     try:
         receipt = wait_for_transaction_receipt(web3, txid, timeout)
-    except Timeout as e:
+    except gevent.Timeout as e:
         raise TransactionConfirmationError("Could not confirm tx {} within timeout {}".format(txid, timeout)) from e
 
     tx = web3.eth.getTransaction(txid)

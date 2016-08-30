@@ -6,6 +6,15 @@ from decimal import Decimal
 sha3_256 = lambda x: keccak.new(digest_bits=256, data=x).digest()
 
 
+def ensure_0x_prefixed_hex(s):
+    """Helper function when ABIs don't seem to decide how to format Ethereum addresses."""
+    if type(s) == bytes:
+        s = s.decode("ascii")
+    if not s.startswith("0x"):
+        s = "0x" + s
+    return s
+
+
 def bin_to_eth_address(b: bytes):
     i = int.from_bytes(b, byteorder="big")
     # http://stackoverflow.com/a/12638477/315168

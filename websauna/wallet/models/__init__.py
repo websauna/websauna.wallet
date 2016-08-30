@@ -7,6 +7,7 @@ from .account import UserOwnedAccount
 
 from .blockchain import CryptoAddress
 from .blockchain import CryptoOperationState
+from .blockchain import CryptoOperationType
 from .blockchain import CryptoOperation
 from .blockchain import CryptoAddressAccount
 from .blockchain import CryptoAddressDeposit

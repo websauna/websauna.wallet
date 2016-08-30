@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from pyramid.events import BeforeRender
 from websauna.wallet.ethereum.asset import get_ether_asset, get_eth_network
 from websauna.wallet.models import UserCryptoAddress
@@ -16,14 +18,14 @@ def get_default_balance(request):
     network = get_eth_network(request.dbsession)
     default_address = UserCryptoAddress.get_default(user, network)
     if not default_address:
-        return format_asset_amount(0, asset.asset_class)
+        return format_asset_amount(Decimal(0), asset.asset_class)
 
     account = default_address.get_crypto_account(asset)
 
     if account:
         return format_asset_amount(account.account.get_balance(), asset.asset_class)
     else:
-        return format_asset_amount(0, asset.asset_class)
+        return format_asset_amount(Decimal(0), asset.asset_class)
 
 
 def includeme(config):

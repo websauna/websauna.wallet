@@ -13,7 +13,7 @@ from web3.utils.abi import function_abi_to_4byte_selector
 
 from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
 from websauna.wallet.ethereum.contractwrapper import ContractWrapper
-from websauna.wallet.ethereum.utils import to_wei, wei_to_eth
+from websauna.wallet.ethereum.utils import to_wei, wei_to_eth, ensure_0x_prefixed_hex
 
 
 class HostedWallet(ContractWrapper):
@@ -52,7 +52,10 @@ class HostedWallet(ContractWrapper):
 
         # Sanity check that we own this wallet
         owner = self.contract.call().owner()
-        owner = "0x" + owner.decode("ascii")
+
+        # TODO: parent ABI not stable
+        owner = ensure_0x_prefixed_hex(owner)
+
         assert owner == from_account
 
         # Interact with underlying wrapped contract
@@ -86,7 +89,7 @@ class HostedWallet(ContractWrapper):
             value = 0
 
         # Encode function arguments
-        function_abi = to_contract.find_matching_abi(func, args)
+        function_abi = to_contract.find_matching_fn_abi(func, args)
         # 4 byte function hash
         function_selector = function_abi_to_4byte_selector(function_abi)
 

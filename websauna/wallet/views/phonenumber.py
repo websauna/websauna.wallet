@@ -104,7 +104,7 @@ class ConfirmPhoneNumber(AskConfirmation):
 
         wallet_welcome_page = self.request.registry.settings.get("websauna.wallet.welcome_page", "")
 
-        return httpexceptions.HTTPFound(self.request.resource_url(wallet, traverse=wallet_welcome_page))
+        return httpexceptions.HTTPFound(self.request.resource_url(wallet, wallet_welcome_page))
 
     def do_cancel(self):
         super(ConfirmPhoneNumber, self).do_cancel()

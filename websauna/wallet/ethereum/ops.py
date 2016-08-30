@@ -233,8 +233,8 @@ def import_token(web3: Web3, dbsession: Session, opid: UUID):
             logger.exception(e)
 
         try:
-            name = token.contract.call().name().decode("utf-8")
-            symbol = token.contract.call().symbol().decode("utf-8")
+            name = token.contract.call().name()
+            symbol = token.contract.call().symbol()
             supply = Decimal(token.contract.call().totalSupply())
         except eth_abi.exceptions.DecodingError as e:
             # When we try to access a contract attrib which is not supported by underlying code

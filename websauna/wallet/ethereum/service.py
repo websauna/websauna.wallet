@@ -98,7 +98,7 @@ class EthereumService:
 
         for func in (self.run_waiting_operations, self.run_listener_operations, self.run_confirmation_updates):
             # Make sure all transactions are closed before and after running ops
-            logger.info("Running %s", func)
+            # logger.info("Running %s", func)
             ensure_transactionless("TX management Error. Starting to process {} in event cycle {}".format(func, cycle_num))
             success, failure = func()
             ensure_transactionless()
