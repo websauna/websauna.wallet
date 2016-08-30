@@ -2,6 +2,7 @@ from functools import wraps
 
 from pyramid import httpexceptions
 
+from websauna.system.core import messages
 from websauna.wallet.models.confirmation import UserNewPhoneNumberConfirmation
 
 
@@ -29,6 +30,11 @@ def wallet_view(func):
         context, request = args
         wallet = get_wallet(context)
         user = request.user
+
+        if not user:
+            messages.add(request, kind="warning", msg="Please sign in to view the page.")
+            return httpexceptions.HTTPFound(request.route_url("home"))
+
         # Redirect user to the phone number confirmation
         if request.registry.settings.get("websauna.wallet.require_phone_number"):
             if not UserNewPhoneNumberConfirmation.has_confirmed_phone_number(user):

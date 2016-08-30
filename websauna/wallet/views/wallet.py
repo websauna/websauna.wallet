@@ -5,8 +5,8 @@ from pyramid import httpexceptions
 from pyramid.decorator import reify
 from pyramid.security import Allow
 from pyramid.view import view_config
-from websauna.system.core.breadcrumbs import get_breadcrumbs
 
+from websauna.system.core.breadcrumbs import get_breadcrumbs
 from websauna.system.core.root import Root
 from websauna.system.core.traversal import Resource
 from websauna.system.http import Request
@@ -14,7 +14,7 @@ from websauna.system.user.models import User
 from websauna.utils.slug import slug_to_uuid, uuid_to_slug
 from websauna.wallet.ethereum.asset import setup_user_account
 from websauna.wallet.ethereum.utils import bin_to_eth_address, bin_to_txid
-from websauna.wallet.events import CryptoOperationViewed
+from websauna.wallet.events import CryptoOperationViewed, WalletOverviewViewed
 from websauna.wallet.models import UserCryptoAddress
 from websauna.wallet.models import UserCryptoOperation
 from websauna.wallet.models import CryptoOperationState
@@ -26,7 +26,6 @@ from websauna.wallet.models import CryptoAddressAccount
 from websauna.wallet.models.blockchain import CryptoOperationType
 from websauna.wallet.utils import format_asset_amount
 from websauna.wallet.views.decorators import wallet_view
-from websauna.wallet.views.network import get_asset_resource
 from websauna.wallet.views.network import get_network_resource
 
 
@@ -446,6 +445,8 @@ def asset(uaa: UserAddressAsset, request):
 @wallet_view
 def wallet_overview(wallet: UserWallet, request: Request):
     """Wallet overview page."""
+
+    request.registry.notify(WalletOverviewViewed(request, wallet))
 
     # Whose wallet we are dealing with
     user = wallet.user

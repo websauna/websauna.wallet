@@ -39,7 +39,7 @@ def update_networks(self: Task):
 
             lock_acquired_at = redis.get("network-update-lock-started-{}".format(network_name))
             if lock_acquired_at:
-                diff = time.time() - int(lock_acquired_at)
+                diff = time.time() - float(lock_acquired_at)
                 if diff > BAD_LOCK_TIMEOUT:
                     logger.warn("Could not acquire lock on %s when doing update_networks for {) seconds", network_name, BAD_LOCK_TIMEOUT)
 

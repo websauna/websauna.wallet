@@ -66,3 +66,11 @@ class CryptoOperationViewed:
     def __init__(self, request: Request, resource: "websauna.wallet.views.wallet.UserOperation"):
         self.request = request
         self.resource = resource
+
+
+class WalletOverviewViewed:
+    """User visits operation page."""
+
+    def __init__(self, request: Request, resource: "websauna.wallet.views.wallet.UserWallet"):
+        self.request = request
+        self.resource = resource
