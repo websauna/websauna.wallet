@@ -11,7 +11,7 @@ from websauna.wallet.ethereum.contract import confirm_transaction
 from websauna.wallet.ethereum.populusutils import get_rpc_client
 from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.ethereum.token import Token
-from websauna.wallet.models.blockchain import CryptoOperationType, UserCryptoAddress
+from websauna.wallet.models.blockchain import CryptoOperationType, UserCryptoAddress, CryptoOperationState
 from websauna.wallet.tests.eth.utils import wait_for_op_confirmations
 from websauna.wallet.models import CryptoOperation
 from websauna.wallet.models import Asset
@@ -32,7 +32,7 @@ def test_starter_eth(dbsession, registry, eth_network_id, web3: Web3, eth_servic
     assert success >= 1
     assert fail == 0
 
-    # We need another event cycle to process the initial asset transfers
+    # When op is confirmed, the user account is correctly credited
     with transaction.manager:
         user = dbsession.query(User).first()
         txid = user.user_data["starter_asset_txs"][0]

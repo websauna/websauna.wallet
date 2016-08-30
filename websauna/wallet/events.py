@@ -18,8 +18,12 @@ class CryptoOperationEvent:
         self.web3 = web3
 
 
-class CryptoOperationComplete(CryptoOperationEvent):
-    pass
+class CryptoOperationCompleted(CryptoOperationEvent):
+    """Operation requiring confirmations reaches completed_at first time."""
+
+
+class CryptoOperationPerformed(CryptoOperationEvent):
+    """Operation was run by Ethereum service."""
 
 
 class IncomingCryptoDeposit(CryptoOperationEvent):
@@ -48,6 +52,7 @@ class InitialAddressCreation:
 class WalletCreated:
     """User wallet has been created (mobile number confirmed).
 
+    This event is fired before any addresses or accounts are in place.
     """
 
     def __init__(self, request, user):
@@ -58,6 +63,6 @@ class WalletCreated:
 class CryptoOperationViewed:
     """User visits operation page."""
 
-    def __init__(self, request: Request, op: CryptoOperation):
+    def __init__(self, request: Request, resource: "websauna.wallet.views.wallet.UserOperation"):
         self.request = request
-        self.op = op
+        self.resource = resource

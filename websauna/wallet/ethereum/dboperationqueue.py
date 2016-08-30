@@ -14,7 +14,7 @@ from websauna.system.model.retry import retryable
 from websauna.utils.time import now
 from websauna.wallet.ethereum.interfaces import IOperationPerformer
 from websauna.wallet.ethereum.ops import get_eth_operations
-from websauna.wallet.events import CryptoOperationComplete
+from websauna.wallet.events import CryptoOperationPerformed
 from websauna.wallet.models import CryptoOperation
 from websauna.wallet.models import CryptoOperationState
 from websauna.wallet.models.blockchain import CryptoOperationType
@@ -47,10 +47,10 @@ class OperationQueueManager:
         return wait_list
 
     @retryable
-    def notify_op_complete(self, opid):
+    def notify_op_performed(self, opid):
         # Post the event completion info
         op = self.dbsession.query(CryptoOperation).get(opid)
-        self.registry.notify(CryptoOperationComplete(op, self.registry, self.web3))
+        self.registry.notify(CryptoOperationPerformed(op, self.registry, self.web3))
         logger.info("Operationg success: %s", op)
 
     def get_eth_operations(self, registry):
@@ -70,7 +70,7 @@ class OperationQueueManager:
         # Do the actual operation
         performer(self.web3, self.dbsession, opid)
 
-        self.notify_op_complete(opid)
+        self.notify_op_performed(opid)
 
     def run_waiting_operations(self) -> Tuple[int, int]:
         """Run all operations that are waiting to be executed.

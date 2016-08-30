@@ -1,19 +1,16 @@
 from pyramid.events import subscriber
 from sqlalchemy.orm import Session
 
-from .events import CryptoOperationComplete, InitialAddressCreation, IncomingCryptoDeposit
+from .events import CryptoOperationCompleted, InitialAddressCreation, IncomingCryptoDeposit, CryptoOperationPerformed
 from .models import UserCryptoOperation
 from .models import UserCryptoAddress
 from .models import CryptoAddressCreation
-from .models import CryptoAddressDeposit
-from .models import AssetNetwork
-from .models import CryptoAddress
 
 
+@subscriber(CryptoOperationPerformed)
+def initial_address_creation_checker(event: CryptoOperationPerformed):
+    """Check broadcasted wallet creation event and feed the wallet with some assets if needed.."""
 
-@subscriber(CryptoOperationComplete)
-def initial_address_creation_checker(event: CryptoOperationComplete):
-    """Check completed events and transfor one to initial address creation if needed."""
     op = event.op
     registry = event.registry
 
@@ -21,13 +18,16 @@ def initial_address_creation_checker(event: CryptoOperationComplete):
 
     if user_op:
         user = user_op.user
+
         if isinstance(op, CryptoAddressCreation):
             network = op.network
+
+            # Does the user have yet any asset accounts (even empty) on this network?
             assets = UserCryptoAddress.get_user_asset_accounts_by_network(user, network)
 
             if not assets:
+                # Fire the event to notify that we need to feed the user account
                 registry.notify(InitialAddressCreation(user, network, op, op.address, registry, event.web3))
-
 
 
 @subscriber(IncomingCryptoDeposit)

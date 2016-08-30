@@ -75,9 +75,6 @@ def setup_user_account(user: User, request=None):
             # Create default address
             create_default_user_address(user, ethereum, confirmations=confirmations)
 
-            if request:
-                request.registry.notify(WalletCreated(request, user))
-
 
 def get_toy_box(network: AssetNetwork) -> Asset:
     """Get the toybox asset."""

@@ -402,7 +402,7 @@ def operation(uop: UserOperation, request):
     wallet = uop.__parent__.__parent__
     breadcrumbs = get_breadcrumbs(uop, request)
 
-    op = CryptoOperationViewed(request, op)
+    op = CryptoOperationViewed(request, uop)
     request.registry.notify(op)
 
     return locals()
@@ -507,8 +507,7 @@ def get_user_address_asset(request, address: CryptoAddress, asset: Asset) -> Use
 
 def get_user_wallet(request) -> UserWallet:
     wallet_root = route_factory(request)
-    url = request.resource_url(wallet_root[uuid_to_slug(request.user.uuid)])
-    return url
+    return wallet_root[uuid_to_slug(request.user.uuid)]
 
 
 

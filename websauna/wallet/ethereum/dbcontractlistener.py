@@ -170,7 +170,8 @@ class EthWalletListener(DatabaseContractListener):
     def get_monitored_addresses(self) -> Iterable[str]:
         """Get list of all ETH crtypto deposit addresses."""
         with transaction.manager:
-            for addr in self.dbsession.query(CryptoAddress, CryptoAddress.address).filter(CryptoAddress.network_id == self.network_id):
+            for addr in self.dbsession.query(CryptoAddress, CryptoAddress.address).filter(CryptoAddress.network_id == self.network_id, CryptoAddress.address != None):
+                # addr.address is not set if the address is under construction
                 yield bin_to_eth_address(addr.address)
 
     def handle_event(self, event_name: str, contract_address: str, log_data: dict, log_entry: dict):

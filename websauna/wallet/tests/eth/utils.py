@@ -3,6 +3,8 @@ from typing import Tuple
 from decimal import Decimal
 from uuid import UUID
 
+from sqlalchemy.orm import Session
+
 import pytest
 import time
 import transaction
@@ -20,12 +22,13 @@ from websauna.wallet.ethereum.service import EthereumService
 
 
 # http://testnet.etherscan.io/tx/0xe9f35838f45958f1f2ddcc24247d81ed28c4aecff3f1d431b1fe81d92db6c608
-from websauna.wallet.ethereum.utils import to_wei, eth_address_to_bin
+from websauna.wallet.ethereum.utils import to_wei, eth_address_to_bin, txid_to_bin, bin_to_txid
 from websauna.wallet.models import CryptoOperation
 from websauna.wallet.models import AssetNetwork
 from websauna.wallet.models import Asset
 from websauna.wallet.models import AssetClass
 from websauna.wallet.models import CryptoAddress
+from websauna.wallet.models import CryptoAddressDeposit
 
 from websauna.wallet.ethereum.confirm import wait_for_op_confirmations
 
@@ -156,7 +159,16 @@ def mock_create_addresses(eth_service, dbsession, address=TEST_ADDRESS):
     return success_op_count, failed_op_count
 
 
-
-
+def do_faux_deposit(address: CryptoAddress, asset_id, amount) -> CryptoAddressDeposit:
+    TEST_TXID = "0x00df829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcf"
+    txid = TEST_TXID
+    dbsession = Session.object_session(address)
+    asset = dbsession.query(Asset).get(asset_id)
+    txid = txid_to_bin(txid)
+    op = address.deposit(Decimal(amount), asset, txid, bin_to_txid(txid))
+    op.required_confirmation_count = 1
+    dbsession.add(op)
+    dbsession.flush()
+    return op
 
 

@@ -561,9 +561,31 @@ class CryptoOperation(Base):
         self.other_data["error"] = error
         self.reverse()
 
+    def resolve(self):
+        self.mark_complete()
+
     def update_confirmations(self, confirmation_count) -> bool:
-        """How this operation reacts for confirmation counts."""
-        raise NotImplementedError()
+        """Update block since creation of this operation.
+
+        Some operations, esp. deposits are safe to confirm after certain block count after the creation of transactions. This is do avoid forking issues. For example, the general rule for Ether is that all deposits should wait 12 confirmations.
+
+        Some operations do not require confirmation count (create address).
+
+        http://ethereum.stackexchange.com/a/7304/620
+        """
+
+        # We are already done
+        if self.completed_at:
+            return False
+
+        assert self.required_confirmation_count is not None, "update_confirmations() called for non-confirmation count operation"
+
+        if confirmation_count > self.required_confirmation_count:
+            self.resolve()
+            assert self.completed_at
+            return True
+
+        return False
 
     def calculate_confirmations(self) -> Optional[int]:
         """Use network latest block number to calculate confirmation counts.
@@ -676,28 +698,6 @@ class DepositResolver:
         Account.transfer(incoming_tx.amount, self.holding_account, self.crypto_account.account, incoming_tx.message)
 
         self.mark_complete()
-
-    def update_confirmations(self, confirmation_count) -> bool:
-        """Update block since creation of this operation.
-
-        Some operations, esp. deposits are safe to confirm after certain block count after the creation of transactions. This is do avoid forking issues. For example, the general rule for Ether is that all deposits should wait 12 confirmations.
-
-        Some operations do not require confirmation count (create address).
-
-        http://ethereum.stackexchange.com/a/7304/620
-        """
-
-        # We are already done
-        if self.completed_at:
-            return False
-
-        assert self.required_confirmation_count is not None, "update_confirmations() called for non-confirmation count operation"
-
-        if confirmation_count > self.required_confirmation_count:
-            self.resolve()
-            return True
-
-        return False
 
 
 class CryptoAddressDeposit(DepositResolver, CryptoOperation):

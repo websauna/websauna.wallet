@@ -8,6 +8,7 @@ from websauna.system.model.retry import retryable
 
 from websauna.wallet.ethereum.populusutils import get_rpc_client
 from websauna.wallet.ethereum.utils import txid_to_bin, bin_to_txid
+from websauna.wallet.events import CryptoOperationCompleted
 from websauna.wallet.models import CryptoOperation
 from websauna.wallet.models import CryptoOperationState
 
@@ -18,10 +19,10 @@ logger = logging.getLogger(__name__)
 class DatabaseConfirmationUpdater:
     """Update confirmation counts for crypto operations requiring them."""
 
-    def __init__(self, web3: Web3, dbsession: Session, network_id, logger=logger):
+    def __init__(self, web3: Web3, dbsession: Session, network_id, registry, logger=logger):
 
         assert isinstance(web3, Web3)
-        self.web = web3
+        self.web3 = web3
 
         # web3 doesn't support filters yet
         self.client = get_rpc_client(web3)
@@ -29,6 +30,7 @@ class DatabaseConfirmationUpdater:
         self.network_id = network_id
         self.dbsession = dbsession
         self.logger = logger
+        self.registry = registry
 
     def scan_txs(self) -> Tuple[int, int]:
         """Look for new deposits.
@@ -92,6 +94,11 @@ class DatabaseConfirmationUpdater:
 
             confirmation_count = current_block - op.block
             if op.update_confirmations(confirmation_count):
+
+                # Notify listeners we reached the goal
+                logger.info("Completed, confirmations reached %s", op)
+                self.registry.notify(CryptoOperationCompleted(op, self.registry, self.web3))
+
                 updates += 1
 
         return updates, failures

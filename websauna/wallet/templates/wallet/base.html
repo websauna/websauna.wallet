@@ -14,7 +14,7 @@
           Transactions
           {% with pending=wallet.get_pending_operation_count() %}
             {% if pending  %}
-              <span class="label label-warning">{{ pending }}</span>
+              <span class="badge">{{ pending }}</span>
             {% endif %}
           {% endwith %}
         </a>

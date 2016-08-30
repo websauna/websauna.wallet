@@ -5,12 +5,15 @@ from sqlalchemy.orm import Session
 
 import transaction
 from pyramid.registry import Registry
+from websauna.wallet.ethereum.dbconfirmationupdater import DatabaseConfirmationUpdater
 from websauna.wallet.ethereum.dboperationqueue import OperationQueueManager
 from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.ethereum.utils import eth_address_to_bin, bin_to_eth_address, txid_to_bin
+from websauna.wallet.events import CryptoOperationCompleted
 from websauna.wallet.models import CryptoOperation
 from websauna.wallet.models import CryptoAddress
 from websauna.wallet.models import CryptoOperationType
+from websauna.wallet.models import CryptoOperationState
 
 
 TEST_ADDRESS = "0x2f70d3d26829e412a602e83fe8eebf80255aeea5"
@@ -34,7 +37,6 @@ def _create_address(service, dbsession, opid):
 
         op.mark_performed()
         op.mark_broadcasted()
-        op.mark_complete()
 
 
 def _create_token(service, dbsession, opid):
@@ -61,7 +63,15 @@ def _create_token(service, dbsession, opid):
 
         op.mark_performed()
         op.mark_broadcasted()
-        op.mark_complete()
+
+
+def _deposit_eth(web3, dbsession: Session, opid: UUID):
+    """This can be settled internally, as we do not have any external communications in this point."""
+
+    with transaction.manager:
+        op = dbsession.query(CryptoOperation).get(opid)
+        op.mark_performed()
+        op.mark_broadcasted()
 
 
 class DummyOperationQueueManager(OperationQueueManager):
@@ -71,12 +81,30 @@ class DummyOperationQueueManager(OperationQueueManager):
 
         op_map = {
             #CryptoOperationType.withdraw: withdraw,
-            # CryptoOperationType.deposit: deposit_eth,
+            CryptoOperationType.deposit: _deposit_eth,
             #CryptoOperationType.import_token: import_token,
             CryptoOperationType.create_token: _create_token,
             CryptoOperationType.create_address: _create_address,
         }
         return op_map
+
+
+class DummyDatabaseConfirmationUpdater(DatabaseConfirmationUpdater):
+    """Confirm all operations in the queue."""
+
+    def __init__(self, dbsession: Session, network_id, registry):
+        self.network_id = network_id
+        self.dbsession = dbsession
+        self.registry = registry
+
+    def poll(self):
+        ops = self.dbsession.query(CryptoOperation).filter(CryptoOperation.state == CryptoOperationState.broadcasted, CryptoOperation.network_id == self.network_id)
+        updates = 0
+        for op in ops:
+            if op.update_confirmations(999):
+                self.registry.notify(CryptoOperationCompleted(op, self.registry, None))
+                updates += 1
+        return updates, 0
 
 
 class MockEthereumService(EthereumService):
@@ -85,6 +113,8 @@ class MockEthereumService(EthereumService):
     * No network communications
 
     * All operations will always success instantly
+
+    * All operations get confirmed instantly
 
     * Deposits and withdraws come and go to /dev/null
     """
@@ -111,8 +141,23 @@ class MockEthereumService(EthereumService):
 
         :return: Number of operations (performed successfully, failed)
         """
-        return self.op_queue_manager.run_waiting_operations()
+        success = failure = 0
+        s, f = self.op_queue_manager.run_waiting_operations()
+        success += s
+        failure += f
+
+        s, f = self.confirmation_updater.poll()
+        success += s
+        failure += f
+
+        return success, failure
 
     def setup_listeners(self):
         self.op_queue_manager = DummyOperationQueueManager(self.web3, self.dbsession, self.asset_network_id, self.registry)
+        self.confirmation_updater = DummyDatabaseConfirmationUpdater(self.dbsession, self.asset_network_id, self.registry)
 
+    def run_test_ops(self):
+        """Finish all operations with a unit test."""
+        success, failures = self.run_waiting_operations()
+        assert success > 0
+        assert failures == 0

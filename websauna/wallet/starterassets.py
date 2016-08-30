@@ -3,11 +3,11 @@ from decimal import Decimal
 from pyramid.events import subscriber
 from sqlalchemy.orm import Session
 
-
+from websauna.utils.time import now
 from websauna.wallet.ethereum.asset import get_toy_box, get_house_holdings
 from websauna.wallet.ethereum.utils import bin_to_eth_address
 from websauna.wallet.tests.eth.utils import send_balance_to_address
-from .events import InitialAddressCreation
+from .events import InitialAddressCreation, WalletCreated
 
 
 def give_toybox(event):
@@ -66,6 +66,17 @@ def give_starter_assets(event: InitialAddressCreation):
     give_eth(event)
 
 
+def check_wallet_creation(request) -> bool:
+    """Check if we have notified this user about wallet creation yet.
 
+    :return: True if this was a wallet creation event
+    """
+    user = request.user
 
+    if not "wallet_creation_notified_at" in request.user.user_data:
+        request.user.user_data["wallet_creation_notified_at"] = now().isoformat()
+        request.registry.notify(WalletCreated(request, user))
+        return True
+    else:
+        return False
 

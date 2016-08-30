@@ -15,6 +15,7 @@ from websauna.system.form.throttle import throttled_view
 from websauna.system.http import Request
 from websauna.system.user.models import User
 from websauna.wallet.models.confirmation import UserNewPhoneNumberConfirmation, ManualConfirmation, ManualConfirmationState
+from websauna.wallet.starterassets import check_wallet_creation
 from websauna.wallet.views.confirm import AskConfirmation
 from websauna.wallet.views.wallet import UserWallet
 
@@ -102,9 +103,11 @@ class ConfirmPhoneNumber(AskConfirmation):
         wallet = self.context
         messages.add(self.request, kind="success", msg="Your mobile phone number has been confirmed.", msg_id="msg-phone-confirmed")
 
-        wallet_welcome_page = self.request.registry.settings.get("websauna.wallet.welcome_page", "")
-
-        return httpexceptions.HTTPFound(self.request.resource_url(wallet, wallet_welcome_page))
+        if check_wallet_creation(self.request):
+            wallet_welcome_page = self.request.registry.settings.get("websauna.wallet.welcome_page", "")
+            return httpexceptions.HTTPFound(self.request.resource_url(wallet, wallet_welcome_page))
+        else:
+            return httpexceptions.HTTPFound(self.request.resource_url(wallet))
 
     def do_cancel(self):
         super(ConfirmPhoneNumber, self).do_cancel()
