@@ -60,7 +60,7 @@ def update_networks(self: Task):
             one_shot.run_shot()
             logger.info("Updated network %s in %d seconds", network_name, time.time() - start)
 
-            request.registry.notify(ServiceUpdated(request, time.time() - start))
+            request.registry.notify(ServiceUpdated(request, network_name, time.time() - start))
 
 
 @task(name="post_network_stats", bind=True, time_limit=60*30, soft_time_limit=60*15, base=RetryableTransactionTask)

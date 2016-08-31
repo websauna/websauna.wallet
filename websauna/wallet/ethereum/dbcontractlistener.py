@@ -224,7 +224,7 @@ class EthWalletListener(DatabaseContractListener):
         op = CryptoAddressDeposit(address.network)
 
         # Get or create final account where we deposit the transaction
-        asset = get_ether_asset(self.dbsession)
+        asset = get_ether_asset(self.dbsession, network=address.network)
         crypto_account = address.get_or_create_account(asset)
         op.crypto_account = crypto_account
 

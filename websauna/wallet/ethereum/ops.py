@@ -159,7 +159,7 @@ def withdraw(web3: Web3, dbsession: Session, opid: UUID):
     @retryable
     def resolve_asset():
         op = dbsession.query(CryptoOperation).get(opid)
-        eth = get_ether_asset(dbsession)
+        eth = get_ether_asset(dbsession, network=op.network)
 
         if op.holding_account.asset == eth:
             return "eth"
@@ -169,6 +169,7 @@ def withdraw(web3: Web3, dbsession: Session, opid: UUID):
             raise RuntimeError("Unknown asset {}".format(op.holding_account.asset))
 
     asset_type = resolve_asset()
+
     if asset_type == "token":
         return withdraw_token(web3, dbsession, opid)
     else:

@@ -38,6 +38,10 @@ class MultipleAssetAccountsPerAddress(Exception):
     """Don't allow creation account for the same asset under one address."""
 
 
+class WrongNetwork(Exception):
+    """Tried to use asset on a wrong network."""
+
+
 class CryptoOperationType(enum.Enum):
     """What different operations we support."""
     address = "address"
@@ -117,6 +121,9 @@ class CryptoAddress(Base):
         assert asset
         assert asset.id
         assert self.address
+
+        if asset.network != self.network:
+            raise WrongNetwork("Tried to create account on asset {} on {}".format(asset, self))
 
         dbsession = Session.object_session(self)
 
@@ -509,7 +516,7 @@ class CryptoOperation(Base):
         """Return human readable value of this operation in asset or None if no asset assigned."""
         tx = self.primary_tx
         if tx:
-            return tx.amount
+            return abs(tx.amount)
         return None
 
     @property

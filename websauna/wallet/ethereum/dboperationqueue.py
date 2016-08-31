@@ -27,6 +27,7 @@ class OperationQueueManager:
 
     def __init__(self, web3: Web3, dbsession: Session, asset_network_id, registry: Registry):
         assert isinstance(registry, Registry)
+        assert isinstance(asset_network_id, UUID)
         self.web3 = web3
         self.dbsession = dbsession
         self.asset_network_id = asset_network_id
@@ -43,7 +44,6 @@ class OperationQueueManager:
 
         # Flatten
         wait_list = [(o.id, o.operation_type) for o in wait_list]
-
         return wait_list
 
     @retryable
