@@ -9,37 +9,41 @@ from websauna.wallet.ethereum.dbconfirmationupdater import DatabaseConfirmationU
 from websauna.wallet.ethereum.dboperationqueue import OperationQueueManager
 from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.ethereum.utils import eth_address_to_bin, bin_to_eth_address, txid_to_bin
-from websauna.wallet.events import CryptoOperationCompleted
+from websauna.wallet.events import CryptoOperationCompleted, IncomingCryptoDeposit
 from websauna.wallet.models import CryptoOperation
 from websauna.wallet.models import CryptoAddress
 from websauna.wallet.models import CryptoOperationType
 from websauna.wallet.models import CryptoOperationState
+from websauna.wallet.models import CryptoAddressDeposit
 
 
-TEST_ADDRESS = "0x2f70d3d26829e412a602e83fe8eebf80255aeea5"
-TEST_ADDRESSES = []
 TEST_ADDRESS_INITIAL_TXID = "0x00df829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcf"
 
 TEST_TOKEN_TXID = "0x00df829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcf"
-TEST_TOKEN_ADDRESS = "0x5589C14FbC92A73809fBCfF33Ab40eFc7E8E8467 "
+TEST_TOKEN_ADDRESS = "0x5589C14FbC92A73809fBCfF33Ab40eFc7E8E8467"
 
 
-def _create_address(service, dbsession, opid):
+def _create_address(web3, dbsession, opid):
 
     with transaction.manager:
         op = dbsession.query(CryptoOperation).get(opid)
         txid = TEST_ADDRESS_INITIAL_TXID
 
+        # Deterministically pull faux addresses from pool
+        network = op.network
+        address_pool = network.other_data["test_address_pool"]
+        address = address_pool.pop()
+
         op.txid = txid_to_bin(txid)
         op.block = 666
-        op.address.address = eth_address_to_bin(TEST_ADDRESS)
+        op.address.address = eth_address_to_bin(address)
         op.external_address = op.address.address
 
         op.mark_performed()
         op.mark_broadcasted()
 
 
-def _create_token(service, dbsession, opid):
+def _create_token(web3, dbsession, opid):
     with transaction.manager:
         op = dbsession.query(CryptoOperation).get(opid)
         # Check everyting looks sane
@@ -57,7 +61,7 @@ def _create_token(service, dbsession, opid):
         # Call geth RPC API over Populus contract proxy
         op.txid = txid_to_bin(TEST_TOKEN_TXID)
         op.block = None
-        op.external_address = eth_address_to_bin(TEST_ADDRESS)
+        op.external_address = eth_address_to_bin(TEST_TOKEN_ADDRESS)
 
         asset.external_id = op.external_address
 
@@ -74,13 +78,35 @@ def _deposit_eth(web3, dbsession: Session, opid: UUID):
         op.mark_broadcasted()
 
 
+def _withdraw(web3, dbsession: Session, opid: UUID):
+
+    with transaction.manager:
+        # Check everyting looks sane
+        op = dbsession.query(CryptoOperation).get(opid)
+        assert op.crypto_account.id
+        assert op.crypto_account.account.id
+        assert op.holding_account.id
+        assert op.holding_account.get_balance() > 0
+        assert op.external_address
+        assert op.required_confirmation_count  # Should be set by the creator
+
+        op.mark_performed()  # Don't try to pick this op automatically again
+
+        # Fill in details.
+        # Block number will be filled in later, when confirmation updater picks a transaction receipt for this operation.
+        op = dbsession.query(CryptoOperation).get(opid)
+        op.txid = txid_to_bin(TEST_ADDRESS_INITIAL_TXID)
+        op.block = None
+        op.mark_broadcasted()
+
+
 class DummyOperationQueueManager(OperationQueueManager):
 
     def get_eth_operations(self, registry):
         """Mock out all operations."""
 
         op_map = {
-            #CryptoOperationType.withdraw: withdraw,
+            CryptoOperationType.withdraw: _withdraw,
             CryptoOperationType.deposit: _deposit_eth,
             #CryptoOperationType.import_token: import_token,
             CryptoOperationType.create_token: _create_token,
@@ -98,13 +124,19 @@ class DummyDatabaseConfirmationUpdater(DatabaseConfirmationUpdater):
         self.registry = registry
 
     def poll(self):
-        ops = self.dbsession.query(CryptoOperation).filter(CryptoOperation.state == CryptoOperationState.broadcasted, CryptoOperation.network_id == self.network_id)
-        updates = 0
-        for op in ops:
-            if op.update_confirmations(999):
-                self.registry.notify(CryptoOperationCompleted(op, self.registry, None))
-                updates += 1
-        return updates, 0
+        with transaction.manager:
+            ops = self.dbsession.query(CryptoOperation).filter(CryptoOperation.state == CryptoOperationState.broadcasted, CryptoOperation.network_id == self.network_id)
+            updates = 0
+            for op in ops:
+
+                # We don't have wallet updater, so we short cut deposit to user logic here
+                if isinstance(op, CryptoAddressDeposit):
+                    self.registry.notify(IncomingCryptoDeposit(op, self.registry, None))
+
+                if op.update_confirmations(999):
+                    self.registry.notify(CryptoOperationCompleted(op, self.registry, None))
+                    updates += 1
+            return updates, 0
 
 
 class MockEthereumService(EthereumService):

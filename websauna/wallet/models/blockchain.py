@@ -469,7 +469,13 @@ class CryptoOperation(Base):
                 nblock = network_status.block_number
             else:
                 nblock = "network-missing"
-            txinfo = "txid:{} block:{} nblock:{}".format(bin_to_txid(self.txid), self.block, nblock)
+
+            if self.txid:
+                txid = bin_to_txid(self.txid)
+            else:
+                txid = "-"
+
+            txinfo = "txid:{} block:{} nblock:{}".format(txid, self.block, nblock)
         else:
             txinfo = ""
 
@@ -801,6 +807,13 @@ class UserCryptoAddress(Base):
                                         cascade="all, delete-orphan",
                                         single_parent=True,),)
 
+
+    def __str__(self):
+        return "User {} address {}".format(self.user, self.address)
+
+    def __repr__(self):
+        return self.__str__()
+
     @staticmethod
     def create_address(user: User, network: AssetNetwork, name: str, confirmations: int) -> CryptoAddressCreation:
         """Initiates account creation operation."""
@@ -851,17 +864,20 @@ class UserCryptoAddress(Base):
         dbsession = Session.object_session(address)
         return dbsession.query(UserCryptoAddress).filter_by(address=address).one_or_none()
 
-    def get_crypto_account(self, asset: Asset):
+    def get_crypto_account(self, asset: Asset) -> CryptoAddressAccount:
         crypto_account = self.address.get_account(asset)
         return crypto_account
 
-    def withdraw(self, asset: Asset, amount: Decimal, address: str, note: str, required_confirmation_count: int) -> "UserCryptoOperation":
+    def withdraw(self, asset: Asset, amount: Decimal, address: bytes, note: str, required_confirmation_count: int) -> "UserCryptoOperation":
         """Withdraw assets from this address."""
 
+        assert type(address) == bytes
 
         asset.ensure_not_frozen()
 
         crypto_account = self.get_crypto_account(asset)
+        assert crypto_account, "Could not withdraw from {} because it doesn't have asset {}".format(self, asset)
+
         op = crypto_account.withdraw(amount, address, note, required_confirmation_count)
         uco = UserCryptoOperation.wrap(self.user, op)
         return uco

@@ -121,6 +121,7 @@ def create_house_address(network: AssetNetwork) -> CryptoAddressCreation:
     assert not network.other_data.get("house_address")
 
     op = CryptoAddress.create_address(network)
+    op.required_confirmation_count = 1
     addr_id = op.address.id
     assert addr_id
     network.other_data["house_address"] = str(addr_id)

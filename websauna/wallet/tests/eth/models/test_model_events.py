@@ -3,7 +3,7 @@
 import pytest
 import transaction
 
-from websauna.wallet.events import CryptoOperationCompleted, CryptoOperationPerformed
+from websauna.wallet.events import CryptoOperationCompleted, CryptoOperationPerformed, IncomingCryptoDeposit
 from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw, CryptoOperationState, AssetClass
 from websauna.wallet.models.blockchain import MultipleAssetAccountsPerAddress, UserCryptoOperation, UserCryptoAddress, CryptoAddressDeposit
 from websauna.wallet.tests.eth.mockservice import MockEthereumService
@@ -73,8 +73,9 @@ def test_deposit_completed(dbsession, eth_network_id, eth_service: MockEthereumS
 
     # We get performed event on
     events = captured_registry_events
-    assert len(events) == 2
+    assert len(events) == 3
     assert isinstance(events[0], CryptoOperationPerformed)
-    assert isinstance(events[1], CryptoOperationCompleted)
+    assert isinstance(events[1], IncomingCryptoDeposit)
+    assert isinstance(events[2], CryptoOperationCompleted)
 
 

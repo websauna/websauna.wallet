@@ -4,9 +4,8 @@ from pyramid.events import subscriber
 from sqlalchemy.orm import Session
 
 from websauna.utils.time import now
-from websauna.wallet.ethereum.asset import get_toy_box, get_house_holdings
-from websauna.wallet.ethereum.utils import bin_to_eth_address
-from websauna.wallet.tests.eth.utils import send_balance_to_address
+from websauna.wallet.ethereum.asset import get_toy_box, get_house_holdings, get_ether_asset
+from websauna.wallet.ethereum.utils import bin_to_eth_address, bin_to_txid
 from .events import InitialAddressCreation, WalletCreated
 
 
@@ -38,7 +37,11 @@ def give_toybox(event):
 
 
 def give_eth(event):
+    """Feed user some test ETH from coinbase."""
     user = event.user
+
+    # TODO: Rework this
+    from websauna.wallet.tests.eth.utils import send_balance_to_address, do_faux_deposit
 
     amount = event.network.other_data["initial_assets"].get("eth_amount")
     if not amount:
@@ -46,7 +49,15 @@ def give_eth(event):
 
     # Supply eth from coinbase
     address = bin_to_eth_address(event.address.address)
-    txid = send_balance_to_address(event.web3, address, Decimal(amount))
+    if event.web3:
+        txid = send_balance_to_address(event.web3, address, Decimal(amount))
+    else:
+        # MockEthreumService test
+        dbsession = Session.object_session(event.address)
+        network = event.address.network
+        asset = get_ether_asset(dbsession, network)
+        op = do_faux_deposit(event.address, asset.id, Decimal(amount))
+        txid = bin_to_txid(op.txid)
 
     # Record this operation in user data so we can verify it later
     op_txs = user.user_data.get("starter_asset_txs", [])

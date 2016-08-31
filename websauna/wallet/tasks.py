@@ -41,7 +41,7 @@ def update_networks(self: Task):
             if lock_acquired_at:
                 diff = time.time() - float(lock_acquired_at)
                 if diff > BAD_LOCK_TIMEOUT:
-                    logger.warn("Could not acquire lock on %s when doing update_networks for {) seconds", network_name, BAD_LOCK_TIMEOUT)
+                    logger.warn("Could not acquire lock on %s when doing update_networks for %f seconds", network_name, BAD_LOCK_TIMEOUT)
 
             continue
 

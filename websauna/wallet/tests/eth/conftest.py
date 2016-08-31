@@ -165,6 +165,12 @@ def eth_network_id(dbsession):
     """Get id for Ethereum primary AssetNetwork."""
     with transaction.manager:
         network = get_eth_network(dbsession)
+        # Used by create_address op in MockEthereumService
+        network.other_data["test_address_pool"] = [
+            "0x2f70d3d26829e412a602e83fe8eebf80255aeea5",
+            "0x5589C14FbC92A73809fBCfF33Ab40eFc7E8E8467",
+            "0x7bd2f95cefada49141a7f467f40c42f94e3c7338"
+        ]
         return network.id
 
 

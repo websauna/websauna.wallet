@@ -29,6 +29,8 @@ from websauna.wallet.models import Asset
 from websauna.wallet.models import AssetClass
 from websauna.wallet.models import CryptoAddress
 from websauna.wallet.models import CryptoAddressDeposit
+from websauna.wallet.models import UserCryptoAddress
+from websauna.wallet.models import UserCryptoOperation
 
 from websauna.wallet.ethereum.confirm import wait_for_op_confirmations
 
@@ -120,7 +122,7 @@ def send_balance_to_address(web3: Web3, address: str, value: Decimal) -> str:
     return web3.eth.sendTransaction(tx)
 
 
-def create_token_asset(dbsession, eth_service, eth_network_id, name, symbol, supply) -> UUID:
+def create_token_asset(dbsession, eth_service, eth_network_id, name, symbol, supply, wait=True) -> UUID:
     """Create a token in the network and assigns it to coinbase address."""
 
     with transaction.manager:
@@ -133,9 +135,11 @@ def create_token_asset(dbsession, eth_service, eth_network_id, name, symbol, sup
 
     # This gives op a txid
     success, fails = eth_service.run_waiting_operations()
-    assert success == 1
+    assert success > 0
+    assert fails == 0
 
-    wait_for_op_confirmations(eth_service, opid)
+    if wait:
+        wait_for_op_confirmations(eth_service, opid)
     return aid
 
 
@@ -160,6 +164,7 @@ def mock_create_addresses(eth_service, dbsession, address=TEST_ADDRESS):
 
 
 def do_faux_deposit(address: CryptoAddress, asset_id, amount) -> CryptoAddressDeposit:
+    """Simulate deposit to address."""
     TEST_TXID = "0x00df829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcf"
     txid = TEST_TXID
     dbsession = Session.object_session(address)
@@ -167,8 +172,17 @@ def do_faux_deposit(address: CryptoAddress, asset_id, amount) -> CryptoAddressDe
     txid = txid_to_bin(txid)
     op = address.deposit(Decimal(amount), asset, txid, bin_to_txid(txid))
     op.required_confirmation_count = 1
+    op.external_address = address.address
     dbsession.add(op)
     dbsession.flush()
+    return op
+
+
+def do_faux_withdraw(user_address: UserCryptoAddress, target_address, asset_id, amount) -> UserCryptoOperation:
+    """Simulate user withdrawing assets from one of his addresses."""
+    dbsession = Session.object_session(user_address)
+    asset = dbsession.query(Asset).get(asset_id)
+    op = user_address.withdraw(asset, Decimal(amount), eth_address_to_bin(target_address), "Simulated withraw", required_confirmation_count=1)
     return op
 
 

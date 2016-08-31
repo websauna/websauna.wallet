@@ -29,6 +29,12 @@ class CryptoOperationPerformed(CryptoOperationEvent):
 class IncomingCryptoDeposit(CryptoOperationEvent):
 
     def __init__(self, op: CryptoAddressDeposit, registry: Registry, web3: Web3):
+        """
+
+        :param op:
+        :param registry:
+        :param web3: May be None under testing
+        """
         self.op = op
         self.registry = registry
         self.web3 = web3
