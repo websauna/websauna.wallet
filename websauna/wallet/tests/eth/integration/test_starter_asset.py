@@ -35,7 +35,7 @@ def test_starter_eth(dbsession, registry, eth_network_id, web3: Web3, eth_servic
     # When op is confirmed, the user account is correctly credited
     with transaction.manager:
         user = dbsession.query(User).first()
-        txid = user.user_data["starter_asset_txs"][0]
+        txid = user.user_data["starter_asset_txs"][0]["eth"]
 
     confirm_transaction(web3, txid)
 
@@ -89,7 +89,8 @@ def test_starter_token(dbsession, registry, eth_network_id, web3: Web3, eth_serv
     # We need another event cycle to process the initial asset transfers
     with transaction.manager:
         user = dbsession.query(User).first()
-        opid = user.user_data["starter_asset_ops"][0]
+        opid = user.user_data["starter_asset_txs"][0]["toybox"]
+        assert opid
 
     wait_for_op_confirmations(eth_service, opid)
 

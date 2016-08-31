@@ -171,6 +171,15 @@ def eth_network_id(dbsession):
             "0x5589C14FbC92A73809fBCfF33Ab40eFc7E8E8467",
             "0x7bd2f95cefada49141a7f467f40c42f94e3c7338"
         ]
+
+        network.other_data["test_txid_pool"] = [
+            "0x00df829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcf",
+            "0x00df829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dce",
+            "0x00df829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcd",
+            "0x00df829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcc",
+            "0x00df829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcb",
+        ]
+
         return network.id
 
 

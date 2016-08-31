@@ -143,7 +143,6 @@ def create_token_asset(dbsession, eth_service, eth_network_id, name, symbol, sup
     return aid
 
 
-
 def mock_create_addresses(eth_service, dbsession, address=TEST_ADDRESS):
     """Create fake addresses instead of going to geth to ask for new address."""
 
@@ -165,11 +164,14 @@ def mock_create_addresses(eth_service, dbsession, address=TEST_ADDRESS):
 
 def do_faux_deposit(address: CryptoAddress, asset_id, amount) -> CryptoAddressDeposit:
     """Simulate deposit to address."""
-    TEST_TXID = "0x00df829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcf"
-    txid = TEST_TXID
+
+    network = address.network
+    txid = network.other_data["test_txid_pool"].pop()
+    # txid = "0x00df829c5a142f1fccd7d8216c5785ac562ff41e2dcfdf5785ac562ff41e2dcf"
     dbsession = Session.object_session(address)
     asset = dbsession.query(Asset).get(asset_id)
     txid = txid_to_bin(txid)
+
     op = address.deposit(Decimal(amount), asset, txid, bin_to_txid(txid))
     op.required_confirmation_count = 1
     op.external_address = address.address

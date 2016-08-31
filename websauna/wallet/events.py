@@ -80,3 +80,23 @@ class WalletOverviewViewed:
     def __init__(self, request: Request, resource: "websauna.wallet.views.wallet.UserWallet"):
         self.request = request
         self.resource = resource
+
+
+class ServiceUpdated:
+    """Fired by Celery when update cycle is complete
+    """
+
+    def __init__(self, request, network_name, duration):
+        self.request = request
+        self.network_name = network_name
+        self.duration = duration
+
+
+class NetworkStats:
+    """Fired periodically by Celery to give stats to the devop service.
+    """
+
+    def __init__(self, request, network_name, stats_dump: dict):
+        self.request = request
+        self.network_name = network_name
+        self.stats_dump = stats_dump

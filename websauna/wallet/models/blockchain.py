@@ -173,8 +173,9 @@ class CryptoAddress(Base):
 
         crypto_account = self.get_or_create_account(asset)
 
+        # TODO: Use opid instead of txid here
         # One transaction can contain multiple assets to the same address. Each recognized asset should result to its own operation.
-        existing = dbsession.query(CryptoAddressDeposit).filter_by(txid=txid).join(Account).join(Asset).one_or_none()
+        existing = dbsession.query(CryptoAddressDeposit).filter_by(txid=txid).join(Account).filter_by(asset_id=asset.id).one_or_none()
         if existing:
             return existing
 

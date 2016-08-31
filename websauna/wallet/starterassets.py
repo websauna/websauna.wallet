@@ -10,6 +10,8 @@ from .events import InitialAddressCreation, WalletCreated
 
 
 def give_toybox(event):
+    from websauna.wallet.tests.eth.utils import send_balance_to_address, do_faux_deposit
+
     user = event.user
 
     toybox = get_toy_box(event.network)
@@ -20,20 +22,27 @@ def give_toybox(event):
     if not amount:
         return
 
-    # Generate initial operation to supply the user
-    house_holdings = get_house_holdings(toybox)
-    op = house_holdings.withdraw(Decimal(amount), event.address.address, "Starter assets for user {}".format(user.friendly_name))
+    if not event.web3:
+        # MockEthreumService test shortcut
+        dbsession = Session.object_session(event.address)
+        network = event.address.network
+        house_holdings = get_house_holdings(toybox)
+        op = do_faux_deposit(event.address, house_holdings.account.asset.id, Decimal(amount))
+    else:
+        # Generate initial operation to supply the user
+        house_holdings = get_house_holdings(toybox)
+        op = house_holdings.withdraw(Decimal(amount), event.address.address, "Starter assets for user {}".format(user.friendly_name))
 
-    # Generate op.id
-    dbsession = Session.object_session(user)
-    dbsession.flush()
+        # Generate op.id
+        dbsession = Session.object_session(user)
+        dbsession.flush()
 
     assert op.id
 
     # Record this operation in user data so we can verify it later
-    op_txs = user.user_data.get("starter_asset_ops", [])
-    op_txs.append(str(op.id))
-    user.user_data["starter_asset_ops"] = op_txs
+    op_txs = user.user_data.get("starter_asset_txs", [])
+    op_txs.append({"toybox": str(op.id)})
+    user.user_data["starter_asset_txs"] = op_txs
 
 
 def give_eth(event):
@@ -61,7 +70,7 @@ def give_eth(event):
 
     # Record this operation in user data so we can verify it later
     op_txs = user.user_data.get("starter_asset_txs", [])
-    op_txs.append(txid)
+    op_txs.append({"eth": txid})
     user.user_data["starter_asset_txs"] = op_txs
 
 

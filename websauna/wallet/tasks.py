@@ -7,7 +7,11 @@ import redis_lock
 from celery import Task
 from websauna.system.core.redis import get_redis
 from websauna.system.task.tasks import task
+from websauna.system.task.tasks import RetryableTransactionTask
 from websauna.wallet.ethereum.service import ServiceCore, OneShot
+from websauna.wallet.events import NetworkStats, ServiceUpdated
+from websauna.wallet.models import AssetNetwork
+from websauna.wallet.models.heartbeat import dump_network_heartbeat
 
 logger = logging.getLogger(__name__)
 
@@ -55,3 +59,16 @@ def update_networks(self: Task):
             one_shot = OneShot(request, network_name, services[network_name])
             one_shot.run_shot()
             logger.info("Updated network %s in %d seconds", network_name, time.time() - start)
+
+            request.registry.notify(ServiceUpdated(request, time.time() - start))
+
+
+@task(name="post_network_stats", bind=True, time_limit=60*30, soft_time_limit=60*15, base=RetryableTransactionTask)
+def post_network_stats(self: Task):
+    request = self.request.request
+    dbsession = request.dbsession
+    services = ServiceCore.parse_network_config(request)
+    for network in dbsession.query(AssetNetwork).all():
+        if network.name in services.keys():
+            stats = dump_network_heartbeat(network)
+            request.registry.notify(NetworkStats(request, network.name, stats))
