@@ -17,6 +17,7 @@ from websauna.system.core.traversal import Resource
 from websauna.system.http import Request
 from websauna.utils.slug import slug_to_uuid, uuid_to_slug
 from websauna.wallet.ethereum.utils import bin_to_eth_address
+from websauna.wallet.interfaces import IAssetDescriptionFactory
 from websauna.wallet.models import AssetNetwork
 from websauna.wallet.models import CryptoNetworkStatus
 from websauna.wallet.models import AssetState
@@ -34,7 +35,7 @@ class AssetDescription(Resource):
 
     @classmethod
     def asset_to_slug(cls, asset: Asset):
-        return "{};{}".format(slugify(asset.name), uuid_to_slug(asset.id))
+        return slugify(asset.name)
 
     @property
     def address(self) -> str:
@@ -49,8 +50,7 @@ class AssetDescription(Resource):
 
     @classmethod
     def slug_to_asset_id(cls, slug: str) -> UUID:
-        *seo, slug = slug.split(";")
-        return slug_to_uuid(slug)
+        return slug
 
     def get_title(self):
         return "{} ({})".format(self.asset.name, self.asset.symbol)
@@ -65,13 +65,13 @@ class AssetDescription(Resource):
 
 class AssetFolder(Resource):
 
-    def __getitem__(self, slug: str):
-        id = AssetDescription.slug_to_asset_id(slug)
-        asset = self.request.dbsession.query(Asset).filter_by(id=id).one_or_none()
-        if not asset:
-            raise KeyError()
+    def __getitem__(self, slug: str) -> AssetDescription:
 
-        return self.get_description(asset)
+        for asset in self.request.dbsession.query(Asset).filter(Asset.network_id==self.get_network().id):
+            if slugify(asset.name) == slug:
+                return self.get_description(asset)
+
+        raise KeyError()
 
     def get_title(self):
         return "Assets"
@@ -80,7 +80,10 @@ class AssetFolder(Resource):
         return self.__parent__.network
 
     def get_description(self, asset: Asset):
-        asset_desc = AssetDescription(self.request, asset)
+
+        factory = self.request.registry.queryUtility(IAssetDescriptionFactory, default=AssetDescription)
+        asset_desc = factory(self.request, asset)
+
         assert asset.network == self.get_network()
         return Resource.make_lineage(self, asset_desc, AssetDescription.asset_to_slug(asset))
 
@@ -165,9 +168,7 @@ def asset(asset_desc: AssetDescription, request: Request):
 @view_config(context=NetworkFolder, route_name="network", name="", renderer="network/networks.html")
 def network_root(network_folder, request):
     networks = network_folder.get_public_networks()
-
     breadcrumbs = get_breadcrumbs(network_folder, request)
-
     return locals()
 
 

@@ -12,8 +12,9 @@
 
   <h1>Digital assets in {{ network_desc.get_title() }} blockchain</h1>
 
-  <p class="pull-right text-muted">
-    Sorted: <strong><i class="fa fa-sort-alpha-asc"></i> Name</strong>
+  <p class="pull-right ">
+    <a href="{{ network_desc.__parent__|model_url('all-assets') }}">View assets in all blockchains</a> |
+    <span class="sorting text-muted">Sort: <strong><i class="fa fa-sort-alpha-asc"></i> Name</strong></span>
   </p>
 
   {% include "network/table_assets.html" %}
