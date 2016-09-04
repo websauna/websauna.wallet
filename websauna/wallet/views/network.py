@@ -34,7 +34,7 @@ class AssetDescription(Resource):
 
     @classmethod
     def asset_to_slug(cls, asset: Asset):
-        return "{}.{}".format(slugify(asset.name), uuid_to_slug(asset.id))
+        return "{};{}".format(slugify(asset.name), uuid_to_slug(asset.id))
 
     @property
     def address(self) -> str:
@@ -49,7 +49,7 @@ class AssetDescription(Resource):
 
     @classmethod
     def slug_to_asset_id(cls, slug: str) -> UUID:
-        *seo, slug = slug.split(".")
+        *seo, slug = slug.split(";")
         return slug_to_uuid(slug)
 
     def get_title(self):
@@ -134,11 +134,12 @@ class NetworkFolder(Resource):
         networks = self.request.dbsession \
             .query(AssetNetwork, func.count(Asset.id)) \
             .outerjoin(Asset) \
+            .filter(Asset.state == AssetState.public) \
             .group_by(AssetNetwork.id) \
             .order_by(func.count(Asset.id).desc())
 
         for network, asset_count in networks:
-            if network.other_data.get("visible", True):
+            if network.other_data.get("visible", True) and asset_count > 0:
                 yield self.get_description(network, asset_count=asset_count)
 
 
