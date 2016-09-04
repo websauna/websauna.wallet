@@ -1,16 +1,16 @@
+<div class="table-responsive">
+  <table class="table table-listing table-assets">
 
-<table class="table table-listing table-assets">
-
-  <thead>
+    <thead>
     <tr>
       <th>Name</th>
       <th>Symbol</th>
       <th>Description</th>
       <th>Blockchain</th>
     </tr>
-  </thead>
+    </thead>
 
-  <tbody>
+    <tbody>
     {% for asset_desc in assets %}
       <tr>
         <td>
@@ -23,17 +23,18 @@
           {{ asset_desc.asset.symbol }}
         </td>
 
-      <td>
-        {{ asset_desc.asset.description }}
-      </td>
+        <td>
+          {{ asset_desc.asset.description }}
+        </td>
 
-      <td>
-        <a href="{{ asset_desc.network |model_url }}">
-          {{ asset_desc.network.get_title() }}
-        </a>
-      </td>
+        <td>
+          <a href="{{ asset_desc.network |model_url }}">
+            {{ asset_desc.network.get_title() }}
+          </a>
+        </td>
 
-    </tr>
-  {% endfor %}
-</tbody>
-</table>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>

@@ -1,16 +1,16 @@
+<div class="table-responsive">
+  <table class="table table-listing table-assets">
 
-<table class="table table-listing table-assets">
-
-  <thead>
+    <thead>
     <tr>
       <th>Blockchain</th>
       {# <th>Description</th>  #}
       <th>Listed assets</th>
       <th>Actions</th>
     </tr>
-  </thead>
+    </thead>
 
-  <tbody>
+    <tbody>
     {% for network_desc in networks %}
       <tr>
         <td>
@@ -23,23 +23,24 @@
         <td>
           {{ network_desc.asset_count }}
         </td>
-      {#
+        {#
       <td>
         {{ network_desc.description }}
       </td>
       #}
 
-      <td class="col-actions">
-        <a href="{{ network_desc|model_url('assets') }}">
-          <i class="fa fa-list"></i> View assets
-        </a>
-        <span class="col-actions-split"></span>
-        <a href="{{ network_desc|model_url }}">
-          <i class="fa fa-chain"></i> Blockchain details
-        </a>
+        <td class="col-actions">
+          <a href="{{ network_desc|model_url('assets') }}">
+            <i class="fa fa-list"></i> View assets
+          </a>
+          <span class="col-actions-split"></span>
+          <a href="{{ network_desc|model_url }}">
+            <i class="fa fa-chain"></i> Blockchain details
+          </a>
 
-      </td>
-    </tr>
-  {% endfor %}
-</tbody>
-</table>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>

@@ -1,7 +1,9 @@
+<div class="table-responsive">
 
-<table class="table table-listing table-assets">
 
-  <thead>
+  <table class="table table-listing table-assets">
+
+    <thead>
     <tr>
       <th>Name</th>
       <th>Amount</th>
@@ -9,9 +11,9 @@
       <th>Blockchain</th>
       <th>Actions</th>
     </tr>
-  </thead>
+    </thead>
 
-  <tbody>
+    <tbody>
     {% for detail in details %}
       <tr id="row-asset-{{ detail.asset_id }}">
         <td>
@@ -20,30 +22,31 @@
           </a>
         </td>
 
-      <td>
+        <td>
           {{ detail.balance }}
-      </td>
+        </td>
 
-      <td>
-        <a href="{{ detail.address_resource|model_url }}">
-          {{ detail.address_resource.get_title() }}
-        </a>
-      </td>
-
-      <td>
-        <a href="{{ detail.network_resource|model_url }}">
-          {{ detail.network_resource.network.human_friendly_name }}
-        </a>
-      </td>
-
-      <td>
-        {% if detail.can_withdraw %}
-          <a class="withdraw-asset" href="{{ detail.asset_resource|model_url('withdraw') }}">
-            Withdraw
+        <td>
+          <a href="{{ detail.address_resource|model_url }}">
+            {{ detail.address_resource.get_title() }}
           </a>
-        {% endif %}
-      </td>
-    </tr>
-  {% endfor %}
-</tbody>
-</table>
+        </td>
+
+        <td>
+          <a href="{{ detail.network_resource|model_url }}">
+            {{ detail.network_resource.network.human_friendly_name }}
+          </a>
+        </td>
+
+        <td>
+          {% if detail.can_withdraw %}
+            <a class="withdraw-asset" href="{{ detail.asset_resource|model_url('withdraw') }}">
+              Withdraw
+            </a>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>

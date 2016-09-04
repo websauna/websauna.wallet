@@ -1,6 +1,7 @@
-<table class="table table-listing table-operations">
+<div class="table-responsive">
+  <table class="table table-listing table-operations">
 
-  <thead>
+    <thead>
     <tr>
       <th></th>
       <th>Started (UTC)</th>
@@ -10,10 +11,10 @@
       <th>Details</th>
       <th>Progress</th>
     </tr>
-  </thead>
+    </thead>
 
     <tbody>
-      {% for detail in details %}
+    {% for detail in details %}
       <tr class="row-operation" id="row-operation-{{ detail.uuid }}">
 
         <td class="col-symbol">
@@ -27,16 +28,16 @@
         </td>
 
         <td class="col-time">
-            <div>
-              <a href="{{ detail.resource|model_url }}">
-                {{ detail.op.created_at|arrow_format('YYYY-MM-DD HH:MM:ss') }}
-              </a>
-            </div>
-            <div>
-              <a href="{{ detail.resource|model_url }}">
-                <small>{{ detail.op.created_at|friendly_time(timezone='UTC')}}</small>
-              </a>
-            </div>
+          <div>
+            <a href="{{ detail.resource|model_url }}">
+              {{ detail.op.created_at|arrow_format('YYYY-MM-DD HH:MM:ss') }}
+            </a>
+          </div>
+          <div>
+            <a href="{{ detail.resource|model_url }}">
+              <small>{{ detail.op.created_at|friendly_time(timezone='UTC') }}</small>
+            </a>
+          </div>
 
           </a>
         </td>
@@ -87,7 +88,7 @@
 
           {% if detail.external_address %}
             <p>
-             {% if detail.deposit_like %}
+              {% if detail.deposit_like %}
                 From address:
               {% else %}
                 {% if detail.op.operation_type.value == "create_address" %}
@@ -96,7 +97,7 @@
                   To address:
                 {% endif %}
               {% endif %}
-              {{ detail.external_address  }}
+              {{ detail.external_address }}
             </p>
           {% endif %}
         </td>
@@ -114,5 +115,6 @@
         </td>
       </tr>
     {% endfor %}
-  </tbody>
-</table>
+    </tbody>
+  </table>
+</div>
