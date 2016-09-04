@@ -2,6 +2,10 @@
 
 {% extends "site/base.html" %}
 
+{% block description %}
+<title>About {{ network_desc.get_title() }} blockchain</title>
+{% endblock %}
+
 {% block content %}
 
   {% include "wallet/breadcrumbs.html" %}
@@ -35,7 +39,7 @@
           <th>Listed assets</th>
           <td>
             <a href="{{ network_desc|model_url('assets') }}">
-              View all assets
+              <i class="fa fa-list"></i> View assets
             </a>
           </td>
         </tr>
@@ -43,6 +47,7 @@
     </div>
 
     {% if network_desc %}
+      <h2>About {{ network_desc.get_title() }}</h2>
       <div class="col-md-6">
         {{ network_text|safe }}
       </div>

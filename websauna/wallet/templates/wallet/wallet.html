@@ -6,9 +6,9 @@
 
   <div class="assets-summary">
 
-    <h2>Assets</h2>
+    <h2>Digital asset portfolio</h2>
 
-    <p>You are currently holding the following crypto assets.</p>
+    <p>You are currently holding the following digital assets.</p>
 
     {% with details=asset_details %}
       {% include "wallet/table_assets.html" %}
@@ -17,9 +17,9 @@
 
   <div class="address-summary">
 
-    <h2>Accounts</h2>
+    <h2>Deposit accounts</h2>
 
-    <p>You have the following Ethereum accounts with deposit addresses open.</p>
+    <p>You have one TokenMarket deposit address open for each blockchain.</p>
 
     {% with details=address_details %}
       {% include "wallet/table_addresses.html" %}

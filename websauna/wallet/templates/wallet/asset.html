@@ -4,8 +4,6 @@
 
   <h1 id="heading-asset">{{ detail.name }} holdings</h1>
 
-  <h2>Asset holdings account description</h2>
-
   <table class="table">
 
     <tr>
@@ -18,7 +16,7 @@
     </tr>
 
     <tr>
-      <th>Chain</th>
+      <th>Blockchain</th>
       <td>
         <a href="{{ detail.network_resource|model_url }}">
           {{ detail.network_resource.get_title() }}

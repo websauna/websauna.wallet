@@ -127,9 +127,11 @@ class AssetFormMixin:
     def get_form(self):
         """Get Deform object we use on the admin page."""
 
-        schema = getattr(self.request.registry, "asset_schema", None)
-        if not schema:
+        schema_factory = getattr(self.request.registry, "asset_schema", None)
+        if not schema_factory:
             schema = AssetSchema()
+        else:
+            schema = schema_factory(self.request)
 
         add_csrf(schema)
 

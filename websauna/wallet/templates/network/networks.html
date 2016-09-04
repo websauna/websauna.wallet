@@ -2,13 +2,20 @@
 
 {% extends "site/base.html" %}
 
+{% block description %}
+<title>All blockchains</title>
+{% endblock %}
+
+
 {% block content %}
 
   {% include "wallet/breadcrumbs.html" %}
 
   <h1>Blockchains</h1>
 
-  <p>{{ site_name }} offers asset management in the following blockchains:  </p>
+  <form class="pull-right text-muted">
+    Sort: <i class="fa fa-long-arrow-down"></i> <strong>Listed asset count</strong>
+  </form>
 
   {% include "network/table_networks.html" %}
 

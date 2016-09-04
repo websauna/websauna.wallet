@@ -2,11 +2,20 @@
 
 {% extends "site/base.html" %}
 
+{% block description %}
+<title>Digital asset database</title>
+{% endblock %}
+
+
 {% block content %}
 
   {% include "wallet/breadcrumbs.html" %}
 
-  <h1>Browse all assets</h1>
+  <h1>All digital assets</h1>
+
+  <p class="pull-right text-muted">
+    Sorted: <strong><i class="fa fa-sort-alpha-asc"></i> Name</strong>
+  </p>
 
   {% include "network/table_assets.html" %}
 

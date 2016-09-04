@@ -4,6 +4,7 @@
   <thead>
     <tr>
       <th>Name</th>
+      <th>Symbol</th>
       <th>Description</th>
       <th>Blockchain</th>
     </tr>
@@ -14,8 +15,12 @@
       <tr>
         <td>
           <a href="{{ asset_desc|model_url }}">
-            {{ asset_desc.asset.name }} ({{ asset_desc.asset.symbol }})
+            {{ asset_desc.asset.name }}
           </a>
+        </td>
+
+        <td>
+          {{ asset_desc.asset.symbol }}
         </td>
 
       <td>

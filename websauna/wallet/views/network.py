@@ -2,6 +2,7 @@ from typing import Iterable
 from uuid import UUID
 
 from pyramid import httpexceptions
+from sqlalchemy import func
 
 import arrow
 import markdown
@@ -18,6 +19,7 @@ from websauna.utils.slug import slug_to_uuid, uuid_to_slug
 from websauna.wallet.ethereum.utils import bin_to_eth_address
 from websauna.wallet.models import AssetNetwork
 from websauna.wallet.models import CryptoNetworkStatus
+from websauna.wallet.models import AssetState
 from websauna.system.core.breadcrumbs import get_breadcrumbs
 
 from websauna.wallet.models import Asset
@@ -86,17 +88,18 @@ class AssetFolder(Resource):
         """List all assets in this folder."""
         network = self.get_network()
         dbsession = self.request.dbsession
-        for asset in dbsession.query(Asset).filter_by(network=network):
+        for asset in dbsession.query(Asset).filter_by(network=network, state=AssetState.public).order_by(Asset.name.asc()):
             yield self.get_description(asset)
 
 
 class NetworkDescription(Resource):
 
-    def __init__(self, request: Request, network: AssetNetwork):
+    def __init__(self, request: Request, network: AssetNetwork, asset_count=None):
         super(NetworkDescription, self).__init__(request)
         self.network = network
 
         self.asset_folder = Resource.make_lineage(self, AssetFolder(request), "assets")
+        self.asset_count = asset_count
 
     def get_title(self):
         human_name = self.network.other_data.get("human_friendly_name")
@@ -122,19 +125,27 @@ class NetworkFolder(Resource):
 
         return self.get_description(network)
 
-    def get_description(self, network: AssetNetwork):
-        desc = NetworkDescription(self.request, network)
+    def get_description(self, network: AssetNetwork, asset_count=None):
+        desc = NetworkDescription(self.request, network, asset_count)
         return Resource.make_lineage(self, desc, network.name)
 
     def get_public_networks(self) -> Iterable[NetworkDescription]:
-        networks = self.request.dbsession.query(AssetNetwork).all()
-        for network in networks:
-            yield self.get_description(network)
+
+        networks = self.request.dbsession \
+            .query(AssetNetwork, func.count(Asset.id)) \
+            .outerjoin(Asset) \
+            .group_by(AssetNetwork.id) \
+            .order_by(func.count(Asset.id).desc())
+
+        for network, asset_count in networks:
+            if network.other_data.get("visible", True):
+                yield self.get_description(network, asset_count=asset_count)
 
 
 @view_config(context=AssetFolder, route_name="network", name="", renderer="network/assets.html")
 def asset_root(asset_folder, request):
     assets = asset_folder.get_public_assets()
+    network_desc = asset_folder.__parent__
     breadcrumbs = get_breadcrumbs(asset_folder, request)
     return locals()
 
@@ -153,6 +164,9 @@ def asset(asset_desc: AssetDescription, request: Request):
 @view_config(context=NetworkFolder, route_name="network", name="", renderer="network/networks.html")
 def network_root(network_folder, request):
     networks = network_folder.get_public_networks()
+
+    breadcrumbs = get_breadcrumbs(network_folder, request)
+
     return locals()
 
 
@@ -163,10 +177,11 @@ def all_assets(network_folder, request):
     for network in networks:
         assets += network["assets"].get_public_assets()
 
-    breadcrumbs = get_breadcrumbs(network_folder, request)
-    view_name = "All listed tokens"
-    return locals()
+    assets = sorted(assets, key=lambda asset: asset.get_title())
 
+    breadcrumbs = get_breadcrumbs(network_folder, request, current_view_name="All digital assets", current_view_url=request.resource_url(network_folder, "all-assets"))
+
+    return locals()
 
 
 @view_config(context=NetworkDescription, route_name="network", name="", renderer="network/network.html")
