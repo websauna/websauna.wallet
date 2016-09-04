@@ -12,6 +12,7 @@ import sqlalchemy.dialects.postgresql as psql
 from sqlalchemy.orm import relationship, backref, Session
 from sqlalchemy.dialects.postgresql import UUID
 
+from slugify import slugify
 from websauna.system.model.columns import UTCDateTime
 from websauna.system.model.json import NestedMutationDict
 from websauna.system.user.models import User
@@ -194,6 +195,10 @@ class Asset(Base):
     def long_description(self):
         """Optional long description (Markdown)."""
         return self.other_data.get("long_description")
+
+    @property
+    def slug(self):
+        return slugify(self.name)
 
 
 class IncompatibleAssets(Exception):

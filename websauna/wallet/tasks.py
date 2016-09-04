@@ -72,3 +72,4 @@ def post_network_stats(self: Task):
         if network.name in services.keys():
             stats = dump_network_heartbeat(network)
             request.registry.notify(NetworkStats(request, network.name, stats))
+
