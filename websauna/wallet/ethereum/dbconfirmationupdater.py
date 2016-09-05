@@ -29,8 +29,14 @@ class DatabaseConfirmationUpdater:
 
         self.network_id = network_id
         self.dbsession = dbsession
+        self.tm = self.dbsession.transaction_manager
         self.logger = logger
         self.registry = registry
+
+    def _get_tm(*args, **kargs):
+        """Get transaction manager needed to transaction retry."""
+        self = args[0]
+        return self.tm
 
     def scan_txs(self) -> Tuple[int, int]:
         """Look for new deposits.
@@ -65,7 +71,7 @@ class DatabaseConfirmationUpdater:
 
         return updates, failures
 
-    @retryable
+    @retryable(get_tm=_get_tm)
     def update_tx(self, current_block: int, txinfo: dict, receipt: dict) -> Tuple[int, int]:
         """Process logs from initial log run or filter updates.
 
@@ -86,11 +92,8 @@ class DatabaseConfirmationUpdater:
 
             # Withdraw operation has not gets it block yet
             # Block number may change because of the works
+            assert receipt["blockNumber"].startswith("0x")
             op.block = int(receipt["blockNumber"], 16)
-
-            if op.block <= current_block:
-                # Not sure how serious this is. Forks going on?
-                logger.warn("Transaction was included in later block %s than was the current block %s. Receipt %s", op.block, current_block, receipt)
 
             confirmation_count = current_block - op.block
             if op.update_confirmations(confirmation_count):
@@ -103,7 +106,7 @@ class DatabaseConfirmationUpdater:
 
         return updates, failures
 
-    @retryable
+    @retryable(get_tm=_get_tm)
     def get_monitored_transactions(self) -> Iterable[str]:
         """Get all transactions that are lagging behind the confirmation count."""
         result = set()

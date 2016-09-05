@@ -3,7 +3,7 @@
 import os
 import logging
 
-from populus.chain import LocalChainGethProcess
+from populus.chain import LoggedDevGethProcess
 from populus.utils.chains import get_geth_logfile_path
 from populus.utils.filesystem import get_blockchains_dir
 
@@ -11,7 +11,7 @@ from populus.utils.filesystem import get_blockchains_dir
 logger = logging.getLogger(__name__)
 
 
-def start_private_geth(chain_name, project_dir, host, port, verbosity=2, p2p_port=30303) -> LocalChainGethProcess:
+def start_private_geth(chain_name, project_dir, host, port, verbosity=2, p2p_port=30303):
     """Start a local geth process that mines isolated private testnet."""
     blockchains_dir = get_blockchains_dir(project_dir)
 
@@ -25,9 +25,10 @@ def start_private_geth(chain_name, project_dir, host, port, verbosity=2, p2p_por
         "port": str(p2p_port)
     }
 
-    geth = LocalChainGethProcess(
+    geth = LoggedDevGethProcess(
         chain_name=chain_name,
-        base_dir=blockchains_dir,
+        project_dir=project_dir,
+        blockchains_dir=blockchains_dir,
         overrides=overrides
     )
 

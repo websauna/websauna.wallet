@@ -2,7 +2,6 @@ import logging
 
 from typing import Iterable, Optional, List, Tuple
 
-import transaction
 from decimal import Decimal
 from eth_ipc_client import Client
 from sqlalchemy.orm import Session
@@ -40,11 +39,17 @@ class DatabaseContractListener:
         self.event_map = self.build_event_map(contract)
         self.contract = contract
         self.dbsession = dbsession
+        self.tm = self.dbsession.transaction_manager
         self.logger = logger
         self.confirmation_count = confirmation_count
 
         # For event notifications
         self.registry = registry
+
+    def _get_tm(*args, **kargs):
+        """Get transaction manager needed to transaction retry."""
+        self = args[0]
+        return self.tm
 
     def build_event_map(self, contract: type) -> dict:
         """Map log hashes to Populus contract event objects."""
@@ -169,7 +174,7 @@ class EthWalletListener(DatabaseContractListener):
 
     def get_monitored_addresses(self) -> Iterable[str]:
         """Get list of all ETH crtypto deposit addresses."""
-        with transaction.manager:
+        with self._get_tm():
             for addr in self.dbsession.query(CryptoAddress, CryptoAddress.address).filter(CryptoAddress.network_id == self.network_id, CryptoAddress.address != None):
                 # addr.address is not set if the address is under construction
                 yield bin_to_eth_address(addr.address)
@@ -177,7 +182,7 @@ class EthWalletListener(DatabaseContractListener):
     def handle_event(self, event_name: str, contract_address: str, log_data: dict, log_entry: dict):
         """Map incoming EVM log to database entry."""
 
-        with transaction.manager:
+        with self._get_tm():
             opid = self.get_unique_transaction_id(log_entry)
 
             existing_op = self.get_existing_op(opid, CryptoOperationType.deposit)
@@ -244,7 +249,7 @@ class EthWalletListener(DatabaseContractListener):
     def on_failedeexcute(self, address: CryptoAddress, opid, log_data, log_entry) -> CryptoAddressDeposit:
         """Calling a contract from hosted wallet failed."""
         # TODO
-        self.logger.error("failedexecute")
+        self.logger.error("failedexecute %s %s", address, opid)
 
 
 class EthTokenListener(DatabaseContractListener):
@@ -252,14 +257,14 @@ class EthTokenListener(DatabaseContractListener):
 
     def get_monitored_addresses(self) -> Iterable[str]:
         """Get list of all known token smart contract addresses."""
-        with transaction.manager:
+        with self._get_tm():
             for asset in self.dbsession.query(Asset, Asset.external_id).filter(Asset.network_id == self.network_id, Asset.external_id != None):
                 yield bin_to_eth_address(asset.external_id)
 
     def handle_event(self, event_name: str, contract_address: str, log_data: dict, log_entry: dict):
         """Map incoming EVM log to database entry."""
 
-        with transaction.manager:
+        with self._get_tm():
 
             opid = self.get_unique_transaction_id(log_entry)
 

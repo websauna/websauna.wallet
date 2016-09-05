@@ -32,7 +32,11 @@ def create_token(network: AssetNetwork, name: str, symbol: str, supply: int, ini
     return asset
 
 
-@retryable
+def _get_request_tm(request):
+    return request.tm
+
+
+@retryable(get_tm=_get_request_tm)
 def setup_networks(request):
     """Setup network objects.
     """
@@ -43,7 +47,7 @@ def setup_networks(request):
         print("Network database created ", network)
 
 
-@retryable
+@retryable(get_tm=_get_request_tm)
 def setup_house(request):
     """Setup different networks supported by the instance.
 
@@ -81,7 +85,7 @@ def setup_house(request):
             network.other_data["initial_assets"]["eth_amount"] = "5.0"
 
 
-@retryable
+@retryable(get_tm=_get_request_tm)
 def setup_toybox(request):
     """Setup TOYBOX asset for testing."""
 

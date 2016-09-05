@@ -62,16 +62,18 @@ def finalize_pending_crypto_ops(dbsession, timeout=90):
     This assumes you have an Ethereum service running on a background.
     """
 
+    tm = dbsession.transaction_manager
+
     ensure_transactionless()
 
     # Get list of ops we need to clear
-    @retryable
+    @retryable(tm=tm)
     def fetch_ids():
         ops = dbsession.query(CryptoOperation).filter(CryptoOperation.state.in_([CryptoOperationState.waiting, CryptoOperationState.pending,]))
         ids = [op.id for op in ops]
         return ids
 
-    @retryable
+    @retryable(tm=tm)
     def check_op_completion(id):
         op = dbsession.query(CryptoOperation).get(id)
 

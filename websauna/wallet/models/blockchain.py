@@ -460,7 +460,7 @@ class CryptoOperation(Base):
         "order_by": created_at
     }
 
-    def __init__(self, network, **kwargs):
+    def __init__(self, network: AssetNetwork, **kwargs):
         assert network
         assert network.id
         super().__init__(network=network, **kwargs)

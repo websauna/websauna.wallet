@@ -32,8 +32,14 @@ class OperationQueueManager:
         self.dbsession = dbsession
         self.asset_network_id = asset_network_id
         self.registry = registry
+        self.tm = self.dbsession.transaction_manager
 
-    @retryable
+    def _get_tm(*args, **kargs):
+        """Get transaction manager needed to transaction retry."""
+        self = args[0]
+        return self.tm
+
+    @retryable(get_tm=_get_tm)
     def get_waiting_operation_ids(self) -> List[Tuple[UUID, CryptoOperationType]]:
         """Get list of operations we need to attempt to perform.
 
@@ -46,7 +52,7 @@ class OperationQueueManager:
         wait_list = [(o.id, o.operation_type) for o in wait_list]
         return wait_list
 
-    @retryable
+    @retryable(get_tm=_get_tm)
     def notify_op_performed(self, opid):
         # Post the event completion info
         op = self.dbsession.query(CryptoOperation).get(opid)

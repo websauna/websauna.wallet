@@ -33,7 +33,7 @@ def create_address(web3: Web3, dbsession: Session, opid: UUID):
 
     assert isinstance(opid, UUID)
 
-    @retryable
+    @retryable(tm=dbsession.transaction_manager)
     def finish_op():
         op = dbsession.query(CryptoOperation).get(opid)
         txid = wallet.initial_txid
@@ -58,7 +58,7 @@ def create_address(web3: Web3, dbsession: Session, opid: UUID):
 def deposit_eth(web3: Web3, dbsession: Session, opid: UUID):
     """This can be settled internally, as we do not have any external communications in this point."""
 
-    @retryable
+    @retryable(tm=dbsession.transaction_manager)
     def perform_tx():
         op = dbsession.query(CryptoOperation).get(opid)
         op.mark_performed()
@@ -72,7 +72,7 @@ def deposit_eth(web3: Web3, dbsession: Session, opid: UUID):
 def withdraw_eth(web3: Web3, dbsession: Session, opid: UUID):
     """Perform ETH withdraw operation from the wallet."""
 
-    @retryable
+    @retryable(tm=dbsession.transaction_manager)
     def prepare_withdraw():
         # Check everyting looks sane
         op = dbsession.query(CryptoOperation).get(opid)
@@ -91,7 +91,7 @@ def withdraw_eth(web3: Web3, dbsession: Session, opid: UUID):
 
         return address, amount, op.external_address
 
-    @retryable
+    @retryable(tm=dbsession.transaction_manager)
     def close_withdraw():
         # Fill in details.
         # Block number will be filled in later, when confirmation updater picks a transaction receipt for this operation.
@@ -111,7 +111,7 @@ def withdraw_eth(web3: Web3, dbsession: Session, opid: UUID):
 def withdraw_token(web3: Web3, dbsession: Session, opid: UUID):
     """Perform token withdraw operation from the wallet."""
 
-    @retryable
+    @retryable(tm=dbsession.transaction_manager)
     def prepare_withdraw():
         # Check everyting looks sane
         op = dbsession.query(CryptoOperation).get(opid)
@@ -133,7 +133,7 @@ def withdraw_token(web3: Web3, dbsession: Session, opid: UUID):
         op.mark_performed()  # Don't try to pick this op automatically again
         return from_address, to_address, asset_address, amount
 
-    @retryable
+    @retryable(tm=dbsession.transaction_manager)
     def close_withdraw():
         # Fill in details.
         # Block number will be filled in later, when confirmation updater picks a transaction receipt for this operation.
@@ -156,7 +156,7 @@ def withdraw_token(web3: Web3, dbsession: Session, opid: UUID):
 def withdraw(web3: Web3, dbsession: Session, opid: UUID):
     """Backend has different contract types for different assets."""
 
-    @retryable
+    @retryable(tm=dbsession.transaction_manager)
     def resolve_asset():
         op = dbsession.query(CryptoOperation).get(opid)
         eth = get_ether_asset(dbsession, network=op.network)
@@ -182,7 +182,7 @@ def create_token(web3: Web3, dbsession: Session, opid: UUID):
     """
 
     # TODO: Factor our blockchain calls outside tx
-    @retryable
+    @retryable(tm=dbsession.transaction_manager)
     def perform_tx():
         op = dbsession.query(CryptoOperation).get(opid)
         # Check everyting looks sane
@@ -217,7 +217,7 @@ def import_token(web3: Web3, dbsession: Session, opid: UUID):
     """Import existing token smart contract as asset."""
 
     # TODO: split to smaller transactions
-    @retryable
+    @retryable(tm=dbsession.transaction_manager)
     def perform_tx():
         op = dbsession.query(CryptoOperation).get(opid)
         address = bin_to_eth_address(op.external_address)
