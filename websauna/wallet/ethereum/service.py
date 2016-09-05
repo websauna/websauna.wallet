@@ -181,9 +181,11 @@ class ServiceCore:
         # Check if account is still locked and bail out
         self.check_account_locked(self.web3, self.web3.eth.coinbase)
 
-    def setup(self):
+    def setup(self, dbsession=None):
         request = self.request
-        dbsession = create_dbsession(request.registry)
+
+        if not dbsession:
+            dbsession = create_dbsession(request.registry)
 
         logger.info("Setting up Ethereum service %s with dbsession %s", self, dbsession)
 
@@ -191,7 +193,7 @@ class ServiceCore:
         port = int(self.config["port"])
         self.web3 = web3 = Web3(RPCProvider(host, port))
 
-        with transaction.manager:
+        with dbsession.transaction_manager:
             network = get_eth_network(dbsession, self.name)
             network_id = network.id
 
@@ -268,7 +270,9 @@ class OneShot(ServiceCore):
     """
 
     def run_shot(self):
-        self.setup()
+
+        self.setup(self.request.dbsession)
+
         try:
             self.run_cycle()
         finally:

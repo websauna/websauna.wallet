@@ -2,7 +2,6 @@
 from uuid import UUID
 import time
 import datetime
-import transaction
 
 from sqlalchemy.orm import Session
 
@@ -14,7 +13,7 @@ from websauna.wallet.models import CryptoNetworkStatus
 def update_heart_beat(dbsession: Session, network_id: UUID, block_number: int, block_timestamp: float):
     """Update heartbeat timestamp in the AssetNetwork, so we know this network is alive."""
 
-    with transaction.manager:
+    with dbsession.transaction_manager:
         status = CryptoNetworkStatus.get_network_status(dbsession, network_id)
         status.data["heartbeat"] = {
             "timestamp": time.time(),
