@@ -3,7 +3,6 @@ import logging
 from typing import Iterable, Optional, List, Tuple
 
 from decimal import Decimal
-from eth_ipc_client import Client
 from sqlalchemy.orm import Session
 from web3 import Web3
 
