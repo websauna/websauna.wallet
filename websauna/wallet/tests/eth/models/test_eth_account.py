@@ -2,7 +2,7 @@
 
 import pytest
 import transaction
-import mock
+from unittest import mock
 from decimal import Decimal
 
 import sqlalchemy

@@ -5,11 +5,9 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-import pytest
-import time
 import transaction
 
-import mock
+from unittest import mock
 
 from web3 import Web3
 from web3.contract import Contract
@@ -18,10 +16,6 @@ from web3.utils.transactions import wait_for_transaction_receipt
 from websauna.wallet.ethereum.asset import get_house_address
 from websauna.wallet.ethereum.contractlistener import ContractListener
 from websauna.wallet.ethereum.populuslistener import create_populus_listener
-from websauna.wallet.ethereum.service import EthereumService
-
-
-# http://testnet.etherscan.io/tx/0xe9f35838f45958f1f2ddcc24247d81ed28c4aecff3f1d431b1fe81d92db6c608
 from websauna.wallet.ethereum.utils import to_wei, eth_address_to_bin, txid_to_bin, bin_to_txid
 from websauna.wallet.models import CryptoOperation
 from websauna.wallet.models import AssetNetwork
@@ -31,8 +25,8 @@ from websauna.wallet.models import CryptoAddress
 from websauna.wallet.models import CryptoAddressDeposit
 from websauna.wallet.models import UserCryptoAddress
 from websauna.wallet.models import UserCryptoOperation
-
 from websauna.wallet.ethereum.confirm import wait_for_op_confirmations
+
 
 GAS_PRICE = Decimal("0.00000002")
 GAS_USED_BY_TRANSACTION = Decimal("32996")
