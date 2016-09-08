@@ -1,15 +1,14 @@
 """Test hosted wallet ETH send and receive integrates with our wallet models."""
-import time
 from uuid import UUID
 
-import pytest
 import transaction
 from decimal import Decimal
+
+from populus.utils.wait import wait_for_block_number
 from web3 import Web3
 
 from sqlalchemy.orm import Session
 
-from populus.utils.transactions import wait_for_block_number
 from websauna.wallet.ethereum.asset import get_ether_asset
 from websauna.wallet.ethereum.contract import confirm_transaction
 from websauna.wallet.ethereum.service import EthereumService

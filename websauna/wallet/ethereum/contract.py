@@ -2,12 +2,10 @@ from typing import Optional, Tuple
 
 import gevent
 
-from requests.packages.urllib3 import Timeout
 from web3 import Web3
 from web3.contract import Contract, construct_contract_class
-
-from populus.utils.transactions import get_contract_address_from_txn, wait_for_transaction_receipt
-
+from web3.utils.transactions import wait_for_transaction_receipt
+from websauna.wallet.ethereum.populusutils import get_contract_address_from_txn
 
 
 def deploy_contract(

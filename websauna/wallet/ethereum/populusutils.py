@@ -4,6 +4,7 @@ from typing import List, Tuple, Iterable
 from eth_rpc_client import Client
 from web3 import Web3
 from web3.contract import Contract
+from web3.utils.transactions import wait_for_transaction_receipt
 
 
 def find_abi(contract: type, signature: bytes) -> object:
@@ -31,6 +32,10 @@ def get_rpc_client(web3: Web3) -> Client:
     return c
 
 
+def get_contract_address_from_txn(web3, txn_hash, timeout=120):
+    txn_receipt = wait_for_transaction_receipt(web3, txn_hash, timeout)
+
+    return txn_receipt['contractAddress']
 
 
 

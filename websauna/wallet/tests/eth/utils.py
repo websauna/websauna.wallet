@@ -13,8 +13,8 @@ import mock
 
 from web3 import Web3
 from web3.contract import Contract
+from web3.utils.transactions import wait_for_transaction_receipt
 
-from populus.utils.transactions import wait_for_transaction_receipt
 from websauna.wallet.ethereum.asset import get_house_address
 from websauna.wallet.ethereum.contractlistener import ContractListener
 from websauna.wallet.ethereum.populuslistener import create_populus_listener

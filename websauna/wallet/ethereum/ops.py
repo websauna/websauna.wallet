@@ -14,10 +14,8 @@ from websauna.wallet.ethereum.asset import get_ether_asset
 from websauna.wallet.ethereum.token import Token
 from websauna.wallet.ethereum.utils import txid_to_bin, eth_address_to_bin, bin_to_eth_address, to_wei
 from websauna.wallet.ethereum.wallet import HostedWallet
-from websauna.wallet.models import CryptoAddressCreation, CryptoAddressDeposit, CryptoAddressWithdraw, CryptoTokenCreation, CryptoTokenImport, AssetClass, CryptoAddress, CryptoOperation
+from websauna.wallet.models import AssetClass, CryptoAddress, CryptoOperation
 from websauna.wallet.models.blockchain import CryptoOperationType
-
-from .interfaces import IOperationPerformer
 
 
 logger = logging.getLogger(__name__)
