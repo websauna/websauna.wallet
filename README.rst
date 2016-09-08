@@ -32,21 +32,3 @@ Example (OSX / Homebrew)::
     ws-sync-db development.ini
     pserve -c development.ini --reload
 
-Running the test suite
-======================
-
-Example::
-
-    # Install testing dependencies
-    pip install ".[dev,test]"
-
-    # Create database used for unit testing
-    psql create wallet_test
-
-    ws-db-shell wallet_test
-    CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-    quit
-
-    # Run test suite using py.test running
-    py.test myapp/tests --ini test.ini
-
