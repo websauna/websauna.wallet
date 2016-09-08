@@ -20,6 +20,7 @@ cache:
     # /home/travis/.cache/pip/wheels is the normal pip cache folder
     - $HOME/.cache/pip
     - .tox
+    - geth
 
 install:
   - travis_retry pip install tox
@@ -30,6 +31,7 @@ before_script:
   - "sh -e /etc/init.d/xvfb start"
   - psql -c 'create database wallet_test;' -U postgres
   - pip install -U pip
+  - bin/install-geth.bash
 
 script:
   # https://pypi.python.org/pypi/coverage_enable_subprocess
