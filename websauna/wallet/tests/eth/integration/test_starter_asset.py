@@ -3,7 +3,6 @@ import transaction
 from decimal import Decimal
 from web3 import Web3
 
-from shareregistry.utils import bin_to_eth_address
 from websauna.system.user.models import User
 from websauna.tests.utils import create_user
 from websauna.wallet.ethereum.asset import setup_user_account, get_ether_asset
@@ -11,6 +10,7 @@ from websauna.wallet.ethereum.contract import confirm_transaction
 from websauna.wallet.ethereum.populusutils import get_rpc_client
 from websauna.wallet.ethereum.service import EthereumService
 from websauna.wallet.ethereum.token import Token
+from websauna.wallet.ethereum.utils import bin_to_eth_address
 from websauna.wallet.models.blockchain import CryptoOperationType, UserCryptoAddress, CryptoOperationState
 from websauna.wallet.tests.eth.utils import wait_for_op_confirmations
 from websauna.wallet.models import CryptoOperation
