@@ -8,4 +8,7 @@ if [ ! -e geth/geth ] ; then
     install -d geth
     cd geth
     tar -xjf ../geth.tar.bz2
+    echo "Geth installed at $PWD/geth"
+else
+    echo "Geth already installed at $PWD/geth/geth"
 fi
