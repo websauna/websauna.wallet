@@ -34,7 +34,7 @@ setup(name='websauna.wallet',
           # 'setuptools-git >= 0',
           # 'setuptools-git-version',
       ],
-      install_requires=['websauna', 'python-redis-lock', 'Markdown', 'populus>=1.0.0rc5'],
+      install_requires=['websauna', 'python-redis-lock', 'Markdown', 'populus>=1.0.0rc5', 'ethereum-rpc-client'],
       extras_require={
         # Dependencies for running test suite
         'test': ['websauna[test]', 'pexpect'],
@@ -50,7 +50,6 @@ setup(name='websauna.wallet',
 
       [pytest11]
       ethereum=populus.plugin
-      wallet-gevent=websauna.wallet.tests.plugin
 
       [console_scripts]
       ethereum-service = websauna.wallet.ethereum.main:main
