@@ -3,6 +3,9 @@
 # Install geth monolithic binary
 #
 
+set -e
+set -u
+
 if [ ! -e geth/geth ] ; then
     wget -O geth.tar.bz2 https://github.com/ethereum/go-ethereum/releases/download/v1.4.11/geth-Linux64-20160819135300-1.4.11-fed692f.tar.bz2
     install -d geth
