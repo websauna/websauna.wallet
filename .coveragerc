@@ -1,0 +1,20 @@
+[run]
+branch = True
+source = codecov
+
+[report]
+exclude_lines =
+    pragma: no cover
+    noqa
+    def __repr__
+    if .debug:
+    raise NotImplementedError
+    assert
+    if __name__ == .__main__.:
+
+
+ignore_errors = True
+omit =
+    setup.py
+    websauna/wallet/tests/*
+
