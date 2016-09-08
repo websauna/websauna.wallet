@@ -1,3 +1,4 @@
 -e git+git@github.com:websauna/websauna.git@master#egg=websauna[test]
 -e git+git@bitbucket.org:zzzeek/sqlalchemy.git@f61194cb865db8b29cc65e47782bb72e54b14ada#egg=SQLAlchemy
--e git+git@github.com:zopefoundation/zope.sqlalchemy.git@master#egg=zope.sqlalchemy
+# -e git+git@github.com:zopefoundation/zope.sqlalchemy.git@master#egg=zope.sqlalchemy
+populus==1.0.0rc5
