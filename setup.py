@@ -11,7 +11,8 @@ with open(os.path.join(here, 'CHANGES.rst')) as f:
 
 
 setup(name='websauna.wallet',
-      version_format='{tag}.{commitcount}+{gitsha}',
+      version="0.0",
+      # version_format='{tag}.{commitcount}+{gitsha}',
       description='wallet',
       long_description=README + '\n\n' + CHANGES,
       classifiers=[
@@ -30,8 +31,8 @@ setup(name='websauna.wallet',
       test_suite='websauna.wallet',
       # automatic version generation for development releases:
       setup_requires=[
-          'setuptools-git >= 0',
-          'setuptools-git-version',
+          # 'setuptools-git >= 0',
+          # 'setuptools-git-version',
       ],
       install_requires=['websauna', 'python-redis-lock', 'Markdown', 'populus>=1.0.0rc5'],
       extras_require={
