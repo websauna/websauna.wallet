@@ -11,7 +11,7 @@ from populus.utils.filesystem import get_blockchains_dir
 logger = logging.getLogger(__name__)
 
 
-def start_private_geth(chain_name, project_dir, host, port, verbosity=2, p2p_port=30303):
+def start_private_geth(chain_name, project_dir, host, port, verbosity=5, p2p_port=30303):
     """Start a local geth process that mines isolated private testnet."""
     blockchains_dir = get_blockchains_dir(project_dir)
 

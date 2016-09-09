@@ -21,6 +21,7 @@ cache:
     - $HOME/.cache/pip
     - .tox
     - geth
+    - .ethash
 
 install:
   - travis_retry pip install tox
@@ -33,12 +34,12 @@ before_script:
   - pip install -U pip
 # Install geth monolithic binary to Travis cached folder
   - bin/install-geth.bash
-  - export PATH=$PATH:$PWD/geth/
 
 script:
   # https://pypi.python.org/pypi/coverage_enable_subprocess
   - pip install coverage-enable-subprocess
   - export COVERAGE_PROCESS_START=$PWD/.coveragerc
+  - export PATH=$PATH:$PWD/geth/
   - tox -- -x
 
 after_success:
