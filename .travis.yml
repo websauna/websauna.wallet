@@ -21,7 +21,7 @@ cache:
     - $HOME/.cache/pip
     - .tox
     - geth
-    - .ethash
+    - $HOME/.ethash
 
 install:
   - travis_retry pip install tox
