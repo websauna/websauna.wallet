@@ -33,3 +33,8 @@ keystore
 
 # splinter screenshots
 websauna.wallet.tests.*
+
+# Cached geth for test runs
+geth/*
+geth.tar.bz2
+
