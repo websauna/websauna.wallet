@@ -11,7 +11,7 @@ from websauna.system.form.schema import CSRFSchema, enum_values, dictify, object
 from websauna.system.form.sqlalchemy import UUIDForeignKeyValue
 from websauna.system.form.widgets import JSONWidget
 from websauna.utils.slug import uuid_to_slug
-from websauna.viewconfig import view_overrides
+from websauna.system.core.viewconfig import view_overrides
 from websauna.system.admin import views as adminbaseviews
 
 from websauna.wallet import admins

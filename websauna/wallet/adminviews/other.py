@@ -2,7 +2,7 @@ from pyramid.view import view_config
 from websauna.system.admin.utils import get_admin_url_for_sqlalchemy_object
 from websauna.system.crud import listing
 from websauna.system.http import Request
-from websauna.viewconfig import view_overrides
+from websauna.system.core.viewconfig import view_overrides
 from websauna.system.admin.views import Listing as DefaultListing
 from websauna.system.admin.views import Show as DefaultShow
 from websauna.wallet.ethereum.asset import get_ether_asset
