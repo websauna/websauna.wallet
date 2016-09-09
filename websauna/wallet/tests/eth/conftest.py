@@ -88,16 +88,18 @@ def web3() -> Web3:
 
         # Force RPC provider instead of default IPC one
         "provider": RPCProvider,
-
-        # Adjust geth verbosity for less
-        # output so that test failures are easier to read.
-        "verbosity": "2"
     }
 
     # This returns
     with project.get_chain("temp", **chain_kwargs) as geth_proc:
 
         web3 = geth_proc.web3
+
+        # Use compatible web3.py version
+        assert web3._requestManager.provider.network_timeout
+
+        web3._requestManager.provider.network_timeout = 10
+        web3._requestManager.provider.connection_timeout = 10
 
         # Allow access to sendTransaction() to use coinbase balance
         # to deploy contracts. Password is from py-geth
