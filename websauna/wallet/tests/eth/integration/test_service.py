@@ -48,7 +48,7 @@ def test_bootstrap(test_config_path, dbsession):
 
     try:
         # It will need to mine several blocks
-        bootstrap.expect("Bootstrap complete", timeout=180)
+        bootstrap.expect("Bootstrap complete", timeout=600)
     except Exception:
         print("Output from wallet-bootstrap")
         print(log.getvalue().decode("utf-8"))
