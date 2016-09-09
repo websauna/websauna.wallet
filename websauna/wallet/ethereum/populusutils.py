@@ -42,7 +42,7 @@ def get_contract_address_from_txn(web3, txn_hash, timeout=120):
 
 def wait_for_transaction_receipt(web3, txn_hash, timeout=120):
     try:
-        _wait_for_transaction_receipt(web3, txn_hash, timeout)
+        return _wait_for_transaction_receipt(web3, txn_hash, timeout)
     except gevent.Timeout as e:
         rpc = web3._requestManager.provider
         raise RuntimeError("Transaction wait timeout: {}:{}".format(rpc.host, rpc.port)) from e
