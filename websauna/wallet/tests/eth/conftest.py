@@ -88,6 +88,9 @@ def web3() -> Web3:
 
         # Force RPC provider instead of default IPC one
         "provider": RPCProvider,
+        "overrides": {
+            "jitvm": "false",
+        }
     }
 
     # This returns

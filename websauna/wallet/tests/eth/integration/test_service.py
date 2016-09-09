@@ -54,7 +54,11 @@ def test_bootstrap(test_config_path, dbsession):
         print(log.getvalue().decode("utf-8"))
         raise
     finally:
-        service.terminate()
+        try:
+            service.terminate()
+        except ProcessLookupError:
+            # Service died itself§
+            pass
         # Let it die gracefully before we tear down database
         time.sleep(10)
         try:
