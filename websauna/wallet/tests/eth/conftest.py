@@ -88,6 +88,7 @@ def web3() -> Web3:
 
         # Force RPC provider instead of default IPC one
         "provider": RPCProvider,
+        "wait_for_dag_timeout": 20*60,
         "overrides": {
             "jitvm": "false",
         }

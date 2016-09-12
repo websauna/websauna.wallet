@@ -2,6 +2,7 @@
 import colander
 import deform
 import deform.widget
+from sqlalchemy.orm import Query
 
 from websauna.system.crud import listing
 from websauna.system.form.csrf import add_csrf
@@ -22,8 +23,7 @@ from websauna.wallet.views.schemas import validate_ethereum_address
 
 
 @view_overrides(context=admins.AssetAdmin)
-class AssetNetworkListing(adminbaseviews.Listing):
-    """List all crypto addresses on the site."""
+class AssetListing(adminbaseviews.Listing):
 
     table = listing.Table(
         columns = [
@@ -36,6 +36,11 @@ class AssetNetworkListing(adminbaseviews.Listing):
             listing.ControlsColumn()
         ]
     )
+
+
+    def order_query(self, query: Query):
+        """Sort the query."""
+        return query.order_by(Asset.name)
 
 
 def available_networks(node, kw):
