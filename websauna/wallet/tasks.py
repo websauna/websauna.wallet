@@ -1,6 +1,7 @@
 """Celery tasks."""
 import datetime
 import logging
+import os
 import threading
 import time
 
@@ -60,7 +61,7 @@ def update_networks(self: Task):
 
         with lock:
             redis.set("network-update-lock-started-{}".format(network_name), time.time())
-            redis.set("network-update-lock-started-by-{}".format(network_name), "process: {} thread:{}".format(os.getpid(), threading.curent_thread()))
+            redis.set("network-update-lock-started-by-{}".format(network_name), "process: {} thread:{}".format(os.getpid(), threading.current_thread()))
 
             logger.info("Updating network %s", network_name)
             start = time.time()
