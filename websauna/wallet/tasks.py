@@ -1,6 +1,7 @@
 """Celery tasks."""
+import datetime
 import logging
-
+import threading
 import time
 
 import redis_lock
@@ -42,10 +43,16 @@ def update_networks(self: Task):
             # This network is still procesing pending operations from the previous task run
 
             lock_acquired_at = redis.get("network-update-lock-started-{}".format(network_name))
+            lock_acquired_by = redis.get("network-update-lock-started-by-{}".format(network_name))
+
+            if lock_acquired_by:
+                lock_acquired_by = lock_acquired_by.decode("utf-8")
+
             if lock_acquired_at:
+                friendly_at = datetime.datetime.utcfromtimestamp(lock_acquired_at)
                 diff = time.time() - float(lock_acquired_at)
                 if diff > BAD_LOCK_TIMEOUT:
-                    logger.warn("Failed to get wallet update lock on %s network when doing update_networks for %f seconds", network_name, diff)
+                    logger.warn("Failed to get wallet update lock on %s network when doing update_networks for %f seconds, originally acquired by %s at %s", network_name, diff, friendly_at, lock_acquired_by)
 
             continue
 
@@ -53,6 +60,7 @@ def update_networks(self: Task):
 
         with lock:
             redis.set("network-update-lock-started-{}".format(network_name), time.time())
+            redis.set("network-update-lock-started-by-{}".format(network_name), "process: {} thread:{}".format(os.getpid(), threading.curent_thread()))
 
             logger.info("Updating network %s", network_name)
             start = time.time()
