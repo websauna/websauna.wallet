@@ -8,7 +8,7 @@ import time
 import redis_lock
 from celery import Task
 from websauna.system.core.redis import get_redis
-from websauna.system.task.tasks import task
+from websauna.system.task.tasks import task, WebsaunaTask
 from websauna.system.task.tasks import RetryableTransactionTask
 from websauna.wallet.ethereum.service import ServiceCore, OneShot
 from websauna.wallet.events import NetworkStats, ServiceUpdated
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 BAD_LOCK_TIMEOUT = 3600
 
 
-@task(name="update_networks", bind=True, time_limit=60*30, soft_time_limit=60*15)
+@task(name="update_networks", bind=True, time_limit=60*30, soft_time_limit=60*15, base=WebsaunaTask)
 def update_networks(self: Task):
     """Update all incoming and outgoing events from a network through Celery.
 
