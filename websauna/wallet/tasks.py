@@ -50,7 +50,11 @@ def update_networks(self: Task):
                 lock_acquired_by = lock_acquired_by.decode("utf-8")
 
             if lock_acquired_at:
-                friendly_at = datetime.datetime.utcfromtimestamp(lock_acquired_at)
+                try:
+                    friendly_at = datetime.datetime.utcfromtimestamp(lock_acquired_at)
+                except:
+                    friendly_at = 0
+
                 diff = time.time() - float(lock_acquired_at)
                 if diff > BAD_LOCK_TIMEOUT:
                     logger.warn("Failed to get wallet update lock on %s network when doing update_networks for %f seconds, originally acquired by %s at %s", network_name, diff, friendly_at, lock_acquired_by)
