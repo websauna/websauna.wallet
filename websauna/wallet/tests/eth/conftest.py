@@ -166,6 +166,12 @@ def token(web3, coinbase) -> Contract:
     return Token.create_token(web3, name="Mootoken", supply=10000, symbol="MOO", owner=coinbase)
 
 
+@pytest.fixture(scope="module")
+def token(web3, coinbase) -> Contract:
+    """Deploy a token contract in the blockchain."""
+    return Token.create_token(web3, name="Mootoken", supply=10000, symbol="MOO", owner=coinbase)
+
+
 @pytest.fixture
 def eth_network_id(dbsession):
     """Get id for Ethereum primary AssetNetwork."""
@@ -206,6 +212,8 @@ def testnet_network_id(dbsession):
     with transaction.manager:
         network = get_eth_network(dbsession, asset_network_name)
         return network.id
+
+
 
 
 
