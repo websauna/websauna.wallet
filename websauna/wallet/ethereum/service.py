@@ -14,6 +14,7 @@ from web3 import Web3, RPCProvider
 from pyramid.registry import Registry
 
 from sqlalchemy.orm import Session
+from web3.providers.rpc import KeepAliveRPCProvider
 
 from websauna.system.model.meta import create_dbsession
 from websauna.system.model.retry import ensure_transactionless
@@ -191,7 +192,7 @@ class ServiceCore:
 
         host = self.config["host"]
         port = int(self.config["port"])
-        self.web3 = web3 = Web3(RPCProvider(host, port))
+        self.web3 = web3 = Web3(KeepAliveRPCProvider(host, port))
 
         with dbsession.transaction_manager:
             network = get_eth_network(dbsession, self.name)
