@@ -2,7 +2,7 @@ import json
 
 import transaction
 from eth_rpc_client import Client
-from web3 import Web3, RPCProvider
+from web3 import Web3, KeepAliveRPCProvider
 
 from pyramid.registry import Registry
 
@@ -42,7 +42,7 @@ def get_web3(registry: Registry) -> Web3:
     port = registry.settings.get("ethereum.ethjsonrpc.port")
     assert host
     assert port
-    return Web3(RPCProvider(host, port))
+    return Web3(KeepAliveRPCProvider(host, port))
 
 
 def get_unlocked_json_rpc_client(registry: Registry) -> EthJsonRpc:

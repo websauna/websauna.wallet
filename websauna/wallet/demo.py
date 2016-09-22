@@ -2,7 +2,6 @@
 import transaction
 
 import websauna.system
-from websauna.wallet.ethereum.ethjsonrpc import get_web3
 
 
 class Initializer(websauna.system.DemoInitializer):

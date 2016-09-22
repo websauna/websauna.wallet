@@ -1,32 +1,30 @@
 import os
 import signal
 import threading
-
-from typing import Tuple
-from uuid import UUID
 import logging
 import json
 import time
-
 import sys
-import transaction
-from web3 import Web3, RPCProvider
-from pyramid.registry import Registry
+from typing import Tuple
+from uuid import UUID
 
-from sqlalchemy.orm import Session
+from web3 import Web3
 from web3.providers.rpc import KeepAliveRPCProvider
+from pyramid.registry import Registry
+from sqlalchemy.orm import Session
 
 from websauna.system.model.meta import create_dbsession
 from websauna.system.model.retry import ensure_transactionless
+
 from websauna.wallet.ethereum.asset import get_eth_network
 from websauna.wallet.ethereum.dbconfirmationupdater import DatabaseConfirmationUpdater
 from websauna.wallet.ethereum.dbcontractlistener import EthWalletListener, EthTokenListener
 from websauna.wallet.ethereum.dboperationqueue import OperationQueueManager
-
 from websauna.wallet.ethereum.geth import start_private_geth
 from websauna.wallet.ethereum.token import Token
 from websauna.wallet.ethereum.wallet import HostedWallet
 from websauna.wallet.models.heartbeat import update_heart_beat
+
 
 logger = logging.getLogger(__name__)
 
