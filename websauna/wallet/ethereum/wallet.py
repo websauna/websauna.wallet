@@ -89,12 +89,12 @@ class HostedWallet(ContractWrapper):
             value = 0
 
         # Encode function arguments
-        function_abi = to_contract.find_matching_fn_abi(func, args)
+        function_abi = to_contract._find_matching_fn_abi(func, args)
         # 4 byte function hash
         function_selector = function_abi_to_4byte_selector(function_abi)
 
         # data payload passed to the function
-        arg_data = to_contract.encodeABI(func, arguments=args)
+        arg_data = to_contract.encodeABI(func, args=args)
 
         call_data = function_selector + arg_data[2:]
 
@@ -142,7 +142,3 @@ class HostedWallet(ContractWrapper):
         # Transfer value back to owner, post a tx fee event
         txid = self.contract.transact().claimFees(original_txid_b, wei_value)
         return txid, price
-
-
-
-

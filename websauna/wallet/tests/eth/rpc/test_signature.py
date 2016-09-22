@@ -71,24 +71,3 @@ def test_signature_contract_verify_v_r_s(web3: Web3, signature_contract: Contrac
     assert result == signature_data["address_ethereum"]
 
 
-def test_signature_contract_verify_data(web3: Web3, signature_contract: Contract):
-    """Verify data payload."""
-
-    # Use random Ethereum address as payload for signing
-    data = "0xda39147df55f6c51ad539a5e108adc5d7284b309"
-
-    # Convert address to raw bytes
-    data_bin = binascii.unhexlify(data[2:])
-    assert type(data_bin) == bytes
-
-    private_key_seed = "foobar"
-    # Address is 0x58708390680239282143999941903085911172379991841
-
-    signature_data = sign(data_bin, private_key_seed)
-
-    # hash = big_endian_to_int(signature_data["hash"])
-    payload = signature_data["payload"]
-
-    # 0x0a489345f9e9bc5254e18dd14fa7ecfdb2ce5f21
-    result = signature_contract.call().verifyData(data, payload)
-    assert result == True
