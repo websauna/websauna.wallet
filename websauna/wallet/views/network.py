@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, List, Tuple, Optional
 from uuid import UUID
 
 from pyramid import httpexceptions
@@ -32,6 +32,12 @@ class AssetDescription(Resource):
     def __init__(self, request: Request, asset: Asset):
         super(AssetDescription, self).__init__(request)
         self.asset = asset
+
+    def __str__(self):
+        return "AssetDescription for {}".format(self.asset)
+
+    def __repr__(self):
+        return "AssetDescription for {}".format(self.asset)
 
     @classmethod
     def asset_to_slug(cls, asset: Asset):
@@ -145,6 +151,39 @@ class NetworkFolder(Resource):
             if network.other_data.get("visible", True) and asset_count > 0:
                 yield self.get_description(network, asset_count=asset_count)
 
+    def get_all_public_assets(self):
+        assets = []
+        networks = self.get_public_networks()
+        for network in networks:
+            assets += network["assets"].get_public_assets()
+
+        assets = sorted(assets, key=lambda asset: asset.get_title())
+        return assets
+
+    def get_next_prev_asset(self, asset: Asset) -> Tuple[Optional[AssetDescription], Optional[AssetDescription]]:
+        """Get next/prev navigation in public site listing.
+
+        """
+        assets = self.get_all_public_assets()
+
+        for idx, a in enumerate(assets):
+            if a.asset == asset:
+                break
+        else:
+            return (None, None)
+
+        if idx > 0:
+            prev = assets[idx-1]
+        else:
+            prev = None
+
+        try:
+            next = assets[idx+1]
+        except IndexError:
+            next = None
+
+        return (next, prev)
+
 
 @view_config(context=AssetFolder, route_name="network", name="", renderer="network/assets.html")
 def asset_root(asset_folder, request):
@@ -173,13 +212,8 @@ def network_root(network_folder, request):
 
 
 @view_config(context=NetworkFolder, route_name="network", name="all-assets", renderer="network/all_assets.html")
-def all_assets(network_folder, request):
-    assets = []
-    networks = network_folder.get_public_networks()
-    for network in networks:
-        assets += network["assets"].get_public_assets()
-
-    assets = sorted(assets, key=lambda asset: asset.get_title())
+def all_assets(network_folder: NetworkFolder, request):
+    assets = network_folder.get_all_public_assets()
 
     breadcrumbs = get_breadcrumbs(network_folder, request, current_view_name="All digital assets", current_view_url=request.resource_url(network_folder, "all-assets"))
 
@@ -212,7 +246,7 @@ def route_factory(request):
     """Set up __parent__ and __name__ pointers required for traversal."""
     folder = NetworkFolder(request)
     root = Root.root_factory(request)
-    return Resource.make_lineage(root, folder, "network")
+    return Resource.make_lineage(root, folder, "blockchain")
 
 
 def get_network_resource(request, network: AssetNetwork) -> NetworkDescription:
