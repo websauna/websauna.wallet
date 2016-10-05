@@ -190,7 +190,7 @@ class ServiceCore:
 
         host = self.config["host"]
         port = int(self.config["port"])
-        self.web3 = web3 = Web3(KeepAliveRPCProvider(host, port))
+        self.web3 = web3 = Web3(KeepAliveRPCProvider(host, port, connection_timeout=20, network_timeout=20))
 
         with dbsession.transaction_manager:
             network = get_eth_network(dbsession, self.name)
