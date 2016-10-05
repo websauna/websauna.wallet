@@ -215,12 +215,7 @@ class ServiceCore:
             if not geth.is_alive:
                 raise RuntimeError("Geth died upon us")
 
-        try:
-            service.run_event_cycle(cycle_num)
-        except Exception as e:
-            logger.error("Dying, because of %s", e)
-            logger.exception(e)
-            raise(e)
+        service.run_event_cycle(cycle_num)
 
     @classmethod
     def parse_network_config(cls, request):
