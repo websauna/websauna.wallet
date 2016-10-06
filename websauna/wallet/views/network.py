@@ -2,6 +2,7 @@ from typing import Iterable, List, Tuple, Optional
 from uuid import UUID
 
 from pyramid import httpexceptions
+from pyramid.security import Allow
 from sqlalchemy import func
 
 import arrow
@@ -9,7 +10,6 @@ import markdown
 from jinja2.exceptions import TemplateNotFound
 from pyramid.renderers import render
 from pyramid.view import view_config
-from slugify import slugify
 
 from websauna.system.core.root import Root
 from websauna.system.core.route import simple_route
@@ -41,7 +41,7 @@ class AssetDescription(Resource):
 
     @classmethod
     def asset_to_slug(cls, asset: Asset):
-        return slugify(asset.name)
+        return asset.slug
 
     @property
     def address(self) -> str:
@@ -74,7 +74,7 @@ class AssetFolder(Resource):
     def __getitem__(self, slug: str) -> AssetDescription:
 
         for asset in self.request.dbsession.query(Asset).filter(Asset.network_id==self.get_network().id):
-            if slugify(asset.name) == slug:
+            if asset.slug == slug:
                 return self.get_description(asset)
 
         raise KeyError()
@@ -123,6 +123,10 @@ class NetworkDescription(Resource):
 
 
 class NetworkFolder(Resource):
+
+    __acl__ = [
+        (Allow, "group:admin", "manage-content")
+    ]
 
     def get_title(self):
         return "Blockchains"

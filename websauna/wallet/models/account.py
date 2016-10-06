@@ -198,6 +198,10 @@ class Asset(Base):
 
     @property
     def slug(self):
+        """Automatic or persistent slug for URLs."""
+        slug = self.other_data.get("slug")
+        if slug:
+            return slug
         return slugify(self.name)
 
 
