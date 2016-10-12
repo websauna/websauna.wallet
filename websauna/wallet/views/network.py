@@ -262,3 +262,12 @@ def get_asset_resource(request, asset: Asset) -> AssetDescription:
     """Build a link to asset page."""
     network = get_network_resource(request, asset.network)
     return network["assets"].get_description(asset)
+
+
+def get_asset_resource_by_name(request, name: str) -> AssetDescription:
+    """Build a link to asset page."""
+
+    asset = request.dbsession.query(Asset).filter_by(name=name).one_or_none()
+
+    network = get_network_resource(request, asset.network)
+    return network["assets"].get_description(asset)
