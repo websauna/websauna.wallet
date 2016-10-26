@@ -1,16 +1,27 @@
+{# https://developers.google.com/search/docs/data-types/breadcrumbs #}
 {% if breadcrumbs %}
-  <ol class="breadcrumb">
+  <ol class="breadcrumb" itemscope itemtype="http://schema.org/BreadcrumbList">
       {% for crumb in breadcrumbs %}
-          <li>
-              <a href={{ crumb.url }}>
-                  {{ crumb.name }}
+          <li itemprop="itemListElement" itemscope itemtype="http://schema.org/ListItem">
+              <a itemscope itemprop="item" href={{ crumb.url }} itemtype="http://schema.org/Thing">
+                  <span itemprop="name">
+                    {{ crumb.name }}
+                  </span>
               </a>
+
+            <meta itemprop="position" content="{{ loop.index }}" />
           </li>
       {% endfor %}
 
-      {% if view_ane %}
-        <li>
-          {{ view_name }}
+      {% if view_name %}
+        <li itemprop="itemListElement" itemscope itemtype="http://schema.org/ListItem">
+          <a itemscope itemprop="item" href={{ request.url }} itemtype="http://schema.org/Thing">
+            <span itemprop="name">
+              {{ view_name }}
+            </span>
+          </a>
+
+          <meta itemprop="position" content="{{ breadcrumbs|length }}" />
         </li>
       {% endif %}
   </ol>
