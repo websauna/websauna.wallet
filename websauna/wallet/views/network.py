@@ -10,6 +10,7 @@ import markdown
 from jinja2.exceptions import TemplateNotFound
 from pyramid.renderers import render
 from pyramid.view import view_config
+from websauna.system.core.interfaces import IContainer
 
 from websauna.system.core.root import Root
 from websauna.system.core.route import simple_route
@@ -25,6 +26,7 @@ from websauna.system.core.breadcrumbs import get_breadcrumbs
 
 from websauna.wallet.models import Asset
 from websauna.wallet.utils import format_asset_amount
+from zope.interface import implementer
 
 
 class AssetDescription(Resource):
@@ -68,7 +70,7 @@ class AssetDescription(Resource):
         else:
             return ""
 
-
+@implementer(IContainer)
 class AssetFolder(Resource):
 
     def __getitem__(self, slug: str) -> AssetDescription:
@@ -78,6 +80,10 @@ class AssetFolder(Resource):
                 return self.get_description(asset)
 
         raise KeyError()
+
+    def items(self):
+        for asset_resource in self.get_public_assets():
+            yield asset_resource.__name__, asset_resource
 
     def get_title(self):
         return "Assets"
@@ -101,6 +107,7 @@ class AssetFolder(Resource):
             yield self.get_description(asset)
 
 
+@implementer(IContainer)
 class NetworkDescription(Resource):
 
     def __init__(self, request: Request, network: AssetNetwork, asset_count=None):
@@ -109,6 +116,9 @@ class NetworkDescription(Resource):
 
         self.asset_folder = Resource.make_lineage(self, AssetFolder(request), "assets")
         self.asset_count = asset_count
+
+    def items(self):
+        yield "assets", self.asset_folder
 
     def get_title(self):
         human_name = self.network.other_data.get("human_friendly_name")
@@ -122,6 +132,7 @@ class NetworkDescription(Resource):
         raise KeyError()
 
 
+@implementer(IContainer)
 class NetworkFolder(Resource):
 
     __acl__ = [
@@ -137,6 +148,10 @@ class NetworkFolder(Resource):
             raise KeyError()
 
         return self.get_description(network)
+
+    def items(self):
+        for resource in self.get_public_networks():
+            yield resource.__name__, resource
 
     def get_description(self, network: AssetNetwork, asset_count=None):
         desc = NetworkDescription(self.request, network, asset_count)
@@ -187,6 +202,7 @@ class NetworkFolder(Resource):
             next = None
 
         return (next, prev)
+
 
 
 @view_config(context=AssetFolder, route_name="network", name="", renderer="network/assets.html")

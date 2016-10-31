@@ -292,6 +292,9 @@ class WalletFolder(Resource):
         return Resource.make_lineage(self, wallet, uuid_to_slug(user.uuid))
 
     def __getitem__(self, user_id: str):
+
+        import pdb ; pdb.set_trace()
+
         user = self.request.dbsession.query(User).filter_by(uuid=slug_to_uuid(user_id)).one_or_none()
         if not user:
             raise KeyError()
@@ -461,11 +464,12 @@ def wallet_overview(wallet: UserWallet, request: Request):
     return locals()
 
 
-@view_config(context=WalletFolder, route_name="wallet", name="")
+@view_config(context=WalletFolder, route_name="wallet", name="", permission="authenticated")
 def wallet_root(wallet_root, request):
     """Root of all hosted wallet resources.
 
     When wallet folder is accessed without path key, redirect to the users own wallet."""
+
     url = request.resource_url(wallet_root[uuid_to_slug(request.user.uuid)])
     return httpexceptions.HTTPFound(url)
 
