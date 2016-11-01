@@ -293,8 +293,6 @@ class WalletFolder(Resource):
 
     def __getitem__(self, user_id: str):
 
-        import pdb ; pdb.set_trace()
-
         user = self.request.dbsession.query(User).filter_by(uuid=slug_to_uuid(user_id)).one_or_none()
         if not user:
             raise KeyError()
