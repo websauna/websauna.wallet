@@ -1,13 +1,10 @@
 import os
-from uuid import UUID
+
 
 import pytest
 from decimal import Decimal
 
 import transaction
-from eth_rpc_client import Client
-from geth.accounts import create_new_account
-from geth.wrapper import DEFAULT_PASSWORD_PATH
 from populus.project import Project
 from populus.utils.config import Config
 from web3 import Web3, RPCProvider
@@ -16,10 +13,7 @@ from websauna.wallet.ethereum.asset import get_eth_network, get_ether_asset
 from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
 from websauna.wallet.ethereum.contract import Contract, deploy_contract
 from websauna.wallet.ethereum.token import Token
-from websauna.wallet.ethereum.utils import to_wei
 from websauna.wallet.ethereum.wallet import HostedWallet
-from websauna.wallet.models import AssetNetwork
-from websauna.wallet.models.account import AssetClass
 
 from websauna.wallet.tests.eth.utils import wait_tx, send_balance_to_contract
 

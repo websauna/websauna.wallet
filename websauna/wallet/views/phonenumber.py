@@ -68,6 +68,9 @@ def new_phone_number(wallet, request):
 
                 # Save form data from appstruct
                 phone_number = normalize_international_phone_number(appstruct["phone_number"])
+
+                assert phone_number, "Could not normalizer phone number: {}".format(appstruct["phone_number"])
+
                 UserNewPhoneNumberConfirmation.require_confirmation(user, phone_number)
 
                 return httpexceptions.HTTPFound(request.resource_url(wallet, "confirm-phone-number"))
@@ -125,7 +128,11 @@ class ConfirmPhoneNumber(AskConfirmation):
         wallet = self.context  # type: UserWallet
         user = wallet.user
         request = self.request
-        phone_number = self.manual_confirmation.other_data["phone_number"]
+        phone_number = self.manual_confirmation.other_data.get("phone_number")
+
+        if not phone_number:
+            logger.error("Reached confirm_phone_number screen without actual phone number %s %s %s", user, self.manual_confirmation, self.manual_confirmation.other_data)
+            return httpexceptions.HTTPFound(self.request.resource_url(wallet, "new-phone-number"))
 
         if not has_pending_phone_number_request(request, user):
             # We have confirmed the phone number, go to wallet root
