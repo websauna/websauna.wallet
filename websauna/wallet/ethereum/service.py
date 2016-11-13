@@ -159,7 +159,7 @@ class ServiceCore:
     def check_account_locked(self, web3, account):
         # http://ethereum.stackexchange.com/a/6960/620
         try:
-            web3.eth.sendTransaction({"from": account, "to": account, "value": 1})
+            web3.eth.sendTransaction({"from": account, "to": account, "value": 1, "gas": 30000})
         except Exception as e:
             raise RuntimeError("Coinbase account locked on {}? {}. Cannot start.".format(self.name, str(e))) from e
 
