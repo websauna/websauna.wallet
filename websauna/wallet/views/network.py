@@ -176,7 +176,7 @@ class NetworkFolder(Resource):
         for network in networks:
             assets += network["assets"].get_public_assets()
 
-        assets = sorted(assets, key=lambda asset: asset.get_title())
+        assets = sorted(assets, key=lambda asset: asset.get_title().lower())
         return assets
 
     def get_next_prev_asset(self, asset: Asset) -> Tuple[Optional[AssetDescription], Optional[AssetDescription]]:
