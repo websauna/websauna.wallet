@@ -56,7 +56,7 @@ def new_phone_number(wallet, request):
 
     schema = NewPhoneNumber().bind(request=request)
 
-    b = deform.Button(name='process', title="Send verification code", css_class="btn-block btn-lg")
+    b = deform.Button(name='process', title="Send verification code", css_class="btn-primary btn-block btn-lg")
     form = deform.Form(schema, buttons=(b,))
 
     # User submitted this form

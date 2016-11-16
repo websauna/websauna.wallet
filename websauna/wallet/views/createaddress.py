@@ -29,7 +29,7 @@ def create_address(wallet: UserWallet, request):
     schema = CreateAddressSchema().bind(request=request)
 
     # Create a styled button with some extra Bootstrap 3 CSS classes
-    b = deform.Button(name='process', title="Create", css_class="btn-block btn-lg")
+    b = deform.Button(name='process', title="Create", css_class="btn-primary btn-block btn-lg")
     form = deform.Form(schema, buttons=(b,))
 
     # User submitted this form
