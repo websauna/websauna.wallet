@@ -1,4 +1,6 @@
 from decimal import Decimal
+from typing import Optional
+
 from web3 import Web3
 from web3.contract import construct_contract_factory
 
@@ -25,7 +27,7 @@ class ContractWrapper:
         self.initial_txid = initial_txid
 
     @classmethod
-    def abi_factory(cls) -> dict:
+    def abi_factory(cls, contract_name: Optional[str]=None) -> dict:
         """A method to give us ABI descriptino for the contract."""
         raise NotImplementedError()
 
@@ -53,7 +55,7 @@ class ContractWrapper:
         return cls(instance)
 
     @classmethod
-    def create(cls, web3: Web3, wait_for_tx_seconds=90, gas=1500000, args=None) -> "ContractWrapper":
+    def create(cls, web3: Web3, wait_for_tx_seconds=90, gas=1500000, args=None, contract_name=None) -> "ContractWrapper":
         """Creates a new hosted wallet.
 
         The cost of deployment is paid from coinbase account.
@@ -62,7 +64,7 @@ class ContractWrapper:
 
         :return: Populus Contract proxy object for new contract
         """
-        contract_class = cls.abi_factory()
+        contract_class = cls.abi_factory(contract_name)
 
         contract, txid = deploy_contract(web3, contract_class, gas=gas, timeout=wait_for_tx_seconds, constructor_arguments=args)
 

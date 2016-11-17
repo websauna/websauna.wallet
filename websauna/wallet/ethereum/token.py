@@ -15,8 +15,9 @@ class Token(ContractWrapper):
     """
 
     @classmethod
-    def abi_factory(cls):
-        contract_meta = get_compiled_contract_cached("Token")
+    def abi_factory(cls, contract_name=None):
+        contract_name = contract_name or "Token"
+        contract_meta = get_compiled_contract_cached(contract_name)
         return contract_meta
 
     def transfer(self, to_address: str, amount: Decimal) -> str:
@@ -43,12 +44,15 @@ class Token(ContractWrapper):
         return amount
 
     @classmethod
-    def create_token(cls, web3: Web3, name, supply, symbol, owner, wait_for_tx_seconds=90, gas=1500000) -> "Token":
+    def create_token(cls, web3: Web3, name, supply, symbol, owner, wait_for_tx_seconds=90, gas=1500000, extra_arguments=None, contract_name=None) -> "Token":
 
         assert web3
 
         args = [supply, name, 0, symbol, "2", owner]
-        return cls.create(web3, wait_for_tx_seconds=wait_for_tx_seconds, gas=gas, args=args)
+        if extra_arguments:
+            args += extra_arguments
+
+        return cls.create(web3, wait_for_tx_seconds=wait_for_tx_seconds, gas=gas, args=args, contract_name=contract_name)
 
 
 

@@ -1,3 +1,4 @@
 -e git+https://github.com/websauna/websauna.git@master#egg=websauna[test]
 sqlalchemy==1.1.0b3
 ethereum-rpc-client==0.4.4
+-e git+git@github.com:miohtama/web3.py.git@release-5#egg=web3

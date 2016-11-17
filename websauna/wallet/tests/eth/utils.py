@@ -88,7 +88,7 @@ def get_withdrawal_fee(web3: Web3) -> Decimal:
     return NETWORK_PARAMETERS[mode]["withdrawal_fee"]
 
 
-def send_balance_to_contract(contract: Contract, value: Decimal) -> str:
+def send_balance_to_contract(contract: Contract, value: Decimal, gas=None) -> str:
     """Send balance from geth coinbase to the contract.
 
     :param contract: Contract instance with an address
@@ -103,6 +103,10 @@ def send_balance_to_contract(contract: Contract, value: Decimal) -> str:
         "to": contract.address,
         "value": to_wei(value)
     }
+
+    if gas:
+        tx["gas"] = gas
+
     return web3.eth.sendTransaction(tx)
 
 

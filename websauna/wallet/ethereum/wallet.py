@@ -23,8 +23,9 @@ class HostedWallet(ContractWrapper):
     """
 
     @classmethod
-    def abi_factory(cls):
-        contract_meta = get_compiled_contract_cached("Wallet")
+    def abi_factory(cls, contract_name=None):
+        contract_name = contract_name or "Wallet"
+        contract_meta = get_compiled_contract_cached(contract_name)
         return contract_meta
 
     def withdraw(self, to_address: str, amount_in_eth: Decimal, from_account=None, max_gas=100000) -> str:
