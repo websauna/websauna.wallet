@@ -32,9 +32,9 @@ class ContractWrapper:
         raise NotImplementedError()
 
     @classmethod
-    def contract_class(cls, web3: Web3) -> type:
+    def contract_class(cls, web3: Web3, contract_name=None) -> type:
         """Get web3 bound instance of a Contract proxy class."""
-        contract_definition = cls.abi_factory()
+        contract_definition = cls.abi_factory(contract_name)
         contract_class = construct_contract_factory(
             web3=web3,
             abi=contract_definition["abi"],
@@ -45,10 +45,10 @@ class ContractWrapper:
         return contract_class
 
     @classmethod
-    def get(cls, web3: Web3, address: str) -> "ContractWrapper":
+    def get(cls, web3: Web3, address: str, contract_name=None) -> "ContractWrapper":
         """Get a proxy object to existing hosted wallet contrac.t"""
 
-        contract = cls.contract_class(web3)
+        contract = cls.contract_class(web3, contract_name)
         assert address.startswith("0x")
         instance = contract(address=address)
         # Create new ContractWrapper around the contract

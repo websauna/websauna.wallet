@@ -24,4 +24,6 @@ def get_compiled_contract_cached(name: str) -> dict:
     if not _compile_data:
         compile()
 
+    assert name in _compile_data, "No contract {}. Available: {}".format(name, _compile_data.keys())
+
     return _compile_data[name]

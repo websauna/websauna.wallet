@@ -197,7 +197,7 @@ class CryptoAddress(Base):
 
         return op
 
-    def create_token(self, asset: Asset, required_confirmation_count:int=1) -> "CryptoTokenCreation":
+    def create_token(self, asset: Asset, required_confirmation_count: int=1) -> "CryptoTokenCreation":
         """Create a token on behalf of this user."""
         assert asset.id
         assert asset.supply

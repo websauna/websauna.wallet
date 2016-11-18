@@ -12,6 +12,7 @@ from web3 import Web3
 from web3.providers.rpc import KeepAliveRPCProvider
 from pyramid.registry import Registry
 from sqlalchemy.orm import Session
+from websauna.system.http import Request
 
 from websauna.system.model.meta import create_dbsession
 from websauna.system.model.retry import ensure_transactionless
@@ -113,6 +114,7 @@ class ServiceCore:
     """Provide core functionality for inline, threaded or processed services."""
 
     def __init__(self, request, name, config: dict, require_unlock=True):
+
         self.request = request
         self.name = name
         self.config = config
@@ -180,6 +182,12 @@ class ServiceCore:
         # Check if account is still locked and bail out
         self.check_account_locked(self.web3, self.web3.eth.coinbase)
 
+    def create_web3(self):
+        host = self.config["host"]
+        port = int(self.config["port"])
+        web3 = Web3(KeepAliveRPCProvider(host, port, connection_timeout=20, network_timeout=20))
+        return web3
+
     def setup(self, dbsession=None):
         request = self.request
 
@@ -188,16 +196,14 @@ class ServiceCore:
 
         logger.info("Setting up Ethereum service %s with dbsession %s", self, dbsession)
 
-        host = self.config["host"]
-        port = int(self.config["port"])
-        self.web3 = web3 = Web3(KeepAliveRPCProvider(host, port, connection_timeout=20, network_timeout=20))
+        self.web3 = self.create_web3()
 
         with dbsession.transaction_manager:
             network = get_eth_network(dbsession, self.name)
             network_id = network.id
 
         self.geth = self.start_geth()
-        self.service = EthereumService(web3, network_id, dbsession, request.registry)
+        self.service = EthereumService(self.web3, network_id, dbsession, request.registry)
         self.do_unlock()
 
         logger.info("setup() complete")
@@ -281,6 +287,16 @@ def one_shot(request, network_name):
     services = ServiceCore.parse_network_config(request)
     one_shot = OneShot(request, network_name, services[network_name])
     one_shot.run_shot()
+
+
+def get_network_web3(request: Request, network_name: str) -> Web3:
+    """Get a hold of configured web3.
+
+    Useful for Celery tasks, etc.
+    """
+    services = ServiceCore.parse_network_config(request)
+    one_shot = OneShot(request, network_name, services[network_name])
+    return one_shot.create_web3()
 
 
 #: Active threads

@@ -29,3 +29,5 @@ def ensure_positive(amount):
     """
     if amount <= 0:
         raise ValueError("Needs positive amount")
+
+

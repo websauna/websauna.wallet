@@ -152,7 +152,7 @@ class Asset(Base):
     external_id = Column(LargeBinary(32), nullable=True, default=None, unique=True)
 
     #: Total amount os assets in the distribution
-    supply = Column(Integer, nullable=True)
+    supply = Column(Numeric(60, 20), nullable=True)
 
     #: What kind of asset
     #  is this
@@ -233,7 +233,7 @@ class Account(Base):
     asset = relationship(Asset, backref=backref("accounts", uselist=True, lazy="dynamic"))
 
     #: Hold cached balance that is sum of all transactions
-    denormalized_balance = Column(Numeric(40, 10), nullable=False, server_default='0')
+    denormalized_balance = Column(Numeric(60, 20), nullable=False, server_default='0')
 
     def __str__(self):
         return "<Acc:{} asset:{} bal:{}>".format(self.id, self.asset.symbol, self.get_balance())
@@ -336,7 +336,7 @@ class AccountTransaction(Base):
                                             single_parent=True,
                                             ))
 
-    amount = Column(Numeric(40, 10), nullable=False, server_default='0')
+    amount = Column(Numeric(60, 20), nullable=False, server_default='0')
     message = Column(String(256))
 
     counterparty_id = Column(ForeignKey("account_transaction.id"))
