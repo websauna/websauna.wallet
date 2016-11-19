@@ -1,52 +1,58 @@
 <div class="table-responsive">
 
+  {% if details %}
+    <table class="table table-listing table-assets">
 
-  <table class="table table-listing table-assets">
-
-    <thead>
-    <tr>
-      <th>Name</th>
-      <th>Amount</th>
-      <th>Account</th>
-      <th>Blockchain</th>
-      <th>Actions</th>
-    </tr>
-    </thead>
-
-    <tbody>
-    {% for detail in details %}
-      <tr id="row-asset-{{ detail.asset_id }}">
-        <td>
-          <a href="{{ detail.asset_resource|model_url }}">
-            {{ detail.asset_resource.asset.name }} ({{ detail.asset_resource.asset.symbol }})
-          </a>
-        </td>
-
-        <td>
-          {{ detail.balance }}
-        </td>
-
-        <td>
-          <a href="{{ detail.address_resource|model_url }}">
-            {{ detail.address_resource.get_title() }}
-          </a>
-        </td>
-
-        <td>
-          <a href="{{ detail.network_resource|model_url }}">
-            {{ detail.network_resource.network.human_friendly_name }}
-          </a>
-        </td>
-
-        <td>
-          {% if detail.can_withdraw %}
-            <a class="withdraw-asset" href="{{ detail.asset_resource|model_url('withdraw') }}">
-              Withdraw
-            </a>
-          {% endif %}
-        </td>
+      <thead>
+      <tr>
+        <th>Name</th>
+        <th>Amount</th>
+        <th>Account</th>
+        <th>Blockchain</th>
+        <th>Actions</th>
       </tr>
-    {% endfor %}
-    </tbody>
-  </table>
+      </thead>
+
+      <tbody>
+      {% for detail in details %}
+        <tr id="row-asset-{{ detail.asset_id }}">
+          <td>
+            <a href="{{ detail.asset_resource|model_url }}">
+              {{ detail.asset_resource.asset.name }} ({{ detail.asset_resource.asset.symbol }})
+            </a>
+          </td>
+
+          <td>
+            {{ detail.balance }}
+          </td>
+
+          <td>
+            <a href="{{ detail.address_resource|model_url }}">
+              {{ detail.address_resource.get_title() }}
+            </a>
+          </td>
+
+          <td>
+            <a href="{{ detail.network_resource|model_url }}">
+              {{ detail.network_resource.network.human_friendly_name }}
+            </a>
+          </td>
+
+          <td>
+            {% if detail.can_withdraw %}
+              <a class="withdraw-asset btn btn-primary btn-sm" href="{{ detail.asset_resource|model_url('withdraw') }}">
+                Withdraw
+              </a>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="text-info">
+      You do not possess any digital assets at the moment. Send cryptocurrencies or digital assets to your deposit accounts below.
+    </p>
+
+  {% endif %}
 </div>
