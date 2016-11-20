@@ -50,7 +50,7 @@ class DatabaseConfirmationUpdater:
 
         current_block = self.client.get_block_number()
 
-        ensure_transactionless(self.tm)
+        ensure_transactionless(transaction_manager=self.tm)
 
         # Don't repeat update for the same block
         with self.tm:
@@ -61,12 +61,12 @@ class DatabaseConfirmationUpdater:
             logger.debug("No new blocks, still on %d, skipping confirmation updater", current_block)
             return 0, 0
 
-        ensure_transactionless(self.tm)
+        ensure_transactionless(transaction_manager=self.tm)
 
         txs = list(self.get_monitored_transactions())
         logger.debug("Block %d, updating confirmations for %d transactions", current_block, len(txs))
 
-        ensure_transactionless(self.tm)
+        ensure_transactionless(transaction_manager=self.tm)
 
         for tx in txs:
 
@@ -89,7 +89,7 @@ class DatabaseConfirmationUpdater:
             network = self.dbsession.query(AssetNetwork).get(self.network_id)
             network.other_data["last_database_confirmation_updater_block"] = current_block
 
-        ensure_transactionless(self.tm)
+        ensure_transactionless(transaction_manager=self.tm)
 
         return updates, failures
 
