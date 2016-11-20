@@ -4,5 +4,5 @@ ethereum-rpc-client==0.4.4
 -e git+git@github.com:miohtama/web3.py.git@release-5#egg=web3
 
 # https://github.com/ethereum/pyethereum/issues/421
--e git+git@git@github.com:miohtama/pyethereum.git#egg=ethereum
+-e git+git@git@github.com:miohtama/pyethereum.git@develop#egg=ethereum
 
