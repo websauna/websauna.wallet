@@ -180,7 +180,7 @@ class ServiceCore:
             self.unlock(self.web3, passwd)
 
         # Check if account is still locked and bail out
-        self.check_account_locked(self.web3, self.web3.eth.coinbase)
+        # self.check_account_locked(self.web3, self.web3.eth.coinbase)
 
     def create_web3(self):
         host = self.config["host"]
