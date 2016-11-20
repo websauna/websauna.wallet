@@ -10,15 +10,21 @@
     Deposit to {{ resource.get_title() }}
   </h1>
 
-  <p>Send your assets to Ethereum account:</p>
+  {% if address %}
+    <p>Send your assets to Ethereum account:</p>
 
-  <img class="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={{ address }}">
+    <img class="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={{ address }}">
 
-  <h3>{{ address }}</h3>
+    <h3>{{ address }}</h3>
 
-  <p>
-    You will receive a notification when deposit completes.
-  </p>
+    <p>
+      You will receive a notification when deposit completes.
+    </p>
+  {% else %}
+    <p class="text-info">
+      The address has not been generated yet. Please give the service few minutes to generate an address for you.
+    </p>
+  {% endif %}
 
   <p>
     This address accepts

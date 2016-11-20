@@ -185,7 +185,7 @@ class ServiceCore:
     def create_web3(self):
         host = self.config["host"]
         port = int(self.config["port"])
-        web3 = Web3(KeepAliveRPCProvider(host, port, connection_timeout=20, network_timeout=20))
+        web3 = Web3(KeepAliveRPCProvider(host, port, connection_timeout=60, network_timeout=60))
         return web3
 
     def setup(self, dbsession=None):

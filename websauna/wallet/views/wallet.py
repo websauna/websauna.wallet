@@ -479,6 +479,9 @@ def deposit(resource: UserAddress, request: Request):
     breadcrumbs = get_breadcrumbs(resource, request, current_view_url=current_url, current_view_name="Deposit")
 
     address = resource.address.address
+    if not address.address:
+        # Not generated yet
+        address = None
 
     # Whose wallet we are dealing with
     wallet = resource.wallet

@@ -7,6 +7,10 @@
     font-weight: bold;
 }
 
+.col-wallet-actions {
+    width: 150px;
+}
+
 .panel-wallet-confirm {
     max-width: 600px;
     margin: 0 auto;

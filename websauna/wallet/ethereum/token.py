@@ -44,7 +44,7 @@ class Token(ContractWrapper):
         return amount
 
     @classmethod
-    def create_token(cls, web3: Web3, name, supply, symbol, owner, wait_for_tx_seconds=90, gas=1500000, extra_arguments=None, contract_name=None) -> "Token":
+    def create_token(cls, web3: Web3, name, supply, symbol, owner, wait_for_tx_seconds=180, gas=1500000, extra_arguments=None, contract_name=None) -> "Token":
 
         assert web3
 

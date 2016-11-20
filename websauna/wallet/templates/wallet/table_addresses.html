@@ -5,7 +5,7 @@
       <th>Account name</th>
       <th>Blockchain</th>
       <th>Deposit address</th>
-      <th>Actions</th>
+      <th class="col-wallet-actions">Actions</th>
     </tr>
   </thead>
 
@@ -28,8 +28,8 @@
           {{ detail.address }}
         </td>
 
-        <td class="col-address">
-          <a class="btn btn-sm btn-primary" href="{{ detail.user_address|model_url('deposit') }}">
+        <td class="col-wallet-actions">
+          <a class="btn btn-sm btn-primary btn-block" href="{{ detail.user_address|model_url('deposit') }}">
             Deposit
           </a>
         </td>

@@ -9,6 +9,7 @@ from websauna.system.model.retry import retryable
 from websauna.wallet.ethereum.populusutils import get_rpc_client
 from websauna.wallet.ethereum.utils import txid_to_bin, bin_to_txid
 from websauna.wallet.events import CryptoOperationCompleted
+from websauna.wallet.models import AssetNetwork
 from websauna.wallet.models import CryptoOperation
 from websauna.wallet.models import CryptoOperationState
 
@@ -46,10 +47,19 @@ class DatabaseConfirmationUpdater:
         :return: (performed updates, failed updates)
         """
         updates = failures = 0
-        txs = list(self.get_monitored_transactions())
 
         current_block = self.client.get_block_number()
 
+        # Don't repeat update for the same block
+        with self.dbsession.transaction_manager:
+            network = self.dbsession.query(AssetNetwork).get(self.network_id)
+            last_block = network.other_data.get("last_database_confirmation_updater_block")
+
+        if current_block == last_block:
+            logger.debug("No new blocks, still on %d, skipping confirmation updater", current_block)
+            return 0, 0
+
+        txs = list(self.get_monitored_transactions())
         logger.debug("Block %d, updating confirmations for %d transactions", current_block, len(txs))
 
         for tx in txs:
@@ -68,6 +78,10 @@ class DatabaseConfirmationUpdater:
                 logger.error("Could not update transaction %s", tx)
                 logger.exception(e)
                 failures += 1
+
+        with self.dbsession.transaction_manager:
+            network = self.dbsession.query(AssetNetwork).get(self.network_id)
+            network.other_data["last_database_confirmation_updater_block"] = current_block
 
         return updates, failures
 

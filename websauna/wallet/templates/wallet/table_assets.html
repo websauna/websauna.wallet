@@ -9,7 +9,7 @@
         <th>Amount</th>
         <th>Account</th>
         <th>Blockchain</th>
-        <th>Actions</th>
+        <th class="col-wallet-actions">Actions</th>
       </tr>
       </thead>
 
@@ -38,9 +38,9 @@
             </a>
           </td>
 
-          <td>
+          <td class="col-wallet-actions">
             {% if detail.can_withdraw %}
-              <a class="withdraw-asset btn btn-primary btn-sm" href="{{ detail.asset_resource|model_url('withdraw') }}">
+              <a class="withdraw-asset btn btn-primary btn-sm btn-block" href="{{ detail.asset_resource|model_url('withdraw') }}">
                 Withdraw
               </a>
             {% endif %}
