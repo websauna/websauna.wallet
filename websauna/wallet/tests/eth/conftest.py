@@ -156,6 +156,15 @@ def simple_test_contract(web3) -> Contract:
 
 
 @pytest.fixture(scope="module")
+def decode_data_contract(web3) -> Contract:
+    """Create a contract where we can set a global variable for testing."""
+
+    contract_def = get_compiled_contract_cached("DecodeData")
+    contract, txid = deploy_contract(web3, contract_def)
+    return contract
+
+
+@pytest.fixture(scope="module")
 def token(web3, coinbase) -> Contract:
     """Deploy a token contract in the blockchain."""
     return Token.create_token(web3, name="Mootoken", supply=10000, symbol="MOO", owner=coinbase)

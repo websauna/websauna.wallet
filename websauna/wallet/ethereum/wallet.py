@@ -28,7 +28,7 @@ class HostedWallet(ContractWrapper):
         contract_meta = get_compiled_contract_cached(contract_name)
         return contract_meta
 
-    def withdraw(self, to_address: str, amount_in_eth: Decimal, from_account=None, max_gas=100000) -> str:
+    def withdraw(self, to_address: str, amount_in_eth: Decimal, from_account=None, max_gas=100000, data=None) -> str:
         """Withdraw funds from a wallet contract.
 
         :param amount_in_eth: How much as ETH
@@ -59,8 +59,12 @@ class HostedWallet(ContractWrapper):
 
         assert owner == from_account
 
-        # Interact with underlying wrapped contract
-        txid = self.contract.transact(tx_info).withdraw(to_address, wei)
+        if data:
+            txid = self.contract.transact(tx_info).execute(to_address, wei, max_gas, data)
+        else:
+            # Interact with underlying wrapped contract
+            txid = self.contract.transact(tx_info).withdraw(to_address, wei)
+
         return txid
 
     def execute(self, to_contract: Contract,

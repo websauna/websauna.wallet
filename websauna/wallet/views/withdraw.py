@@ -5,10 +5,10 @@ from pyramid.httpexceptions import HTTPFound, HTTPInternalServerError
 from pyramid.renderers import render
 from pyramid.view import view_config
 from websauna.system.core import messages
+from websauna.system.form.resourceregistry import ResourceRegistry
 from websauna.system.form.schema import CSRFSchema
 from websauna.wallet.ethereum.asset import get_required_confirmation_count
 from websauna.wallet.ethereum.utils import eth_address_to_bin, bin_to_eth_address
-from websauna.wallet.models import UserCryptoAddress
 from websauna.wallet.models.blockchain import CryptoOperationType, UserWithdrawConfirmation
 from websauna.wallet.utils import format_asset_amount
 from websauna.wallet.views.confirm import AskConfirmation
@@ -17,10 +17,27 @@ from websauna.wallet.views.network import get_network_resource
 from .wallet import UserAddressAsset, UserOperation, get_user_crypto_operation_resource
 from .schemas import validate_ethereum_address
 from .schemas import validate_withdraw_amount
+from .schemas import validate_hex_data
+
 
 
 # 0x2f70d3d26829e412a602e83fe8eebf80255aeea5
 # 0x0000000000000000000000000000000000000000
+
+
+class Advanced(colander.Schema):
+    gas = colander.SchemaNode(
+        colander.Integer(),
+        default=90000,
+        description='Maximum gas cost of this transaction')
+
+    data = colander.SchemaNode(
+        colander.String(),
+        missing=None,
+        widget=deform.widget.TextAreaWidget(rows=4),
+        description='Data payload as hex code',
+        validator=validate_hex_data)
+
 
 class WithdrawSchema(CSRFSchema):
 
@@ -43,6 +60,12 @@ class WithdrawSchema(CSRFSchema):
         missing="",
         description="The note is recorded for your own transaction history.")
 
+    advanced = Advanced(
+        title="Advanced",
+        widget=deform.widget.MappingWidget(
+            template="mapping_accordion",
+            open=False))
+
 
 @view_config(context=UserAddressAsset, route_name="wallet", name="withdraw", renderer="wallet/withdraw.html")
 def withdraw(user_asset: UserAddressAsset, request):
@@ -57,8 +80,9 @@ def withdraw(user_asset: UserAddressAsset, request):
     account = user_asset.account
 
     schema = WithdrawSchema().bind(request=request, account=account)
-    b = deform.Button(name='process', title="Verify with SMS", css_class="btn-primary btn-block btn-lg")
-    form = deform.Form(schema, buttons=(b,))
+    withdraw = deform.Button(name='process', title="Verify with SMS", css_class="btn-primary btn-block btn-lg")
+    cancel = deform.Button(name='cancel', title="Cancel", css_class="btn-primary btn-block btn-lg")
+    form = deform.Form(schema, buttons=(withdraw, cancel), resource_registry=ResourceRegistry(request))
 
     # User submitted this form
     if request.method == "POST":
@@ -78,6 +102,12 @@ def withdraw(user_asset: UserAddressAsset, request):
                 # Create the withdraw
                 user_withdraw = user_crypto_address.withdraw(asset_resource.asset, amount, address, note, confirmations)
 
+                # Ethereum special parameters
+                user_withdraw.crypto_operation.other_data["gas"] = appstruct["advanced"]["gas"]
+                data = appstruct["advanced"]["data"]
+                if data:
+                    user_withdraw.crypto_operation.other_data["data"] = data
+
                 # Mark it as pending for confirmation
                 UserWithdrawConfirmation.require_confirmation(user_withdraw)
 
@@ -89,12 +119,18 @@ def withdraw(user_asset: UserAddressAsset, request):
                 # Render a form version where errors are visible next to the fields,
                 # and the submitted values are posted back
                 rendered_form = e.render()
+        elif "cancel" in request.POST:
+            return HTTPFound(request.resource_url(wallet))
         else:
             # We don't know which control caused form submission
             raise HTTPInternalServerError("Unknown form button pressed")
     else:
         # Render a form with initial values
         rendered_form = form.render()
+
+    # This loads widgets specific CSS/JavaScript in HTML code,
+    # if form widgets specify any static assets.
+    form.resource_registry.pull_in_resources(request, form)
 
     return locals()
 

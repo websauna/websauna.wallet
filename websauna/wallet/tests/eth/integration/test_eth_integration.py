@@ -224,6 +224,47 @@ def test_withdraw_eth(dbsession: Session, eth_network_id: UUID, web3: Web3, eth_
         assert op.completed_at is not None
 
 
+def test_withdraw_eth_data(dbsession: Session, eth_network_id: UUID, web3: Web3, eth_service: EthereumService, withdraw_address: str, target_account: str, decode_data_contract):
+    """Perform a withdraw operation with data and gas set.
+    """
+
+    # First check what's our balance before sending coins back
+    current_balance = wei_to_eth(web3.eth.getBalance(target_account))
+    assert current_balance == 0
+
+    with transaction.manager:
+
+        # Create withdraw operation
+        caccount = dbsession.query(CryptoAddressAccount).one()
+
+        #: We are going to withdraw the full amount on the account
+        assert caccount.account.get_balance() == TEST_VALUE
+
+        # Use 4 as the heurestics for block account that doesn't happen right away, but still sensible to wait for it soonish
+        op = caccount.withdraw(TEST_VALUE, eth_address_to_bin(decode_data_contract.address), "Getting all the moneys", required_confirmation_count=4)
+
+        op.other_data["gas"] = 1000000
+        op.other_data["data"] = "0x001234"
+
+    success_op_count, failed_op_count = eth_service.run_waiting_operations()
+    assert success_op_count == 1
+    assert failed_op_count == 0
+
+    with transaction.manager:
+        # create + deposit + withdraw
+        op = dbsession.query(CryptoOperation).all()[2]
+        txid = bin_to_txid(op.txid)
+
+    # This should make the tx to included in a block
+    confirm_transaction(web3, txid)
+
+    value = decode_data_contract.call().value()
+    data = decode_data_contract.call().data()
+
+    assert value == 10000000000000000
+    assert data == '0x001234'
+
+
 def test_create_token(dbsession, eth_network_id, eth_service, coinbase, deposit_address):
     """Test user initiated token creation."""
 

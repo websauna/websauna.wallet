@@ -66,6 +66,9 @@ class ContractWrapper:
         """
         contract_class = cls.abi_factory(contract_name)
 
+        if not args:
+            args = []
+
         contract, txid = deploy_contract(web3, contract_class, gas=gas, timeout=wait_for_tx_seconds, constructor_arguments=args)
 
         # Use hardcoded version for now

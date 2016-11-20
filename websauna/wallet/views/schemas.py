@@ -43,6 +43,18 @@ def validate_ethereum_address(node, value, **kwargs):
         raise colander.Invalid(node, "Ethereum address must be 42 characters, including 0x prefix")
 
 
+def validate_hex_data(node, value, **kwargs):
+    """Make sure the user gives a valid ethereum hex address."""
+
+    if not value.startswith("0x"):
+        raise colander.Invalid(node, "Please enter a hex data starting using 0x")
+
+    try:
+        int(value, 16)
+    except ValueError:
+        raise colander.Invalid(node, "Not valid hexadecimal")
+
+
 @colander.deferred
 def validate_withdraw_amount(node, bind_kw):
     """Make sure the user doesn't attempt to overdraw account."""

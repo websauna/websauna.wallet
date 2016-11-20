@@ -1,0 +1,33 @@
+{%  extends "wallet/base.html" %}
+
+{% block panel_heading %}
+{% endblock %}
+
+{% block wallet_content %}
+
+  <h1>
+    <i class="fa fa-download"></i>
+    Deposit to {{ resource.get_title() }}
+  </h1>
+
+  <p>Send your assets to Ethereum account:</p>
+
+  <img class="qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={{ address }}">
+
+  <h3>{{ address }}</h3>
+
+  <p>
+    You will receive a notification when deposit completes.
+  </p>
+
+  <p>
+    This address accepts
+  </p>
+
+  <ul>
+    <li>Ethereum</li>
+    <li>Ethereum tokens</li>
+  </ul>
+
+
+{% endblock %}

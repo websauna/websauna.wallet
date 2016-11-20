@@ -40,6 +40,35 @@ def test_ui_confirm_withdraw(logged_in_wallet_user_browser: DriverAPI, dbsession
     assert b.is_element_present_by_css("#msg-withdraw-confirmed")
 
 
+def test_ui_confirm_withdraw_advanced(logged_in_wallet_user_browser: DriverAPI, dbsession: Session, user_phone_number, top_up_user, eth_asset_id):
+    """Create new account through UI."""
+    # Go to address
+    b = logged_in_wallet_user_browser
+    b.find_by_css("#nav-wallet").click()
+    b.find_by_css("#row-asset-{} a.withdraw-asset".format(eth_asset_id)).click()
+
+    b.fill("address", TEST_ADDRESS)
+    b.fill("amount", "0.1")
+
+    b.find_by_css(".deform-collapse-heading a").click()
+    assert b.is_element_visible_by_css("input[name='gas']")
+    b.fill("gas", 1000000)
+    b.fill("data", "0x123456")
+
+    b.find_by_css("button[name='process']").click()
+
+    # We should arrive to the confirmation page
+    assert b.is_element_present_by_css("#heading-confirm-withdraw")
+
+    # Peek into SMS code
+    with transaction.manager:
+        # Withdraw is the firt user op on the stack
+        withdraw = dbsession.query(UserCryptoOperation).join(CryptoOperation).order_by(CryptoOperation.created_at.desc()).first()
+
+        assert withdraw.crypto_operation.other_data["gas"] == 1000000
+        assert withdraw.crypto_operation.other_data["data"] == "0x123456"
+
+
 def test_ui_cancel_withdraw(logged_in_wallet_user_browser: DriverAPI, dbsession: Session, user_phone_number, top_up_user, eth_asset_id):
     """Create new account through UI."""
 

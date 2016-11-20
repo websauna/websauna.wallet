@@ -87,7 +87,10 @@ def withdraw_eth(web3: Web3, dbsession: Session, opid: UUID):
         amount = op.holding_account.transactions.one().amount
         op.mark_performed()  # Don't pick this to action list anymore
 
-        return address, amount, op.external_address
+        gas = op.other_data.get("gas")
+        data = op.other_data.get("data")
+
+        return address, amount, op.external_address, gas, data
 
     @retryable(tm=dbsession.transaction_manager)
     def close_withdraw():
@@ -98,11 +101,11 @@ def withdraw_eth(web3: Web3, dbsession: Session, opid: UUID):
         op.block = None
         op.mark_broadcasted()
 
-    address, amount, external_address = prepare_withdraw()
+    address, amount, external_address, gas, data = prepare_withdraw()
     # Do actual network communications outside the transaction,
     # so we avoid double withdraws in the case transaction is retried
     wallet = HostedWallet.get(web3, address)
-    txid = wallet.withdraw(bin_to_eth_address(external_address), amount)
+    txid = wallet.withdraw(bin_to_eth_address(external_address), amount, max_gas=gas, data=data)
     close_withdraw()
 
 

@@ -48,6 +48,9 @@ class Token(ContractWrapper):
 
         assert web3
 
+        if isinstance(supply, Decimal):
+            supply = int(supply)
+
         args = [supply, name, 0, symbol, "2", owner]
         if extra_arguments:
             args += extra_arguments

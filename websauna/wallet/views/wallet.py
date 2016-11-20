@@ -11,7 +11,7 @@ from websauna.system.core.root import Root
 from websauna.system.core.traversal import Resource
 from websauna.system.http import Request
 from websauna.system.user.models import User
-from websauna.utils.slug import slug_to_uuid, uuid_to_slug
+from websauna.utils.slug import slug_to_uuid, uuid_to_slug, SlugDecodeError
 from websauna.wallet.ethereum.asset import setup_user_account
 from websauna.wallet.ethereum.utils import bin_to_eth_address, bin_to_txid
 from websauna.wallet.events import CryptoOperationViewed, WalletOverviewViewed
@@ -100,6 +100,10 @@ class UserAddress(Resource):
     def get_user(self):
         return self.__parent__.user
 
+    @property
+    def wallet(self) -> "UserWallet":
+        return self.__parent__.__parent__
+
     def get_title(self):
         return self.address.name
 
@@ -120,9 +124,14 @@ class UserAddress(Resource):
 
     def __getitem__(self, item):
         dbsession = self.request.dbsession
-        crypto_account = dbsession.query(CryptoAddressAccount).filter_by(address=self.address.address).filter_by(id=slug_to_uuid(item)).one_or_none()
-        if crypto_account:
-            return self.get_user_address_asset(crypto_account)
+
+        try:
+            crypto_account = dbsession.query(CryptoAddressAccount).filter_by(address=self.address.address).filter_by(id=slug_to_uuid(item)).one_or_none()
+            if crypto_account:
+                return self.get_user_address_asset(crypto_account)
+        except SlugDecodeError:
+            # A view
+            pass
         raise KeyError()
 
 
@@ -459,6 +468,20 @@ def wallet_overview(wallet: UserWallet, request: Request):
     address_details = [describe_address(request, address) for address in wallet.list_addresses()]
     breadcrumbs = get_breadcrumbs(wallet, request)
 
+    return locals()
+
+
+@view_config(context=UserAddress, route_name="wallet", name="deposit", renderer="wallet/deposit.html")
+@wallet_view
+def deposit(resource: UserAddress, request: Request):
+
+    current_url = request.resource_url(resource, "deposit")
+    breadcrumbs = get_breadcrumbs(resource, request, current_view_url=current_url, current_view_name="Deposit")
+
+    address = resource.address.address
+
+    # Whose wallet we are dealing with
+    wallet = resource.wallet
     return locals()
 
 
