@@ -23,7 +23,9 @@ def token(web3, coinbase) -> Contract:
     extra_arguments = [
         coinbase,
         MULTISIG,
-        CAP
+        CAP,
+        2,  # 2 share per each ETH
+        10 ** 18,  # 1 ETH 10**18 wei
     ]
     return Token.create_token(web3, name="Mootoken", supply=0, symbol="MOO", owner=coinbase, extra_arguments=extra_arguments, contract_name="CrowdfundToken")
 
@@ -62,7 +64,7 @@ def test_fund_crowdsale(web3, hosted_wallet, token):
     event_name, input_data = events[0]
     assert event_name == "Buy"
     assert input_data["eth"] == to_wei(test_fund, "ether")
-    assert input_data["tokens"] == to_wei(test_fund * 2, "ether")
+    assert input_data["tokens"] == 2000
 
     # Check balances
     web3.eth.getBalance(MULTISIG) == to_wei(test_fund * 2, "ether")

@@ -58,6 +58,10 @@ contract CrowdfundToken is SafeMath {
     /* How many unique investors */
     uint256 public investorCount;
 
+    /* How token price is calculated */
+    uint256 public priceMultiplier;
+    uint256 public priceDivider;
+
     /* This creates an array with all balances */
     mapping (address => uint256) public balanceOf;
     mapping (address => mapping (address => uint256)) public allowance;
@@ -77,7 +81,9 @@ contract CrowdfundToken is SafeMath {
         address owner_,
         address signer_,
         address multisig_,
-        uint256 weiCap_
+        uint256 weiCap_,
+        uint256 priceMultiplier_,
+        uint256 priceDivider_
         ) {
 
         balanceOf[owner] = initialSupply;              // Give the creator all initial tokens
@@ -90,6 +96,8 @@ contract CrowdfundToken is SafeMath {
         multisig = multisig_;
         owner = owner_;
         weiCap = weiCap_;
+        priceMultiplier = priceMultiplier_;
+        priceDivider = priceDivider_;
     }
 
     /* Send coins */
@@ -123,13 +131,13 @@ contract CrowdfundToken is SafeMath {
     }
 
     /** How many tokens get per each wei */
-    function price(uint256 blockNum) constant returns(uint) {
-        return 2;
+    function calculateTokens(uint256 blockNum, uint256 buyValue) constant returns(uint) {
+        return safeMul(buyValue, priceMultiplier) / priceDivider;
     }
 
     function buy() {
 
-        uint tokens = safeMul(msg.value, price(block.number));
+        uint tokens = calculateTokens(block.number, msg.value);
 
         // TODO: Add signature check
 

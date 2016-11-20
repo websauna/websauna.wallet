@@ -1,4 +1,5 @@
 import os
+from typing import Callable
 from uuid import UUID
 
 import pytest
@@ -195,5 +196,7 @@ def starter_eth(dbsession, eth_service, eth_network_id, house_address):
         network = dbsession.query(AssetNetwork).get(eth_network_id)
         network.other_data["initial_assets"] = {}
         network.other_data["initial_assets"]["eth_amount"] = "0.1"
+
+
 
 

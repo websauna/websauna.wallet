@@ -4,7 +4,7 @@ from typing import Iterable, Tuple, Union
 
 from sqlalchemy.orm import Session
 from web3 import Web3
-from websauna.system.model.retry import retryable
+from websauna.system.model.retry import retryable, ensure_transactionless
 
 from websauna.wallet.ethereum.populusutils import get_rpc_client
 from websauna.wallet.ethereum.utils import txid_to_bin, bin_to_txid
@@ -50,8 +50,10 @@ class DatabaseConfirmationUpdater:
 
         current_block = self.client.get_block_number()
 
+        ensure_transactionless(self.tm)
+
         # Don't repeat update for the same block
-        with self.dbsession.transaction_manager:
+        with self.tm:
             network = self.dbsession.query(AssetNetwork).get(self.network_id)
             last_block = network.other_data.get("last_database_confirmation_updater_block")
 
@@ -59,8 +61,12 @@ class DatabaseConfirmationUpdater:
             logger.debug("No new blocks, still on %d, skipping confirmation updater", current_block)
             return 0, 0
 
+        ensure_transactionless(self.tm)
+
         txs = list(self.get_monitored_transactions())
         logger.debug("Block %d, updating confirmations for %d transactions", current_block, len(txs))
+
+        ensure_transactionless(self.tm)
 
         for tx in txs:
 
@@ -79,9 +85,11 @@ class DatabaseConfirmationUpdater:
                 logger.exception(e)
                 failures += 1
 
-        with self.dbsession.transaction_manager:
+        with self.tm:
             network = self.dbsession.query(AssetNetwork).get(self.network_id)
             network.other_data["last_database_confirmation_updater_block"] = current_block
+
+        ensure_transactionless(self.tm)
 
         return updates, failures
 
