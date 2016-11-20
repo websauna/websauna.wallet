@@ -50,6 +50,8 @@ def test_fund_crowdsale(web3, hosted_wallet, token):
 
     listener, events = create_contract_listener(contract)
 
+    contract.call().investorCount() == 0
+
     txid = send_balance_to_contract(token.contract, test_fund, gas=1000000)
     confirm_transaction(web3, txid)
     update_count = listener.poll()
@@ -65,6 +67,7 @@ def test_fund_crowdsale(web3, hosted_wallet, token):
     # Check balances
     web3.eth.getBalance(MULTISIG) == to_wei(test_fund * 2, "ether")
     contract.call().weiRaised() == to_wei(test_fund, "ether")
+    contract.call().investorCount() == 1
 
 
 @pytest.mark.slow

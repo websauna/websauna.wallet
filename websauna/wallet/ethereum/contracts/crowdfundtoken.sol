@@ -55,6 +55,9 @@ contract CrowdfundToken is SafeMath {
     /* How many ethers we have raised */
     uint256 public weiRaised;
 
+    /* How many unique investors */
+    uint256 public investorCount;
+
     /* This creates an array with all balances */
     mapping (address => uint256) public balanceOf;
     mapping (address => mapping (address => uint256)) public allowance;
@@ -133,6 +136,10 @@ contract CrowdfundToken is SafeMath {
         address recipient = msg.sender;
 
         if (safeAdd(weiRaised, msg.value) > weiCap) throw;
+
+        if(balanceOf[recipient] == 0) {
+            investorCount += 1;
+        }
 
         balanceOf[recipient] = safeAdd(balanceOf[recipient], tokens);
         totalSupply = safeAdd(totalSupply, tokens);
