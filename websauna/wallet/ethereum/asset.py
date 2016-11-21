@@ -60,7 +60,7 @@ def setup_user_account(user: User, request=None):
     """Setup hosted wallets on Ethereum and testnet networks."""
 
     dbsession = Session.object_session(user)
-    for net in ("ethereum", "testnet"):
+    for net in ("testnet"):
         ethereum = get_eth_network(dbsession, net)
 
         if request:
