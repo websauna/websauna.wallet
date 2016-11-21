@@ -13,6 +13,7 @@ from web3.utils.abi import function_abi_to_4byte_selector
 
 from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
 from websauna.wallet.ethereum.contractwrapper import ContractWrapper
+from websauna.wallet.ethereum.populuslistener import get_contract_events
 from websauna.wallet.ethereum.utils import to_wei, wei_to_eth, ensure_0x_prefixed_hex
 
 
@@ -28,7 +29,7 @@ class HostedWallet(ContractWrapper):
         contract_meta = get_compiled_contract_cached(contract_name)
         return contract_meta
 
-    def withdraw(self, to_address: str, amount_in_eth: Decimal, from_account=None, max_gas=100000, data=None) -> str:
+    def withdraw(self, to_address: str, amount_in_eth: Decimal, from_account=None, max_gas=0, data=None) -> str:
         """Withdraw funds from a wallet contract.
 
         :param amount_in_eth: How much as ETH
@@ -48,8 +49,12 @@ class HostedWallet(ContractWrapper):
         tx_info = {
             # The Ethereum account that pays the gas for this operation
             "from": from_account,
-            "gas": max_gas,
         }
+
+        if max_gas:
+            tx_info["gas"] = max_gas
+        else:
+            max_gas = 0
 
         # Sanity check that we own this wallet
         owner = self.contract.call().owner()
@@ -63,7 +68,7 @@ class HostedWallet(ContractWrapper):
             txid = self.contract.transact(tx_info).execute(to_address, wei, max_gas, data)
         else:
             # Interact with underlying wrapped contract
-            txid = self.contract.transact(tx_info).withdraw(to_address, wei)
+            txid = self.contract.transact(tx_info).withdraw(to_address, wei, max_gas)
 
         return txid
 
@@ -147,3 +152,6 @@ class HostedWallet(ContractWrapper):
         # Transfer value back to owner, post a tx fee event
         txid = self.contract.transact().claimFees(original_txid_b, wei_value)
         return txid, price
+
+
+

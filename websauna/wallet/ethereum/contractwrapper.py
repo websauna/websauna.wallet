@@ -5,6 +5,7 @@ from web3 import Web3
 from web3.contract import construct_contract_factory
 
 from websauna.wallet.ethereum.contract import deploy_contract, Contract
+from websauna.wallet.ethereum.populuslistener import get_contract_events
 from websauna.wallet.ethereum.utils import wei_to_eth
 
 
@@ -87,3 +88,14 @@ class ContractWrapper:
     def get_balance(self) -> Decimal:
         """Gets the balance on this contract address over RPC and converts to ETH."""
         return wei_to_eth(self.web3.eth.getBalance(self.address))
+
+    def get_all_events(self):
+        """Helper to map getTransactionReceipt() logs to human readable."""
+        events = get_contract_events(self.contract)
+        return {event.name: hex(key) for key, event in events}
+
+    def dump_all_events(self):
+        """Debug function to inspect what happens inside the contract transactions."""
+        events = get_contract_events(self.contract)
+        for key, event in events:
+            print(hex(key), event.name)

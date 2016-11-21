@@ -81,6 +81,29 @@ def withdraw_address(web3: Web3, dbsession, eth_service: EthereumService, coinba
 
 
 @pytest.fixture
+def rich_withdraw_address(web3: Web3, dbsession, eth_service: EthereumService, coinbase, deposit_address) -> str:
+    """Create a managed hosted wallet that has withdraw balance of 1000 ETH for testing."""
+
+    # Do a transaction over ETH network
+    txid = send_balance_to_address(web3, deposit_address, Decimal(1000.0))
+    confirm_transaction(web3, txid)
+
+    assert web3.eth.getBalance(deposit_address) > 0
+
+    success_op_count, failed_op_count = eth_service.run_listener_operations()
+    assert success_op_count == 1
+    assert failed_op_count == 0
+
+    with transaction.manager:
+        # We bypass normal transction confirmation count mechanism to credit the account right away to speed up the test
+        deposit = dbsession.query(CryptoAddressDeposit).one()
+        deposit.resolve()
+
+        return deposit_address
+
+
+
+@pytest.fixture
 def target_account(web3: Web3) -> str:
     """Create a new Ethereum account on a running Geth node.
 

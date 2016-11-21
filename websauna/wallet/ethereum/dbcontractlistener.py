@@ -5,6 +5,7 @@ from typing import Iterable, Optional, List, Tuple
 from decimal import Decimal
 from sqlalchemy.orm import Session
 from web3 import Web3
+from websauna.system.model.retry import retryable, ensure_transactionless
 
 from websauna.wallet.ethereum.asset import get_ether_asset
 from websauna.wallet.ethereum.populuslistener import get_contract_events
@@ -64,13 +65,17 @@ class DatabaseContractListener:
 
         Assume addresses are hosted wallet smart contract addresses and scan for their event logs.
         """
-        addresses = list(self.get_monitored_addresses())
+
+        # get_monitored_addresses() does its own transaction
+        ensure_transactionless(transaction_manager=self.tm)
+
+        addresses = self.get_monitored_addresses()
         if not addresses:
             return 0, 0
         logs = self.client.get_logs(from_block=from_block, to_block=to_block, address=addresses)
-        return self.process_logs(logs)
+        return self.process_logs(logs, addresses)
 
-    def process_logs(self, changes: Optional[List[dict]]) -> Tuple[int, int]:
+    def process_logs(self, changes: Optional[List[dict]], addresses) -> Tuple[int, int]:
         """Process logs from initial log run or filter updates."""
         updates = failures = 0
 
@@ -88,6 +93,7 @@ class DatabaseContractListener:
                 continue
 
             # This is event signature as hex encoded string
+            # https://github.com/ethereum/wiki/wiki/Ethereum-Contract-ABI#events
             event_hash = topics[0]
 
             try:
@@ -104,13 +110,28 @@ class DatabaseContractListener:
     def parse_log_data(self, signature: str, log_entry) -> Tuple[str, dict]:
         """Parse raw EVM log binary to a human readable format using contract ABI."""
         event = self.event_map.get(int(signature, 16))
-        assert event, "Signature {} not in event map {}".format(signature, self.event_map)
+
+        # Not understand why this happens
+        if not event:
+            # This happens e.g. when we are listeting to a token contract and it
+            # receives Buy() event that is not in the standard ERC-20 interface
+            self.logger.info("Signature %s not in event map %s", signature, self.event_map)
+            return None, None
+
+        # We cannot assert there, as one transaction can contain log entries from multiple contracts
+        # assert event,
         log_data = event.get_log_data(log_entry, indexed=True)
         return event.name, log_data
 
-    def process_log(self, contract_address, event_hash: str, change: dict):
+    def process_log(self, contract_address, event_hash: str, change: dict) -> bool:
+        """Return true if there were changes in the database"""
         event_name, log_data = self.parse_log_data(event_hash, change)
-        return self.handle_event(event_name, contract_address, log_data, change)
+        if event_name:
+            # handle_event() does its own transaction management
+            ensure_transactionless(transaction_manager=self.tm)
+            return self.handle_event(event_name, contract_address, log_data, change)
+        else:
+            return False
 
     def poll(self) -> int:
         """Scan blocks for new events.
@@ -171,41 +192,44 @@ class EthWalletListener(DatabaseContractListener):
     Contract points to a hosted wallet contract.
     """
 
+    @retryable(get_tm=DatabaseContractListener._get_tm)
     def get_monitored_addresses(self) -> Iterable[str]:
         """Get list of all ETH crtypto deposit addresses."""
-        with self._get_tm():
-            for addr in self.dbsession.query(CryptoAddress, CryptoAddress.address).filter(CryptoAddress.network_id == self.network_id, CryptoAddress.address != None):
-                # addr.address is not set if the address is under construction
-                yield bin_to_eth_address(addr.address)
+        addresses = []
+        for addr in self.dbsession.query(CryptoAddress, CryptoAddress.address).filter(CryptoAddress.network_id == self.network_id, CryptoAddress.address != None):
+            # addr.address is not set if the address is under construction
+            addresses.append(bin_to_eth_address(addr.address))
 
+        return addresses
+
+    @retryable(get_tm=DatabaseContractListener._get_tm)
     def handle_event(self, event_name: str, contract_address: str, log_data: dict, log_entry: dict):
         """Map incoming EVM log to database entry."""
 
-        with self._get_tm():
-            opid = self.get_unique_transaction_id(log_entry)
+        opid = self.get_unique_transaction_id(log_entry)
 
-            existing_op = self.get_existing_op(opid, CryptoOperationType.deposit)
-            if existing_op:
-                # Already in the database, all we need to do is to call blocknumber updater now
-                return False
+        existing_op = self.get_existing_op(opid, CryptoOperationType.deposit)
+        if existing_op:
+            # Already in the database, all we need to do is to call blocknumber updater now
+            return False
 
-            network = self.dbsession.query(AssetNetwork).get(self.network_id)
-            address = self.dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(contract_address), network=network).one()
+        network = self.dbsession.query(AssetNetwork).get(self.network_id)
+        address = self.dbsession.query(CryptoAddress).filter_by(address=eth_address_to_bin(contract_address), network=network).one()
 
-            op = self.create_op(event_name, address, opid, log_data, log_entry)
-            if not op:
-                # This was an event we don't care about
-                return False
+        op = self.create_op(event_name, address, opid, log_data, log_entry)
+        if not op:
+            # This was an event we don't care about
+            return False
 
-            op.opid = opid
-            op.txid = txid_to_bin(log_entry["transactionHash"])
-            op.block = int(log_entry["blockNumber"], 16)
-            op.required_confirmation_count = self.confirmation_count
-            self.dbsession.add(op)
+        op.opid = opid
+        op.txid = txid_to_bin(log_entry["transactionHash"])
+        op.block = int(log_entry["blockNumber"], 16)
+        op.required_confirmation_count = self.confirmation_count
+        self.dbsession.add(op)
 
-            self.notify_deposit(op)
+        self.notify_deposit(op)
 
-            return True
+        return True
 
     def create_op(self, event_name: str, address: CryptoAddress, opid: bytes, log_data: dict, log_entry: dict) -> Optional[CryptoOperation]:
         """Create new database cryptoperation matching the new event."""
@@ -254,60 +278,66 @@ class EthWalletListener(DatabaseContractListener):
 class EthTokenListener(DatabaseContractListener):
     """Listen token transfers."""
 
+    @retryable(get_tm=DatabaseContractListener._get_tm)
     def get_monitored_addresses(self) -> Iterable[str]:
         """Get list of all known token smart contract addresses."""
-        with self._get_tm():
-            for asset in self.dbsession.query(Asset, Asset.external_id).filter(Asset.network_id == self.network_id, Asset.external_id != None):
-                yield bin_to_eth_address(asset.external_id)
 
+        addresses = []
+
+        for asset in self.dbsession.query(Asset, Asset.external_id).filter(Asset.network_id == self.network_id, Asset.external_id != None):
+            addresses.append(bin_to_eth_address(asset.external_id))
+
+        return addresses
+
+    @retryable(get_tm=DatabaseContractListener._get_tm)
     def handle_event(self, event_name: str, contract_address: str, log_data: dict, log_entry: dict):
         """Map incoming EVM log to database entry."""
 
-        with self._get_tm():
+        opid = self.get_unique_transaction_id(log_entry)
 
-            opid = self.get_unique_transaction_id(log_entry)
+        existing_op = self.get_existing_op(opid, CryptoOperationType.deposit)
+        if existing_op:
+            # Already in the database, all we need to do is to call blocknumber updater now
+            return False
 
-            existing_op = self.get_existing_op(opid, CryptoOperationType.deposit)
-            if existing_op:
-                # Already in the database, all we need to do is to call blocknumber updater now
+        network = self.dbsession.query(AssetNetwork).get(self.network_id)
+        asset = self.dbsession.query(Asset).filter_by(network=network, external_id=eth_address_to_bin(contract_address)).one()
+
+        if event_name == "Transfer":
+
+            to_address = eth_address_to_bin(log_data["to"])
+            from_address = eth_address_to_bin(log_data["from"])
+            value = Decimal(log_data["value"])
+
+            self.logger.debug("Incoming transfer event %s %s %s", from_address, to_address, value)
+
+            # Get destination address entry
+            address = self.dbsession.query(CryptoAddress).filter_by(address=to_address).one_or_none()
+            if not address:
+                # Address not in our system
                 return False
 
-            network = self.dbsession.query(AssetNetwork).get(self.network_id)
-            asset = self.dbsession.query(Asset).filter_by(network=network, external_id=eth_address_to_bin(contract_address)).one()
+            # Create operation
+            op = CryptoAddressDeposit(network=network)
+            op.opid = opid
+            op.txid = txid_to_bin(log_entry["transactionHash"])
+            op.external_address = from_address
+            op.block = int(log_entry["blockNumber"], 16)
+            op.required_confirmation_count = self.confirmation_count
+            op.crypto_account = address.get_or_create_account(asset)
 
-            if event_name == "Transfer":
+            # Create holding account that keeps the value until we receive N amount of confirmations
+            acc = Account(asset=asset)
+            self.dbsession.add(acc)
+            self.dbsession.flush()
 
-                to_address = eth_address_to_bin(log_data["to"])
-                from_address = eth_address_to_bin(log_data["from"])
-                value = Decimal(log_data["value"])
+            acc.do_withdraw_or_deposit(value, "Token {} deposit from {} in tx {}".format(asset.symbol, log_data["from"], log_entry["transactionHash"]))
+            op.holding_account = acc
+            self.dbsession.add(op)
 
-                # Get destination address entry
-                address = self.dbsession.query(CryptoAddress).filter_by(address=to_address).one_or_none()
-                if not address:
-                    # Address not in our system
-                    return False
+            self.notify_deposit(op)
 
-                # Create operation
-                op = CryptoAddressDeposit(network=network)
-                op.opid = opid
-                op.txid = txid_to_bin(log_entry["transactionHash"])
-                op.external_address = from_address
-                op.block = int(log_entry["blockNumber"], 16)
-                op.required_confirmation_count = self.confirmation_count
-                op.crypto_account = address.get_or_create_account(asset)
-
-                # Create holding account that keeps the value until we receive N amount of confirmations
-                acc = Account(asset=asset)
-                self.dbsession.add(acc)
-                self.dbsession.flush()
-
-                acc.do_withdraw_or_deposit(value, "Token {} deposit from {} in tx {}".format(asset.symbol, log_data["from"], log_entry["transactionHash"]))
-                op.holding_account = acc
-                self.dbsession.add(op)
-
-                self.notify_deposit(op)
-
-                return True
-            else:
-                # Unmonitored event
-                return False
+            return True
+        else:
+            # Unmonitored event
+            return False

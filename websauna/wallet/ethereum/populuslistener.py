@@ -74,6 +74,12 @@ class Event:
         self.inputs = inputs
         self.anonymous = anonymous
 
+    def __str__(self):
+        return "Event<{} {}>".format(self.name, self.inputs)
+
+    def __repr__(self):
+        return self.__str__()
+
     @property
     def event_topic(self):
         return hex(ethereum_utils.big_endian_to_int(

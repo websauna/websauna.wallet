@@ -34,7 +34,7 @@ contract Wallet {
     /**
      * Simple withdrawal operation.
      */
-    function withdraw(address _to, uint _value) external {
+    function withdraw(address _to, uint _value, uint _gas) external {
         bool success;
 
         if(msg.sender != owner) {
@@ -48,7 +48,13 @@ contract Wallet {
 
         // Gas is always deducted from the value
         // when the transaction is received on the other side.
-        success = _to.send(_value);
+        if(_gas > 0) {
+            success = _to.call.value(_value)();
+        } else {
+            // Default gas.
+            // TODO: How much is this?
+            success = _to.send(_value);
+        }
 
         if(success) {
             Withdraw(_to, _value);

@@ -58,9 +58,12 @@ def test_fund_crowdsale(web3, hosted_wallet, token):
     confirm_transaction(web3, txid)
     update_count = listener.poll()
 
+    # receipt = web3.eth.getTransactionReceipt(txid)
+    # print("Gas used by funding is ", receipt["cumulativeGas"])
+
     # Check the transfer event arrives
-    assert update_count == 1
-    assert len(events) == 1
+    assert update_count == 2  # Buy + Transfer
+    assert len(events) == 2
     event_name, input_data = events[0]
     assert event_name == "Buy"
     assert input_data["eth"] == to_wei(test_fund, "ether")

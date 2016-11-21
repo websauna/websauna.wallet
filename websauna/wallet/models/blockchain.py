@@ -320,6 +320,7 @@ class CryptoAddressAccount(Base):
         """
 
         assert to_address
+        assert isinstance(to_address, bytes)
         assert self.id
         assert self.account
         assert self.account.id
@@ -534,6 +535,9 @@ class CryptoOperation(Base):
     def is_failed(self):
         return self.state == CryptoOperationState.failed
 
+    def get_failure_reason(self):
+        return self.other_data.get("error")
+
     def has_txid(self) -> bool:
         """Does this operation have txid or will it receive one in the future.
 
@@ -743,6 +747,9 @@ class CryptoAddressWithdraw(CryptoOperation):
         'polymorphic_identity': CryptoOperationType.withdraw,
     }
 
+    def get_from_address(self) -> bytes:
+        """Get address where this withdraw was initiated from (hosted wallet)."""
+        return self.crypto_account.address.address
 
     def update_confirmations(self, confirmation_count) -> bool:
         """Update how many blocks we have got.

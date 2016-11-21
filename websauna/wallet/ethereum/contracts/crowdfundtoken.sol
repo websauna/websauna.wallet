@@ -139,6 +139,11 @@ contract CrowdfundToken is SafeMath {
 
         uint tokens = calculateTokens(block.number, msg.value);
 
+        // Not enough value, could not buy even one token
+        if(tokens <= 0) {
+            throw;
+        }
+
         // TODO: Add signature check
 
         address recipient = msg.sender;
@@ -155,10 +160,18 @@ contract CrowdfundToken is SafeMath {
 
         // if (!multisig.send(msg.value)) throw;
 
+        // Initial buy in
         Buy(recipient, msg.value, tokens);
+
+        // ERC-20 compatible update
+        Transfer(0, recipient, tokens);
     }
 
-    /* This unnamed function is called whenever someone tries to send ether to it */
+    /**
+     * This unnamed function is called whenever someone tries to send ether to it.
+     *
+     * Tested for gas limit: 104424
+     */
     function () {
         buy();
     }
