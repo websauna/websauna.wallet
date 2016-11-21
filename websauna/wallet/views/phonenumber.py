@@ -29,11 +29,10 @@ class NewPhoneNumber(CSRFSchema):
     phone_number = colander.SchemaNode(
         colander.String(),
         validator=valid_international_phone_number,
-        title="Mobile phone number",
+        title="Your mobile phone number",
         default="+",
-        description="Please give your mobile phone number in international format using with country code prefix with plus sign notation. Example: +1 555 123 1234.",
+        description="Use international mobile phone number format with plus sign, country code, followed by your mobile number. Example: +1 555 123 1234.",
         widget=deform.widget.TextInputWidget(size=6, maxlength=6, type='tel', template="textinput_placeholder")
-
     )
 
 
