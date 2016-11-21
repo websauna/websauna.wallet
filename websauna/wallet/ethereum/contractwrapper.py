@@ -56,7 +56,7 @@ class ContractWrapper:
         return cls(instance)
 
     @classmethod
-    def create(cls, web3: Web3, wait_for_tx_seconds=90, gas=1500000, args=None, contract_name=None) -> "ContractWrapper":
+    def create(cls, web3: Web3, wait_for_tx_seconds=180, gas=1500000, args=None, contract_name=None) -> "ContractWrapper":
         """Creates a new hosted wallet.
 
         The cost of deployment is paid from coinbase account.
