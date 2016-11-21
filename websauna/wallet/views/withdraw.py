@@ -28,8 +28,8 @@ from .schemas import validate_hex_data
 class Advanced(colander.Schema):
     gas = colander.SchemaNode(
         colander.Integer(),
-        default=90000,
-        description='Maximum gas cost of this transaction')
+        default=200000,
+        description='Maximum gas cost of the transaction')
 
     data = colander.SchemaNode(
         colander.String(),

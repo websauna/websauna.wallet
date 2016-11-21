@@ -4,43 +4,15 @@
 
   <h3 id="heading-op">Transaction {{ detail.tx_name }}</h3>
 
+  {% if detail.op.operation_type.value == "deposit" %}
+    <p class="lead">You received digital assets.</p>
+  {% endif %}
+
+  {% if detail.op.operation_type.value == "withdraw" %}
+    <p class="lead">You sent out digital assets.</p>
+  {% endif %}
+
   <table class="table">
-
-    <tr>
-      <th>Network</th>
-      <td>
-        <a href="{{ detail.network_resource|model_url }}">
-          {{ detail.network_resource.get_title() }}
-        </a>
-      </td>
-    </tr>
-
-    <tr>
-      <th>Transaction hash</th>
-      <td>{{ detail.txid }}</td>
-    </tr>
-
-    <tr>
-      <th>Account</th>
-      <td>
-        {% if detail.address_resource %}
-          <a id="nav-op-address" href="{{ detail.address_resource|model_url }}">
-            {{ detail.address_resource.get_title() }}
-          </a>
-        {% endif %}
-      </td>
-    </tr>
-
-    <tr>
-      <th>Type</th>
-      <td>{{ detail.op.human_friendly_type }}</td>
-    </tr>
-
-    <tr>
-      <th>State</th>
-      <td id="op-state-{{ detail.op.state.name }}">{{ detail.state }}</td>
-    </tr>
-
 
     {% if detail.op.asset %}
       <tr>
@@ -58,6 +30,42 @@
       </tr>
 
     {% endif %}
+
+    <tr>
+      <th>Account</th>
+      <td>
+        {% if detail.address_resource %}
+          <a id="nav-op-address" href="{{ detail.address_resource|model_url }}">
+            {{ detail.address_resource.get_title() }}
+          </a>
+        {% endif %}
+      </td>
+    </tr>
+
+    <tr>
+      <th>Network</th>
+      <td>
+        <a href="{{ detail.network_resource|model_url }}">
+          {{ detail.network_resource.get_title() }}
+        </a>
+      </td>
+    </tr>
+
+    <tr>
+      <th>Transaction hash</th>
+      <td>{{ detail.txid }}</td>
+    </tr>
+
+    <tr>
+      <th>Type</th>
+      <td>{{ detail.op.human_friendly_type }}</td>
+    </tr>
+
+    <tr>
+      <th>State</th>
+      <td id="op-state-{{ detail.op.state.name }}">{{ detail.state }}</td>
+    </tr>
+
 
     {% if detail.confirmations %}
       <tr>
