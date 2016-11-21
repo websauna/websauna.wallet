@@ -32,7 +32,7 @@ class NewPhoneNumber(CSRFSchema):
         title="Your mobile phone number",
         default="+",
         description="Use international mobile phone number format with plus sign, country code, followed by your mobile number. Example: +1 555 123 1234.",
-        widget=deform.widget.TextInputWidget(size=6, maxlength=6, type='tel', template="textinput_placeholder")
+        widget=deform.widget.TextInputWidget(type='tel', template="textinput_placeholder")
     )
 
 
