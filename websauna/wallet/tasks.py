@@ -73,6 +73,9 @@ def update_networks(self: Task):
             one_shot.run_shot()
             logger.info("Updated network %s in %d seconds", network_name, time.time() - start)
 
+            redis.delete("network-update-lock-started-{}".format(network_name))
+            redis.delete("network-update-lock-started-by-{}".format(network_name))
+
             request.registry.notify(ServiceUpdated(request, network_name, time.time() - start))
 
 
