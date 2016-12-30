@@ -4,6 +4,7 @@ from .account import AssetState
 from .account import Asset
 from .account import AssetNetwork
 from .account import UserOwnedAccount
+from .account import AccountTransaction
 
 from .blockchain import CryptoAddress
 from .blockchain import CryptoOperationState

@@ -34,13 +34,16 @@ setup(name='websauna.wallet',
           # 'setuptools-git >= 0',
           # 'setuptools-git-version',
       ],
-      install_requires=['websauna', 'python-redis-lock', 'Markdown', 'populus>=1.0.0rc5', 'ethereum-rpc-client', 'pyramid_sms'],
+      install_requires=['websauna'],
       extras_require={
         # Dependencies for running test suite
         'test': ['websauna[test]', 'pexpect'],
 
         # Dependencies to make releases
         'dev': ['websauna[dev]'],
+
+        # Dependencies to use with ethereum
+        'ethereum': ['python-redis-lock', 'Markdown', 'populus>=1.0.0rc5', 'ethereum-rpc-client', 'pyramid_sms'],
 
       },
       # Define where this application starts as referred by WSGI web servers
