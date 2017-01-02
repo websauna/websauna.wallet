@@ -288,8 +288,8 @@ class Account(Base):
         return t
 
     @classmethod
-    def transfer(cls, amount: Decimal, from_: "Account", to: "Account", note: Optional[str]=None):
-        """Transfer between accounts.
+    def transfer(cls, amount: Decimal, from_: "Account", to: "Account", note: Optional[str]=None) -> Tuple["AccountTransaction", "AccountTransaction"]:
+        """Transfer asset between accounts.
 
         This creates two transactions
 
@@ -298,6 +298,8 @@ class Account(Base):
         - Credit on to account
 
         - Transaction counterparty fields point each other
+
+        :return: tuple(withdraw transaction, deposit transaction)
         """
         DBSession = Session.object_session(from_)
 
@@ -313,6 +315,8 @@ class Account(Base):
 
         deposit.counterparty = withdraw
         withdraw.counterparty = deposit
+
+        return withdraw, deposit
 
 
 class AccountTransaction(Base):
