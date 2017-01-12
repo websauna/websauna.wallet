@@ -38,6 +38,7 @@ class AssetState(enum.Enum):
 
 class AssetNetwork(Base):
     __tablename__ = "asset_network"
+
     id = Column(UUID(as_uuid=True), primary_key=True, server_default=sqlalchemy.text("uuid_generate_v4()"),)
 
     #: Internal string identifier for this network
@@ -87,8 +88,11 @@ class AssetNetwork(Base):
         """Get asset by id within this network."""
         return self.assets.filter_by(name=name).one_or_none()
 
-    def get_or_create_asset_by_name(self, name: str, symbol=None, supply=0, asset_class=None) -> "Asset":
-        """Get asset by id within this network."""
+    def get_or_create_asset_by_name(self, name: str, symbol=None, supply=0, asset_class=None) -> Tuple["Asset", bool]:
+        """Get asset by id within this network.
+
+        :return. tuple(asset object, created flag)
+        """
 
         asset = self.get_asset_by_name(name)
         if not asset:
@@ -97,8 +101,9 @@ class AssetNetwork(Base):
             asset.supply = supply
             asset.asset_class = asset_class or AssetClass.token
             self.assets.append(asset)
+            return asset, True
 
-        return asset
+        return asset, False
 
 
 class AssetClass(enum.Enum):

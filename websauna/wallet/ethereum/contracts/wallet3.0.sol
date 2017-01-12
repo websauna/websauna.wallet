@@ -1,7 +1,7 @@
 /**
  * Alternative wallet code for testing upgrades, see version string.
  */
-contract Wallet2 {
+contract Wallet3 {
 
     // Withdraw events
     event Deposit(address from, uint value);
@@ -12,7 +12,7 @@ contract Wallet2 {
     // Smart contract call events
     event Execute(address to, uint value);
     event ExceededExecuteWithValue(address to, uint value);
-    event FailedExecute(address to, uint value);
+    event FailedExecute(address to, uint value, bytes32 data);
     event NoMatchingFunction();
 
     // Transaction fee settlement log keeping
@@ -23,12 +23,20 @@ contract Wallet2 {
     // that your server speaks to via RPC
     address public owner;
 
-    string public version = "2.0";
+    string public version = "3.0";
 
-    function Wallet2() {
+    function Wallet3() {
         // Lock down the wallet, so that only our private geth
         // has the owner private key to speak to us
         owner = msg.sender;
+    }
+
+    function extract(bytes data, uint pos) returns (bytes32) {
+        uint256 subdata = 0;
+        for (uint256 i = 0; i < 32; i++) {
+            subdata += uint256(data[i + pos]) * 2 ** (8 * (19 - i));
+        }
+        return bytes32(subdata);
     }
 
     /**
@@ -90,7 +98,7 @@ contract Wallet2 {
         if(success) {
             Execute(_to, _value);
         } else {
-            FailedExecute(_to, _value);
+            FailedExecute(_to, _value, extract(_data, 0));
         }
     }
 
@@ -121,8 +129,8 @@ contract Wallet2 {
     /**
      * Somebody sends ETH to this contract address
      */
-    function() external payable {
-        // just being sent some value?
+    function() payable {
+        // just being sent some cash?
         if (msg.value > 0) {
             Deposit(msg.sender, msg.value);
         } else {

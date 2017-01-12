@@ -3,11 +3,11 @@ from decimal import Decimal
 import logging
 from uuid import UUID
 
-import eth_abi
 from pyramid.registry import Registry
 from sqlalchemy.orm import Session
 
 from web3 import Web3
+from web3.exceptions import BadFunctionCallOutput
 from websauna.system.model.retry import retryable
 
 from websauna.wallet.ethereum.asset import get_ether_asset
@@ -238,7 +238,7 @@ def import_token(web3: Web3, dbsession: Session, opid: UUID):
             name = token.contract.call().name()
             symbol = token.contract.call().symbol()
             supply = Decimal(token.contract.call().totalSupply())
-        except eth_abi.exceptions.DecodingError as e:
+        except BadFunctionCallOutput as e:
             # When we try to access a contract attrib which is not supported by underlying code
             gen_error(e)
             return
@@ -253,7 +253,7 @@ def import_token(web3: Web3, dbsession: Session, opid: UUID):
             # Returns 0 for unknown addresses
             try:
                 amount = token.contract.call().balanceOf(bin_to_eth_address(caddress.address))
-            except eth_abi.exceptions.DecodingError as e:
+            except BadFunctionCallOutput as e:
                 # Bad contract doesn't define balanceOf()
                 # This leaves badly imported asset
                 gen_error(e)

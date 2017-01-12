@@ -1,10 +1,13 @@
-contract owned{
+contract owned {
+
   function owned() {
     owner = msg.sender;
   }
 
   modifier onlyowner() {
-    if(msg.sender==owner) _
+    if(msg.sender==owner) {
+        _;
+    }
   }
 
   address owner;

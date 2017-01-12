@@ -25,7 +25,7 @@ class HostedWallet(ContractWrapper):
 
     @classmethod
     def abi_factory(cls, contract_name=None):
-        contract_name = contract_name or "Wallet"
+        contract_name = contract_name or "Wallet2"
         contract_meta = get_compiled_contract_cached(contract_name)
         return contract_meta
 
@@ -76,7 +76,7 @@ class HostedWallet(ContractWrapper):
             func: str,
             args=None,
             amount_in_eth: Optional[Decimal]=None,
-            max_gas=100000):
+            max_gas=300000):
         """Calls a smart contract from the hosted wallet.
 
         Creates a transaction that is proxyed through hosted wallet execute method. We need to have ABI as Populus Contract instance.
@@ -99,14 +99,13 @@ class HostedWallet(ContractWrapper):
             value = 0
 
         # Encode function arguments
-        function_abi = to_contract._find_matching_fn_abi(func, args)
+        # function_abi = to_contract._find_matching_fn_abi(func, args)
         # 4 byte function hash
-        function_selector = function_abi_to_4byte_selector(function_abi)
+        # function_selector = function_abi_to_4byte_selector(function_abi)
 
         # data payload passed to the function
         arg_data = to_contract.encodeABI(func, args=args)
-
-        call_data = function_selector + arg_data[2:]
+        call_data = arg_data  # Latest web3 behavior, no manual function selector needed
 
         # test_event_execute() call data should look like
         # function selector + random int as 256-bit

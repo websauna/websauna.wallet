@@ -62,7 +62,6 @@ def deposit_address(eth_service, eth_network_id, dbsession, registry) -> str:
 def withdraw_address(web3: Web3, dbsession, eth_service: EthereumService, coinbase, deposit_address) -> str:
     """Create a managed hosted wallet that has withdraw balance for testing."""
 
-    # Do a transaction over ETH network
     txid = send_balance_to_address(web3, deposit_address, TEST_VALUE)
     confirm_transaction(web3, txid)
 

@@ -1,11 +1,14 @@
 """Tokenized asset support."""
 from decimal import Decimal
 from math import floor
-
+import logging
 from web3 import Web3
 
 from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
 from websauna.wallet.ethereum.contractwrapper import ContractWrapper
+
+
+logger = logging.getLogger(__name__)
 
 
 class Token(ContractWrapper):
@@ -51,9 +54,16 @@ class Token(ContractWrapper):
         if isinstance(supply, Decimal):
             supply = int(supply)
 
+        # TODO: Clean up construction arguments to be coherent across the codebase
         args = [supply, name, 0, symbol, "2", owner]
         if extra_arguments:
             args += extra_arguments
+
+        logger.info("Creating token contract %s, arguments %s", contract_name, args)
+
+        # [0, 'Mootoken', 0, 'MOO', '2', '0xccd5b1a54b00e50846a49307b655fe9b831927eb', '0xccd5b1a54b00e50846a49307b655fe9b831927eb', '0x5589C14FbC92A73809fBCfF33Ab40eFc7E8E8467', 6000000000000000000000, 2, 1000000000000000000]
+
+        #  uint256, string, uint8, string, string, address, address, address, uint256, uint256, uint256
 
         return cls.create(web3, wait_for_tx_seconds=wait_for_tx_seconds, gas=gas, args=args, contract_name=contract_name)
 

@@ -134,7 +134,7 @@ def hosted_wallet(web3: Web3, coinbase: str) -> HostedWallet:
     :return: 0x prefixed hexadecimal address of the deployed contract
     """
 
-    return HostedWallet.create(web3)
+    return HostedWallet.create(web3, contract_name="Wallet2")
 
 
 @pytest.fixture(scope="module")

@@ -172,7 +172,7 @@ contract CrowdfundToken is SafeMath {
      *
      * Tested for gas limit: 104424
      */
-    function () {
+    function () payable {
         buy();
     }
 }

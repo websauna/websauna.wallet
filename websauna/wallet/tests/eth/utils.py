@@ -115,7 +115,8 @@ def send_balance_to_address(web3: Web3, address: str, value: Decimal) -> str:
     tx = {
         "from": web3.eth.coinbase,
         "to": address,
-        "value": to_wei(value)
+        "value": to_wei(value),
+        "gas": 600000
     }
     return web3.eth.sendTransaction(tx)
 

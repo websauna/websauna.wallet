@@ -459,6 +459,7 @@ def test_withdraw_token(dbsession, eth_network_id, web3: Web3, eth_service: Ethe
 
     wait_for_op_confirmations(eth_service, opid)
 
+    # After tx has been mined the new balances should match
     with transaction.manager:
         op = dbsession.query(CryptoOperation).get(opid)
         assert op.broadcasted_at

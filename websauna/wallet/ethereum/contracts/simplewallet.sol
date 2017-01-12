@@ -6,7 +6,7 @@
  *
  * All error cases (throws) are reported as out of gas: http://ethereum.stackexchange.com/questions/2307/why-does-a-solidity-throw-consume-all-gas
  */
-contract Wallet {
+contract SimpleWallet {
 
     // Withdraw events
     event Deposit(address from, uint value);
@@ -30,7 +30,7 @@ contract Wallet {
 
     string public version = "1.0";
 
-    function Wallet() {
+    function SimpleWallet() {
         // Lock down the wallet, so that only our private geth
         // has the owner private key to speak to us
         owner = msg.sender;
@@ -73,7 +73,7 @@ contract Wallet {
      *
      * We call a function in another smart contract and for the gas use value stored on this contract.
      */
-    function execute(address _to, uint _value, uint _gas, bytes _data) external {
+    function execute(address _to, uint _value, uint _gas, bytes _data) payable external {
         bool success;
 
         if(msg.sender != owner) {
@@ -126,7 +126,7 @@ contract Wallet {
     /**
      * Somebody sends ETH to this contract address
      */
-    function() {
+    function() payable {
         // just being sent some cash?
         if (msg.value > 0) {
             Deposit(msg.sender, msg.value);

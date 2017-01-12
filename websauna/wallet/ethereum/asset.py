@@ -56,11 +56,17 @@ def create_default_user_address(user: User, network: AssetNetwork, confirmations
     return op
 
 
-def setup_user_account(user: User, request=None):
+def setup_user_account(user: User, request=None, do_mainnet=False):
     """Setup hosted wallets on Ethereum and testnet networks."""
 
+    if do_mainnet:
+        # BBB with testing
+        nets = ("ethereum", "testnet")
+    else:
+        nets = ("testnet",)
+
     dbsession = Session.object_session(user)
-    for net in ("testnet"):
+    for net in nets:
         ethereum = get_eth_network(dbsession, net)
 
         if request:

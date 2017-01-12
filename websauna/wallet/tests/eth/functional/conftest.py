@@ -43,7 +43,7 @@ def wallet_user(dbsession, registry, mock_eth_service) -> dict:
 
     with transaction.manager:
         user = create_user(dbsession, registry, email=details["email"], password=details["password"])
-        setup_user_account(user)
+        setup_user_account(user, do_mainnet=True)
         details["user_id"] = user.id
 
     success_op_count, failed_op_count = mock_create_addresses(mock_eth_service, dbsession)

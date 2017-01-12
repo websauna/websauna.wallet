@@ -8,7 +8,7 @@ contract DecodeData {
     bytes public data;
     uint public value;
 
-    function() {
+    function() payable {
         data = msg.data;
         value = msg.value;
     }

@@ -6,12 +6,24 @@ from decimal import Decimal
 from web3 import Web3
 
 from websauna.wallet.ethereum.contract import Contract, confirm_transaction
+from websauna.wallet.ethereum.populuslistener import Event
 from websauna.wallet.ethereum.utils import wei_to_eth, eth_address_to_bin
 
 from websauna.wallet.tests.eth.utils import wait_tx, send_balance_to_contract
 
 # How many ETH we move for test transactiosn
 TEST_VALUE = Decimal("0.01")
+
+
+def xxx_test_failed_event_signature(hosted_wallet):
+    """Check that FailedEvent signature is correct."""
+
+    contract = hosted_wallet.contract
+    event_abi = contract._find_matching_event_abi(event_name="FailedExecute")
+    e = Event(event_abi["name"], event_abi["inputs"], False)
+    # solc --asm websauna/wallet/ethereum/contracts/wallet3.0.sol|grep FailedExecute
+    topic = e.event_topic
+    assert topic == "0x78ED27487F0F67AF54237B28E2B8B12AF2418F868D62A93762A021FA2A705FEA".lower()
 
 
 @pytest.mark.slow
@@ -33,7 +45,7 @@ def test_fund_wallet(web3, coinbase, hosted_wallet):
     # value = get_wallet_balance(wallet_contract_address)
     txid = send_balance_to_contract(hosted_wallet, TEST_VALUE)
 
-    wait_tx(web3, txid)
+    confirm_transaction(web3, txid)
 
     new_balance = hosted_wallet.get_balance()
 

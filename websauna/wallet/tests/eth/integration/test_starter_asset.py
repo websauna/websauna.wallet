@@ -25,7 +25,7 @@ def test_starter_eth(dbsession, registry, eth_network_id, web3: Web3, eth_servic
 
     with transaction.manager:
         user = create_user(dbsession, registry)
-        setup_user_account(user)
+        setup_user_account(user, do_mainnet=True)
 
     # Let all the events completed
     success, fail = eth_service.run_event_cycle()
@@ -79,7 +79,7 @@ def test_starter_token(dbsession, registry, eth_network_id, web3: Web3, eth_serv
 
     with transaction.manager:
         user = create_user(dbsession, registry)
-        setup_user_account(user)
+        setup_user_account(user, do_mainnet=True)
 
     # Let all the events completed
     success, fail = eth_service.run_event_cycle()

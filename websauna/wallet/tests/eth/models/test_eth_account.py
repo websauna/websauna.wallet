@@ -234,7 +234,8 @@ def test_setup_user_account(dbsession, registry, eth_service, testnet_service, e
 
     with transaction.manager:
         user = create_user(dbsession, registry)
-        setup_user_account(user)
+        assert user.owned_crypto_addresses.count() == 0  # 2 addresses
+        setup_user_account(user, do_mainnet=True)
         assert user.owned_crypto_addresses.count() == 2  # 2 addresses
         assert user.owned_crypto_operations.count() == 2  # 2 account creations
 
@@ -261,7 +262,7 @@ def test_setup_user_account(dbsession, registry, eth_service, testnet_service, e
     # Make sure more addresses is not get created when we are called again
     with transaction.manager:
         user = dbsession.query(User).first()
-        setup_user_account(user)
+        setup_user_account(user, do_mainnet=True)
         assert user.owned_crypto_addresses.count() == 2  # 2 addresses
         assert user.owned_crypto_operations.count() == 2  # 2 account creations
 
@@ -271,7 +272,7 @@ def test_get_user_account_operations(dbsession, registry, eth_network_id):
 
     with transaction.manager:
         user = create_user(dbsession, registry)
-        setup_user_account(user)
+        setup_user_account(user, do_mainnet=True)
         operations = UserCryptoOperation.get_active_operations(user)
         assert operations.count() == 2
 
@@ -292,7 +293,7 @@ def test_get_user_account_assets(dbsession, registry, mock_eth_service, eth_netw
 
     with transaction.manager:
         user = create_user(dbsession, registry)
-        setup_user_account(user)
+        setup_user_account(user, do_mainnet=True)
 
     mock_create_addresses(mock_eth_service, dbsession)
 

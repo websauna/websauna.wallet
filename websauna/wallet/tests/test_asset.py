@@ -12,13 +12,13 @@ def test_get_or_create_network_asset(dbsession):
         dbsession.add(network)
         dbsession.flush()
 
-        asset = network.get_or_create_asset_by_name("Footoken")
+        asset, _ = network.get_or_create_asset_by_name("Footoken")
         asset.asset_class = AssetClass.token
         dbsession.flush()
         aid = asset.id
 
     with transaction.manager:
         network = dbsession.query(AssetNetwork).first()
-        asset = network.get_or_create_asset_by_name("Footoken")
+        asset, _ = network.get_or_create_asset_by_name("Footoken")
         assert asset.id == aid
 

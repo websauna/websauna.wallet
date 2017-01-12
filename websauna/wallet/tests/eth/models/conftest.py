@@ -67,7 +67,7 @@ def topped_up_user(dbsession, registry, mock_eth_service, user_id, eth_network_i
     """User has some ETH on their account."""
     with transaction.manager:
         user = dbsession.query(User).get(user_id)
-        setup_user_account(user)
+        setup_user_account(user, do_mainnet=True)
 
     mock_create_addresses(mock_eth_service, dbsession)
 
