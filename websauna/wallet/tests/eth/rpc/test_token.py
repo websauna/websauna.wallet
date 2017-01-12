@@ -77,7 +77,6 @@ def test_event_send_tokens(web3, hosted_wallet, token, coinbase):
     update_count = listener.poll()
     wallet_update_count = wallet_listener.poll()
 
-    import pdb ; pdb.set_trace()
     # See hosted wallet processed transfer() call
     assert wallet_update_count == 1
     assert wallet_events[0][0] != "FailedExecute"
