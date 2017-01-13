@@ -209,6 +209,13 @@ class Asset(Base):
             return slug
         return slugify(self.name)
 
+    def is_publicly_listed(self) -> bool:
+        """Asset should not appear in the public listings.
+
+        Asset can be still accessible via direct link, etc.
+        """
+        return self.state == AssetState.public
+
 
 class IncompatibleAssets(Exception):
     """Transfer between accounts of different assets."""
