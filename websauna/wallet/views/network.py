@@ -70,6 +70,7 @@ class AssetDescription(Resource):
         else:
             return ""
 
+
 @implementer(IContainer)
 class AssetFolder(Resource):
 

@@ -1,4 +1,5 @@
 """Core accounting primitivtes."""
+import datetime
 from decimal import Decimal
 from typing import Tuple, Optional
 import enum
@@ -209,12 +210,21 @@ class Asset(Base):
             return slug
         return slugify(self.name)
 
+    @property
+    def archived_at(self) -> datetime.datetime:
+        """Is this asset set to archived status"""
+        return self.other_data.get("archived_at", None)
+
+    @archived_at.setter
+    def archived_at(self, dt):
+        self.other_data["archived_at"] = dt.isoformat() if dt else None
+
     def is_publicly_listed(self) -> bool:
         """Asset should not appear in the public listings.
 
         Asset can be still accessible via direct link, etc.
         """
-        return self.state == AssetState.public
+        return self.state == AssetState.public and not self.archived_at
 
 
 class IncompatibleAssets(Exception):
