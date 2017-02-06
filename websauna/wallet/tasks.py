@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 BAD_LOCK_TIMEOUT = 3600
 
 
-@task(name="update_networks", bind=True, time_limit=60*30, soft_time_limit=60*15, base=WebsaunaTask)
+@task(name="blockchain.update_networks", bind=True, time_limit=60*30, soft_time_limit=60*15, base=WebsaunaTask)
 def update_networks(self: Task):
     """Update all incoming and outgoing events from a network through Celery.
 
@@ -79,7 +79,7 @@ def update_networks(self: Task):
             request.registry.notify(ServiceUpdated(request, network_name, time.time() - start))
 
 
-@task(name="post_network_stats", bind=True, time_limit=60*30, soft_time_limit=60*15, base=RetryableTransactionTask)
+@task(name="blockchain.post_network_stats", bind=True, time_limit=60*30, soft_time_limit=60*15, base=RetryableTransactionTask)
 def post_network_stats(self: Task):
     request = self.request.request
     dbsession = request.dbsession
