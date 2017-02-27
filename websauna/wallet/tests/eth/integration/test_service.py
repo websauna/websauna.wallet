@@ -7,7 +7,10 @@ from io import BytesIO
 import pexpect
 import time
 
+import pytest
 
+
+@pytest.mark.skip(reason="Currently starting and stopping ethereum-service works badly with geth")
 def test_start_service(test_config_path, dbsession):
     """We can spawn a standalone Ethereum service."""
 
@@ -29,6 +32,7 @@ def test_start_service(test_config_path, dbsession):
             pass
 
 
+@pytest.mark.skip(reason="Currently starting and stopping ethereum-service works badly with geth")
 def test_bootstrap(test_config_path, dbsession):
     """See that our boostrap script completes."""
 
