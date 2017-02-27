@@ -33,15 +33,6 @@
       <ul class="nav navbar-nav navbar-right">
         {% if request.user %}
 
-          {% if request.has_permission('shell') %}
-            <li>
-              <a id="nav-superuser" href="{{'admin_shell'|route_url}}">
-                <i class="fa fa-terminal"></i>
-                Shell
-              </a>
-            </li>
-          {% endif %}
-
           {% if request.admin %}
             {% if request.has_permission('view', context=request.admin) %}
               <li>
