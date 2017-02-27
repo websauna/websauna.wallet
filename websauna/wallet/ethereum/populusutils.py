@@ -1,13 +1,11 @@
 """Populus-related helper functions."""
 import json
-from typing import List, Tuple, Iterable
 
-import gevent
+from web3.utils.compat import Timeout
 from eth_client_utils import JSONRPCBaseClient
 
 from eth_rpc_client import Client
 from web3 import Web3
-from web3.contract import Contract
 from web3.utils.transactions import wait_for_transaction_receipt as _wait_for_transaction_receipt
 
 
@@ -52,6 +50,6 @@ def get_contract_address_from_txn(web3, txn_hash, timeout=120):
 def wait_for_transaction_receipt(web3, txn_hash, timeout=120):
     try:
         return _wait_for_transaction_receipt(web3, txn_hash, timeout)
-    except gevent.Timeout as e:
+    except Timeout as e:
         rpc = web3._requestManager.provider
         raise RuntimeError("Transaction wait timeout: {}:{}".format(rpc.host, rpc.port)) from e

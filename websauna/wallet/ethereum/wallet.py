@@ -9,7 +9,6 @@ from decimal import Decimal
 import binascii
 
 from web3.contract import Contract
-from web3.utils.abi import function_abi_to_4byte_selector
 
 from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
 from websauna.wallet.ethereum.contractwrapper import ContractWrapper

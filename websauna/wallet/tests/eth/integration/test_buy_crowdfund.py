@@ -9,7 +9,7 @@ from decimal import Decimal
 
 from populus.utils.wait import wait_for_block_number
 from web3 import Web3
-from web3.utils.currency import to_wei
+from eth_utils.currency import to_wei
 
 
 from sqlalchemy.orm import Session

@@ -43,7 +43,7 @@ setup(name='websauna.wallet',
         'dev': ['websauna[dev]'],
 
         # Dependencies to use with ethereum
-        'ethereum': ['python-redis-lock', 'Markdown', 'populus>=1.0.0rc5', 'ethereum-rpc-client', 'pyramid_sms'],
+        'ethereum': ['python-redis-lock', 'Markdown', 'populus>=1.5.3', 'ethereum-rpc-client', 'pyramid_sms', 'ethereum-utils'],
 
       },
       # Define where this application starts as referred by WSGI web servers

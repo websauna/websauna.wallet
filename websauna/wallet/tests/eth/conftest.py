@@ -6,7 +6,7 @@ from decimal import Decimal
 
 import transaction
 from populus.project import Project
-from populus.utils.config import Config
+from populus.config import Config
 from web3 import Web3, RPCProvider
 
 from websauna.wallet.ethereum.asset import get_eth_network, get_ether_asset

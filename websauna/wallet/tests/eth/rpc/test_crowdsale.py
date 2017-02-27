@@ -4,7 +4,7 @@ import pytest
 # How many ETH we move for test transactiosn
 from decimal import Decimal
 from web3.contract import Contract
-from web3.utils.currency import to_wei
+from eth_utils.currency import to_wei
 from websauna.wallet.ethereum.contract import confirm_transaction, TransactionConfirmationError
 from websauna.wallet.ethereum.token import Token
 from websauna.wallet.ethereum.utils import wei_to_eth

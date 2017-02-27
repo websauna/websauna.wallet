@@ -1,11 +1,10 @@
 from typing import Optional, Tuple
 
-import gevent
-
 from web3 import Web3
 from web3.contract import Contract, construct_contract_factory
 from web3.utils.transactions import wait_for_transaction_receipt
 from websauna.wallet.ethereum.populusutils import get_contract_address_from_txn
+from web3.utils.compat import Timeout
 
 
 def deploy_contract(
@@ -35,7 +34,7 @@ def deploy_contract(
 
     :return: Tuple containing Contract proxy object and the transaction hash where it was deployed
 
-    :raise gevent.timeout.Timeout: If we can't get our contract in a block within given timeout
+    :raise web3.utils.compat.Timeout: If we can't get our contract in a block within given timeout
     """
 
     # Check we are passed valid contract definition
@@ -112,7 +111,7 @@ def confirm_transaction(web3: Web3, txid: str, timeout=60) -> dict:
 
     try:
         receipt = wait_for_transaction_receipt(web3, txid, timeout)
-    except gevent.Timeout as e:
+    except Timeout as e:
         raise TransactionConfirmationError("Could not confirm tx {} within timeout {}".format(txid, timeout)) from e
 
     tx = web3.eth.getTransaction(txid)
