@@ -35,6 +35,7 @@ before_script:
   - bin/install-geth.bash
   - export PATH="/tmp/firefox:$PWD/geth:$PATH"
   - echo "Using firefox version `firefox --version`"
+  - echo "Using geth `geth --help`"
   - psql -c 'create database wallet_test;' -U postgres
   - pip install -U pip
 
