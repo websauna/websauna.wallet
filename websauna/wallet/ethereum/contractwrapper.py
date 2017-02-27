@@ -65,12 +65,12 @@ class ContractWrapper:
 
         :return: Populus Contract proxy object for new contract
         """
-        contract_class = cls.abi_factory(contract_name)
+        abi_data = cls.abi_factory(contract_name)
 
         if not args:
             args = []
 
-        contract, txid = deploy_contract(web3, contract_class, gas=gas, timeout=wait_for_tx_seconds, constructor_arguments=args)
+        contract, txid = deploy_contract(web3, abi_data, gas=gas, timeout=wait_for_tx_seconds, constructor_arguments=args)
 
         # Use hardcoded version for now
         return cls(contract, version=2, initial_txid=txid)

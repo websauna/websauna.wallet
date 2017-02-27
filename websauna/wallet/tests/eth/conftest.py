@@ -65,40 +65,15 @@ def web3() -> Web3:
 
     project = Project()
 
-    # Project is configured using populus.config.Config class
-    # which is a subclass of Python config parser.
-    # Instead of reading .ini file, here we dynamically
-    # construct the configuration.
-    project.config = Config()
-
-    # Settings come for [populus] section of the config.
-    project.config.add_section("populus")
-
     # Configure where Populus can find our contracts.json
     build_dir = os.path.join(os.getcwd(), "websauna", "wallet", "ethereum")
-    project.config.set("populus", "build_dir", build_dir)
-
-    chain_kwargs = {
-
-        # Force RPC provider instead of default IPC one
-        "provider": RPCProvider,
-        "wait_for_dag_timeout": 20*60,
-        "verbosity": "1",
-        "overrides": {
-            "jitvm": "false",
-        }
-    }
+    project.config["populus.build_dir"] = build_dir
+    project.config["chains.temp.provider.class"] = "web3.providers.rpc.RPCProvider"
 
     # This returns
-    with project.get_chain("temp", **chain_kwargs) as geth_proc:
+    with project.get_chain("temp") as geth_proc:
 
         web3 = geth_proc.web3
-
-        # Use compatible web3.py version
-        assert web3._requestManager.provider.network_timeout
-
-        web3._requestManager.provider.network_timeout = 10
-        web3._requestManager.provider.connection_timeout = 10
 
         # Allow access to sendTransaction() to use coinbase balance
         # to deploy contracts. Password is from py-geth

@@ -3,7 +3,6 @@ from typing import Callable
 from uuid import UUID
 
 import pytest
-import time
 import transaction
 from decimal import Decimal
 
@@ -16,9 +15,9 @@ from sqlalchemy.orm import Session
 
 from websauna.wallet.ethereum.contract import confirm_transaction
 from websauna.wallet.ethereum.service import EthereumService
-from websauna.wallet.ethereum.utils import eth_address_to_bin, txid_to_bin, bin_to_txid, wei_to_eth, bin_to_eth_address
+from websauna.wallet.ethereum.utils import eth_address_to_bin, bin_to_txid
 from websauna.wallet.ethereum.wallet import HostedWallet
-from websauna.wallet.models import AssetNetwork, CryptoAddressCreation, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount, CryptoAddressWithdraw
+from websauna.wallet.models import AssetNetwork, CryptoOperation, CryptoAddress, Asset, CryptoAddressAccount
 from websauna.wallet.models import CryptoOperationState
 from websauna.wallet.models import CryptoOperationType
 from websauna.wallet.models.account import AssetClass

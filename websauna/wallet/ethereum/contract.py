@@ -9,7 +9,7 @@ from web3.utils.compat import Timeout
 
 def deploy_contract(
         web3: Web3,
-        contract_definition: dict,
+        abi_data: dict,
         gas=1500000,
         timeout=60.0,
         constructor_arguments: Optional[list]=None,
@@ -38,17 +38,18 @@ def deploy_contract(
     """
 
     # Check we are passed valid contract definition
-    assert "abi" in contract_definition, \
+    assert "abi" in abi_data, \
         "Please pass a valid contract definition dictionary, got {}".format(contract_definition)
 
-    assert len(contract_definition["code"]) > 8, "Contract did not have properly compiled code payload"
+    assert len(abi_data["code"]) > 8, "Contract did not have properly compiled code payload"
 
-    contract_class = construct_contract_factory(
+    contract_class = Contract.factory(
         web3=web3,
-        abi=contract_definition["abi"],
-        code=contract_definition["code"],
-        code_runtime=contract_definition["code_runtime"],
-        source=contract_definition["source"],
+        abi=abi_data["abi"],
+        code=abi_data["code"],
+        bytecode=abi_data["code"],
+        code_runtime=abi_data["code_runtime"],
+        source=abi_data["source"],
         )
 
     if not from_account:

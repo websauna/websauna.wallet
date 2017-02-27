@@ -12,7 +12,6 @@ from web3.contract import Contract
 
 from websauna.wallet.ethereum.compiler import get_compiled_contract_cached
 from websauna.wallet.ethereum.contractwrapper import ContractWrapper
-from websauna.wallet.ethereum.populuslistener import get_contract_events
 from websauna.wallet.ethereum.utils import to_wei, wei_to_eth, ensure_0x_prefixed_hex
 
 
