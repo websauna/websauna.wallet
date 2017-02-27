@@ -1,5 +1,5 @@
 -e git+https://github.com/websauna/websauna.git@master#egg=websauna[test]
 sqlalchemy=>1.1.5
 # https://github.com/ethereum/pyethereum/issues/421
-# -e git+git@git@github.com:miohtama/pyethereum.git@master#egg=ethereum
+-e git+git@git@github.com:miohtama/pyethereum.git@master#egg=ethereum
 
