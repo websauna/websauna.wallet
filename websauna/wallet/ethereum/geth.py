@@ -3,9 +3,7 @@
 import os
 import logging
 
-from populus.chain import LoggedDevGethProcess
-from populus.utils.chains import get_geth_logfile_path
-from populus.utils.filesystem import get_blockchains_dir
+from populus.chain.geth import LoggedDevGethProcess
 
 
 logger = logging.getLogger(__name__)
@@ -13,7 +11,8 @@ logger = logging.getLogger(__name__)
 
 def start_private_geth(chain_name, project_dir, host, port, verbosity=5, p2p_port=30303):
     """Start a local geth process that mines isolated private testnet."""
-    blockchains_dir = get_blockchains_dir(project_dir)
+
+    raise NotImplementedError("Unsupported")
 
     os.makedirs(os.path.join(project_dir, "logs"), exist_ok=True)
 
@@ -28,7 +27,6 @@ def start_private_geth(chain_name, project_dir, host, port, verbosity=5, p2p_por
     geth = LoggedDevGethProcess(
         chain_name=chain_name,
         project_dir=project_dir,
-        blockchains_dir=blockchains_dir,
         overrides=overrides
     )
 
