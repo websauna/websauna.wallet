@@ -37,7 +37,7 @@ def validate_ethereum_address(node, value, **kwargs):
     """Make sure the user gives a valid ethereum hex address."""
 
     if not value.startswith("0x"):
-        raise colander.Invalid(node, "Please enter a hex address starting using 0x")
+        raise colander.Invalid(node, "Please enter a hexadecimal address beginning with 0x prefix")
 
     if not len(value) == 42:
         raise colander.Invalid(node, "Ethereum address must be 42 characters, including 0x prefix")
