@@ -39,17 +39,15 @@ def deploy_contract(
 
     # Check we are passed valid contract definition
     assert "abi" in abi_data, \
-        "Please pass a valid contract definition dictionary, got {}".format(contract_definition)
+        "Please pass a valid contract definition dictionary, got {}".format(abi_data.keys())
 
-    assert len(abi_data["code"]) > 8, "Contract did not have properly compiled code payload"
+    assert len(abi_data["bytecode"]) > 8, "Contract did not have properly compiled code payload"
 
     contract_class = Contract.factory(
         web3=web3,
         abi=abi_data["abi"],
-        code=abi_data["code"],
-        bytecode=abi_data["code"],
-        code_runtime=abi_data["code_runtime"],
-        source=abi_data["source"],
+        bytecode=abi_data["bytecode"],
+        bytecode_runtime=abi_data["bytecode_runtime"],
         )
 
     if not from_account:
